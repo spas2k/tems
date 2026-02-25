@@ -1,0 +1,250 @@
+import React, { useContext, useEffect, useState } from 'react';
+import { PageTitleContext } from '../PageTitleContext';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Plus, Pencil, Trash2, DollarSign } from 'lucide-react';
+import { getInvoice, getCircuits, getLineItems, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation } from '../api';
+import Modal from '../components/Modal';
+
+const CHARGE_TYPES = ['MRC', 'NRC', 'Usage', 'Tax/Surcharge', 'Credit', 'Other'];
+const STATUS_BADGE = { Paid: 'badge badge-green', Open: 'badge badge-blue', Disputed: 'badge badge-orange', Void: 'badge badge-gray' };
+
+const EMPTY_LI    = { description: '', circuit_id: '', charge_type: 'MRC', amount: '', contracted_rate: '', period_start: '', period_end: '' };
+const EMPTY_ALLOC = { cost_center: '', department: '', percentage: '', notes: '' };
+
+function InfoRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8' }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 500, color: '#0f172a' }}>{value || '—'}</span>
+    </div>
+  );
+}
+
+export default function InvoiceDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { setPageTitle } = useContext(PageTitleContext);
+  const [invoice, setInvoice]       = useState(null);
+  const [lineItems, setLineItems]   = useState([]);
+  const [allocations, setAllocations] = useState([]);
+  const [circuits, setCircuits]     = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [toast, setToast]           = useState(null);
+
+  const [liModal, setLiModal]       = useState(false);
+  const [editingLi, setEditingLi]   = useState(null);
+  const [liForm, setLiForm]         = useState(EMPTY_LI);
+
+  const [allocModal, setAllocModal] = useState(false);
+  const [allocLiId, setAllocLiId]   = useState(null);
+  const [allocForm, setAllocForm]   = useState(EMPTY_ALLOC);
+
+  const showToast = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 2500); };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [inv, ci, allocs] = await Promise.all([getInvoice(id), getCircuits(), getAllocations({ invoice_id: id })]);
+      setInvoice(inv.data);
+      setPageTitle(inv.data.invoice_number);
+      setLineItems(inv.data.line_items || []);
+      setCircuits(ci.data);
+      setAllocations(allocs.data);
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [id]);
+
+  const setLi = (k, v) => setLiForm(p => ({ ...p, [k]: v }));
+  const setAl = (k, v) => setAllocForm(p => ({ ...p, [k]: v }));
+
+  const openNewLi  = () => { setEditingLi(null); setLiForm(EMPTY_LI); setLiModal(true); };
+  const openEditLi = rec => { setEditingLi(rec); setLiForm({ ...rec, period_start: rec.period_start?.split('T')[0] || '', period_end: rec.period_end?.split('T')[0] || '' }); setLiModal(true); };
+
+  const saveLi = async () => {
+    try {
+      const payload = { ...liForm, invoice_id: id };
+      if (editingLi) await updateLineItem(editingLi.id, payload);
+      else await createLineItem(payload);
+      setLiModal(false); load(); showToast(editingLi ? 'Line item updated.' : 'Line item added.');
+    } catch { showToast('Save failed.', false); }
+  };
+
+  const deleteLi = async liId => {
+    if (!window.confirm('Delete this line item?')) return;
+    await deleteLineItem(liId); load(); showToast('Line item deleted.');
+  };
+
+  const openAllocModal = liId => { setAllocLiId(liId); setAllocForm(EMPTY_ALLOC); setAllocModal(true); };
+
+  const saveAlloc = async () => {
+    try {
+      await createAllocation({ ...allocForm, line_item_id: allocLiId });
+      setAllocModal(false); load(); showToast('Allocation saved.');
+    } catch { showToast('Save failed.', false); }
+  };
+
+  const deleteAlloc = async allocId => {
+    if (!window.confirm('Remove this allocation?')) return;
+    await deleteAllocation(allocId); load(); showToast('Allocation removed.');
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: '#94a3b8' }}>Loading…</div>;
+  if (!invoice) return <div style={{ background: '#fee2e2', color: '#dc2626', padding: '16px 20px', borderRadius: 12 }}>Invoice not found.</div>;
+
+  const totalVariance  = lineItems.reduce((s, l) => s + (Number(l.variance) || 0), 0);
+  const totalAllocated = allocations.reduce((s, a) => s + Number(a.allocated_amount || 0), 0);
+  const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {toast && <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? '#dcfce7' : '#fee2e2', color: toast.ok ? '#15803d' : '#dc2626', padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 13, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>{toast.msg}</div>}
+
+      <button className="btn btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/invoices')}>
+        <ArrowLeft size={15} /> Back to Invoices
+      </button>
+
+      {/* Invoice Header */}
+      <div className="page-card" style={{ padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a' }}>{invoice.invoice_number}</div>
+            <div style={{ fontSize: 14, color: '#64748b', marginTop: 2 }}>{invoice.account_name}</div>
+          </div>
+          <span className={STATUS_BADGE[invoice.status] || 'badge badge-gray'} style={{ fontSize: 13, padding: '6px 14px' }}>{invoice.status}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20 }}>
+          <InfoRow label="Invoice Date"   value={invoice.invoice_date?.split('T')[0]} />
+          <InfoRow label="Due Date"       value={invoice.due_date?.split('T')[0]} />
+          <InfoRow label="Period Start"   value={invoice.period_start?.split('T')[0]} />
+          <InfoRow label="Period End"     value={invoice.period_end?.split('T')[0]} />
+          <InfoRow label="Payment Date"   value={invoice.payment_date?.split('T')[0]} />
+        </div>
+      </div>
+
+      {/* KPI Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <div className="kpi-card slate">
+          <div className="kpi-label">Invoice Total</div>
+          <div className="kpi-value">${fmt(invoice.total_amount)}</div>
+          <div className="kpi-icon"><DollarSign size={40} /></div>
+        </div>
+        <div className={`kpi-card ${totalVariance > 0 ? 'red' : 'green'}`}>
+          <div className="kpi-label">Billing Variance</div>
+          <div className="kpi-value">${fmt(totalVariance)}</div>
+          <div className="kpi-sub">{totalVariance > 0 ? 'Overbilled' : totalVariance < 0 ? 'Underbilled' : 'No variance'}</div>
+        </div>
+        <div className="kpi-card blue">
+          <div className="kpi-label">Total Allocated</div>
+          <div className="kpi-value">${fmt(totalAllocated)}</div>
+        </div>
+      </div>
+
+      {/* Line Items */}
+      <div className="page-card">
+        <div className="page-card-header">
+          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Line Items</span>
+          <button className="btn btn-primary" onClick={openNewLi}><Plus size={15} /> Add Line Item</button>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table" style={{ minWidth: 800 }}>
+            <thead><tr>
+              <th>Description</th><th>Circuit</th><th>Type</th><th>Billed</th><th>Contracted</th><th>Variance</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+              {lineItems.map(li => {
+                const v = Number(li.variance);
+                return (
+                  <tr key={li.id}>
+                    <td style={{ maxWidth: 200 }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{li.description}</span></td>
+                    <td style={{ fontSize: 12 }}>
+                      {li.circuit_id
+                        ? <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${li.circuit_id}`)}>{li.circuit_identifier}</span>
+                        : <span style={{ color: '#94a3b8' }}>—</span>}
+                    </td>
+                    <td>{li.charge_type}</td>
+                    <td style={{ fontWeight: 700 }}>${fmt(li.amount)}</td>
+                    <td>{li.contracted_rate != null ? `$${fmt(li.contracted_rate)}` : '—'}</td>
+                    <td style={{ fontWeight: 600, color: v > 0 ? '#dc2626' : v < 0 ? '#16a34a' : '#94a3b8' }}>
+                      {li.variance != null ? (v === 0 ? '$0.00' : `$${v.toFixed(2)}`) : 'N/A'}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openAllocModal(li.id)} style={{ fontSize: 11 }}><DollarSign size={12} /> Allocate</button>
+                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => openEditLi(li)}><Pencil size={13} /></button>
+                        <button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteLi(li.id)}><Trash2 size={13} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {lineItems.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: 24 }}>No line items yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Allocations */}
+      <div className="page-card">
+        <div className="page-card-header">
+          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Allocations</span>
+        </div>
+        <table className="data-table">
+          <thead><tr>
+            <th>Line Item</th><th>Cost Center</th><th>Department</th><th>%</th><th>Allocated</th><th>Notes</th><th></th>
+          </tr></thead>
+          <tbody>
+            {allocations.map(a => (
+              <tr key={a.id}>
+                <td style={{ color: '#64748b', fontSize: 12 }}>{a.line_item_description}</td>
+                <td><span className="badge badge-purple">{a.cost_center}</span></td>
+                <td>{a.department}</td>
+                <td style={{ fontWeight: 700 }}>{a.percentage}%</td>
+                <td style={{ fontWeight: 700 }}>${Number(a.allocated_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style={{ color: '#94a3b8', fontSize: 12 }}>{a.notes || '—'}</td>
+                <td><button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteAlloc(a.id)}><Trash2 size={13} /></button></td>
+              </tr>
+            ))}
+            {allocations.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: 24 }}>No allocations yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Line Item Modal */}
+      <Modal open={liModal} title={editingLi ? 'Edit Line Item' : 'Add Line Item'} onClose={() => setLiModal(false)} onSave={saveLi}>
+        <div><label className="form-label">Description *</label><input className="form-input" value={liForm.description} onChange={e => setLi('description', e.target.value)} /></div>
+        <div><label className="form-label">Circuit (optional)</label>
+          <select className="form-input" value={liForm.circuit_id || ''} onChange={e => setLi('circuit_id', e.target.value || null)}>
+            <option value="">None</option>
+            {circuits.map(c => <option key={c.id} value={c.id}>{c.circuit_id} — {c.location}</option>)}
+          </select>
+        </div>
+        <div className="form-row">
+          <div><label className="form-label">Charge Type</label>
+            <select className="form-input" value={liForm.charge_type} onChange={e => setLi('charge_type', e.target.value)}>
+              {CHARGE_TYPES.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div><label className="form-label">Billed Amount ($) *</label><input className="form-input" type="number" step="0.01" value={liForm.amount} onChange={e => setLi('amount', e.target.value)} /></div>
+        </div>
+        <div className="form-row">
+          <div><label className="form-label">Contracted Rate ($)</label><input className="form-input" type="number" step="0.01" value={liForm.contracted_rate} onChange={e => setLi('contracted_rate', e.target.value)} /></div>
+          <div></div>
+        </div>
+        <div className="form-row">
+          <div><label className="form-label">Period Start</label><input className="form-input" type="date" value={liForm.period_start} onChange={e => setLi('period_start', e.target.value)} /></div>
+          <div><label className="form-label">Period End</label><input className="form-input" type="date" value={liForm.period_end} onChange={e => setLi('period_end', e.target.value)} /></div>
+        </div>
+      </Modal>
+
+      {/* Allocation Modal */}
+      <Modal open={allocModal} title="Allocate Line Item" onClose={() => setAllocModal(false)} onSave={saveAlloc}>
+        <div className="form-row">
+          <div><label className="form-label">Cost Center *</label><input className="form-input" value={allocForm.cost_center} onChange={e => setAl('cost_center', e.target.value)} /></div>
+          <div><label className="form-label">Department</label><input className="form-input" value={allocForm.department} onChange={e => setAl('department', e.target.value)} /></div>
+        </div>
+        <div><label className="form-label">Percentage (%) *</label><input className="form-input" type="number" min="0" max="100" step="0.01" value={allocForm.percentage} onChange={e => setAl('percentage', e.target.value)} /></div>
+        <div><label className="form-label">Notes</label><textarea className="form-input" rows={2} value={allocForm.notes} onChange={e => setAl('notes', e.target.value)} /></div>
+      </Modal>
+    </div>
+  );
+}
