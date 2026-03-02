@@ -1,14 +1,16 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Trash2, DollarSign } from 'lucide-react';
-import { getInvoice, getCircuits, getLineItems, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation } from '../api';
+import { ArrowLeft, Plus, Pencil, Trash2, DollarSign, Receipt } from 'lucide-react';
+import { getInvoice, getCircuits, getLineItems, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation, getUsocCodes } from '../api';
 import Modal from '../components/Modal';
+import DetailHeader from '../components/DetailHeader';
+import NoteTimeline from '../components/NoteTimeline';
 
 const CHARGE_TYPES = ['MRC', 'NRC', 'Usage', 'Tax/Surcharge', 'Credit', 'Other'];
 const STATUS_BADGE = { Paid: 'badge badge-green', Open: 'badge badge-blue', Disputed: 'badge badge-orange', Void: 'badge badge-gray' };
 
-const EMPTY_LI    = { description: '', circuit_id: '', charge_type: 'MRC', amount: '', contracted_rate: '', period_start: '', period_end: '' };
+const EMPTY_LI    = { description: '', circuits_id: '', usoc_codes_id: '', charge_type: 'MRC', amount: '', mrc_amount: '', nrc_amount: '', contracted_rate: '', period_start: '', period_end: '' };
 const EMPTY_ALLOC = { cost_center: '', department: '', percentage: '', notes: '' };
 
 function InfoRow({ label, value }) {
@@ -28,6 +30,7 @@ export default function InvoiceDetail() {
   const [lineItems, setLineItems]   = useState([]);
   const [allocations, setAllocations] = useState([]);
   const [circuits, setCircuits]     = useState([]);
+  const [usocCodes, setUsocCodes]   = useState([]);
   const [loading, setLoading]       = useState(true);
   const [toast, setToast]           = useState(null);
 
@@ -44,26 +47,35 @@ export default function InvoiceDetail() {
   const load = async () => {
     setLoading(true);
     try {
-      const [inv, ci, allocs] = await Promise.all([getInvoice(id), getCircuits(), getAllocations({ invoice_id: id })]);
+      const [inv, ci, allocs, uc] = await Promise.all([getInvoice(id), getCircuits(), getAllocations({ invoices_id: id }), getUsocCodes()]);
       setInvoice(inv.data);
       setPageTitle(inv.data.invoice_number);
       setLineItems(inv.data.line_items || []);
       setCircuits(ci.data);
       setAllocations(allocs.data);
+      setUsocCodes(uc.data);
     } finally { setLoading(false); }
   };
   useEffect(() => { load(); }, [id]);
+
+  useEffect(() => {
+    if (invoice?.invoice_number) {
+      window.dispatchEvent(new CustomEvent('tems-recent-item', {
+        detail: { path: `/invoices/${id}`, label: invoice.invoice_number, type: 'invoice' }
+      }));
+    }
+  }, [invoice]);
 
   const setLi = (k, v) => setLiForm(p => ({ ...p, [k]: v }));
   const setAl = (k, v) => setAllocForm(p => ({ ...p, [k]: v }));
 
   const openNewLi  = () => { setEditingLi(null); setLiForm(EMPTY_LI); setLiModal(true); };
-  const openEditLi = rec => { setEditingLi(rec); setLiForm({ ...rec, period_start: rec.period_start?.split('T')[0] || '', period_end: rec.period_end?.split('T')[0] || '' }); setLiModal(true); };
+  const openEditLi = rec => { setEditingLi(rec); setLiForm({ ...rec, usoc_codes_id: rec.usoc_codes_id || '', mrc_amount: rec.mrc_amount ?? '', nrc_amount: rec.nrc_amount ?? '', period_start: rec.period_start?.split('T')[0] || '', period_end: rec.period_end?.split('T')[0] || '' }); setLiModal(true); };
 
   const saveLi = async () => {
     try {
-      const payload = { ...liForm, invoice_id: id };
-      if (editingLi) await updateLineItem(editingLi.id, payload);
+      const payload = { ...liForm, invoices_id: id };
+      if (editingLi) await updateLineItem(editingLi.line_items_id, payload);
       else await createLineItem(payload);
       setLiModal(false); load(); showToast(editingLi ? 'Line item updated.' : 'Line item added.');
     } catch { showToast('Save failed.', false); }
@@ -78,7 +90,7 @@ export default function InvoiceDetail() {
 
   const saveAlloc = async () => {
     try {
-      await createAllocation({ ...allocForm, line_item_id: allocLiId });
+      await createAllocation({ ...allocForm, line_items_id: allocLiId });
       setAllocModal(false); load(); showToast('Allocation saved.');
     } catch { showToast('Save failed.', false); }
   };
@@ -99,19 +111,27 @@ export default function InvoiceDetail() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {toast && <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? '#dcfce7' : '#fee2e2', color: toast.ok ? '#15803d' : '#dc2626', padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 13, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>{toast.msg}</div>}
 
-      <button className="btn btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/invoices')}>
-        <ArrowLeft size={15} /> Back to Invoices
-      </button>
-
-      {/* Invoice Header */}
-      <div className="page-card" style={{ padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a' }}>{invoice.invoice_number}</div>
-            <div style={{ fontSize: 14, color: '#64748b', marginTop: 2 }}>{invoice.account_name}</div>
+      <DetailHeader>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/invoices')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ArrowLeft size={15} /> Back
+          </button>
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Receipt size={18} color="#3b82f6" />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>{invoice.invoice_number}</div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>{invoice.account_name}</div>
+            </div>
           </div>
           <span className={STATUS_BADGE[invoice.status] || 'badge badge-gray'} style={{ fontSize: 13, padding: '6px 14px' }}>{invoice.status}</span>
         </div>
+      </DetailHeader>
+
+      {/* Invoice Info */}
+      <div className="page-card" style={{ padding: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20 }}>
           <InfoRow label="Invoice Date"   value={invoice.invoice_date?.split('T')[0]} />
           <InfoRow label="Due Date"       value={invoice.due_date?.split('T')[0]} />
@@ -146,38 +166,47 @@ export default function InvoiceDetail() {
           <button className="btn btn-primary" onClick={openNewLi}><Plus size={15} /> Add Line Item</button>
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ minWidth: 800 }}>
+          <table className="data-table" style={{ minWidth: 1000 }}>
             <thead><tr>
-              <th>Description</th><th>Circuit</th><th>Type</th><th>Billed</th><th>Contracted</th><th>Variance</th><th>Actions</th>
+              <th>Description</th><th>Circuit</th><th>USOC</th><th>Type</th><th>Billed</th><th>MRC</th><th>NRC</th><th>Contracted</th><th>Variance</th><th>Audit</th><th>Actions</th>
             </tr></thead>
             <tbody>
               {lineItems.map(li => {
                 const v = Number(li.variance);
+                const AUDIT_BADGE = { Validated: 'badge badge-green', Variance: 'badge badge-red', Pending: 'badge badge-orange' };
                 return (
-                  <tr key={li.id}>
-                    <td style={{ maxWidth: 200 }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{li.description}</span></td>
+                  <tr key={li.line_items_id}>
+                    <td style={{ maxWidth: 180 }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{li.description}</span></td>
                     <td style={{ fontSize: 12 }}>
-                      {li.circuit_id
-                        ? <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${li.circuit_id}`)}>{li.circuit_identifier}</span>
+                      {li.circuits_id
+                        ? <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${li.circuits_id}`)}>{li.circuit_identifier}</span>
+                        : <span style={{ color: '#94a3b8' }}>—</span>}
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {li.usoc_code
+                        ? <span style={{ color: '#7c3aed', fontWeight: 600 }}>{li.usoc_code}</span>
                         : <span style={{ color: '#94a3b8' }}>—</span>}
                     </td>
                     <td>{li.charge_type}</td>
                     <td style={{ fontWeight: 700 }}>${fmt(li.amount)}</td>
+                    <td style={{ fontWeight: 600, color: '#0d9488' }}>{li.mrc_amount != null ? `$${fmt(li.mrc_amount)}` : '—'}</td>
+                    <td style={{ fontWeight: 600, color: '#d97706' }}>{li.nrc_amount != null ? `$${fmt(li.nrc_amount)}` : '—'}</td>
                     <td>{li.contracted_rate != null ? `$${fmt(li.contracted_rate)}` : '—'}</td>
                     <td style={{ fontWeight: 600, color: v > 0 ? '#dc2626' : v < 0 ? '#16a34a' : '#94a3b8' }}>
                       {li.variance != null ? (v === 0 ? '$0.00' : `$${v.toFixed(2)}`) : 'N/A'}
                     </td>
+                    <td>{li.audit_status ? <span className={AUDIT_BADGE[li.audit_status] || 'badge badge-gray'}>{li.audit_status}</span> : '—'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openAllocModal(li.id)} style={{ fontSize: 11 }}><DollarSign size={12} /> Allocate</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openAllocModal(li.line_items_id)} style={{ fontSize: 11 }}><DollarSign size={12} /> Allocate</button>
                         <button className="btn btn-ghost btn-sm btn-icon" onClick={() => openEditLi(li)}><Pencil size={13} /></button>
-                        <button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteLi(li.id)}><Trash2 size={13} /></button>
+                        <button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteLi(li.line_items_id)}><Trash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
                 );
               })}
-              {lineItems.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: 24 }}>No line items yet.</td></tr>}
+              {lineItems.length === 0 && <tr><td colSpan={11} style={{ textAlign: 'center', color: '#94a3b8', padding: 24 }}>No line items yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -194,14 +223,14 @@ export default function InvoiceDetail() {
           </tr></thead>
           <tbody>
             {allocations.map(a => (
-              <tr key={a.id}>
+              <tr key={a.allocations_id}>
                 <td style={{ color: '#64748b', fontSize: 12 }}>{a.line_item_description}</td>
                 <td><span className="badge badge-purple">{a.cost_center}</span></td>
                 <td>{a.department}</td>
                 <td style={{ fontWeight: 700 }}>{a.percentage}%</td>
                 <td style={{ fontWeight: 700 }}>${Number(a.allocated_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 <td style={{ color: '#94a3b8', fontSize: 12 }}>{a.notes || '—'}</td>
-                <td><button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteAlloc(a.id)}><Trash2 size={13} /></button></td>
+                <td><button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteAlloc(a.allocations_id)}><Trash2 size={13} /></button></td>
               </tr>
             ))}
             {allocations.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: 24 }}>No allocations yet.</td></tr>}
@@ -212,11 +241,19 @@ export default function InvoiceDetail() {
       {/* Line Item Modal */}
       <Modal open={liModal} title={editingLi ? 'Edit Line Item' : 'Add Line Item'} onClose={() => setLiModal(false)} onSave={saveLi}>
         <div><label className="form-label">Description *</label><input className="form-input" value={liForm.description} onChange={e => setLi('description', e.target.value)} /></div>
-        <div><label className="form-label">Circuit (optional)</label>
-          <select className="form-input" value={liForm.circuit_id || ''} onChange={e => setLi('circuit_id', e.target.value || null)}>
-            <option value="">None</option>
-            {circuits.map(c => <option key={c.id} value={c.id}>{c.circuit_id} — {c.location}</option>)}
-          </select>
+        <div className="form-row">
+          <div><label className="form-label">Circuit (optional)</label>
+            <select className="form-input" value={liForm.circuits_id || ''} onChange={e => setLi('circuits_id', e.target.value || null)}>
+              <option value="">None</option>
+              {circuits.map(c => <option key={c.circuits_id} value={c.circuits_id}>{c.circuit_number} — {c.location}</option>)}
+            </select>
+          </div>
+          <div><label className="form-label">USOC Code (optional)</label>
+            <select className="form-input" value={liForm.usoc_codes_id || ''} onChange={e => setLi('usoc_codes_id', e.target.value || null)}>
+              <option value="">None</option>
+              {usocCodes.map(u => <option key={u.usoc_codes_id} value={u.usoc_codes_id}>{u.usoc_code} — {u.description}</option>)}
+            </select>
+          </div>
         </div>
         <div className="form-row">
           <div><label className="form-label">Charge Type</label>
@@ -225,6 +262,10 @@ export default function InvoiceDetail() {
             </select>
           </div>
           <div><label className="form-label">Billed Amount ($) *</label><input className="form-input" type="number" step="0.01" value={liForm.amount} onChange={e => setLi('amount', e.target.value)} /></div>
+        </div>
+        <div className="form-row">
+          <div><label className="form-label">MRC Amount ($)</label><input className="form-input" type="number" step="0.01" value={liForm.mrc_amount} onChange={e => setLi('mrc_amount', e.target.value)} placeholder="Auto-set for MRC type" /></div>
+          <div><label className="form-label">NRC Amount ($)</label><input className="form-input" type="number" step="0.01" value={liForm.nrc_amount} onChange={e => setLi('nrc_amount', e.target.value)} placeholder="Auto-set for NRC type" /></div>
         </div>
         <div className="form-row">
           <div><label className="form-label">Contracted Rate ($)</label><input className="form-input" type="number" step="0.01" value={liForm.contracted_rate} onChange={e => setLi('contracted_rate', e.target.value)} /></div>
@@ -245,6 +286,8 @@ export default function InvoiceDetail() {
         <div><label className="form-label">Percentage (%) *</label><input className="form-input" type="number" min="0" max="100" step="0.01" value={allocForm.percentage} onChange={e => setAl('percentage', e.target.value)} /></div>
         <div><label className="form-label">Notes</label><textarea className="form-input" rows={2} value={allocForm.notes} onChange={e => setAl('notes', e.target.value)} /></div>
       </Modal>
+
+      <NoteTimeline entityType="invoice" entityId={id} />
     </div>
   );
 }

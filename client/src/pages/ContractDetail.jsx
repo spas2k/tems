@@ -1,10 +1,14 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Save, Network, ShoppingCart, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, FileText, Save, Network, ShoppingCart, AlertTriangle, RefreshCw, Plus, Pencil, Trash2, Tag } from 'lucide-react';
 import {
   getContract, updateContract, getContractCircuits, getContractOrders, getAccounts,
+  getContractRates, getUsocCodes, createContractRate, updateContractRate, deleteContractRate,
 } from '../api';
+import DetailHeader from '../components/DetailHeader';
+import NoteTimeline from '../components/NoteTimeline';
+import Modal from '../components/Modal';
 import dayjs from 'dayjs';
 
 const STATUSES = ['Active', 'Pending', 'Expired', 'Terminated'];
@@ -46,12 +50,19 @@ export default function ContractDetail() {
   const [circuits, setCircuits] = useState([]);
   const [orders,   setOrders]   = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [rates,    setRates]    = useState([]);
+  const [usocCodes, setUsocCodes] = useState([]);
 
   const [form,    setForm]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [dirty,   setDirty]   = useState(false);
   const [toast,   setToast]   = useState(null);
+
+  const [rateModal, setRateModal]     = useState(false);
+  const [editingRate, setEditingRate] = useState(null);
+  const EMPTY_RATE = { usoc_codes_id: '', mrc: '', nrc: '', effective_date: '', expiration_date: '', notes: '' };
+  const [rateForm, setRateForm]       = useState(EMPTY_RATE);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -65,15 +76,19 @@ export default function ContractDetail() {
       getContractCircuits(id),
       getContractOrders(id),
       getAccounts(),
-    ]).then(([co, ci, or_, ac]) => {
+      getContractRates({ contracts_id: id }).catch(() => ({ data: [] })),
+      getUsocCodes().catch(() => ({ data: [] })),
+    ]).then(([co, ci, or_, ac, rt, uc]) => {
       const c = co.data;
       setContract(c);
       setPageTitle(c.contract_number || c.name);
       setCircuits(ci.data);
       setOrders(or_.data);
       setAccounts(ac.data);
+      setRates(rt.data);
+      setUsocCodes(uc.data);
       setForm({
-        account_id:      c.account_id      || '',
+        accounts_id:      c.accounts_id      || '',
         name:            c.name            || '',
         contract_number: c.contract_number || '',
         start_date:      c.start_date      ? c.start_date.split('T')[0] : '',
@@ -81,11 +96,24 @@ export default function ContractDetail() {
         contracted_rate: c.contracted_rate != null ? c.contracted_rate : '',
         rate_unit:       c.rate_unit       || '',
         term_months:     c.term_months     || '',
+        minimum_spend:   c.minimum_spend != null ? c.minimum_spend : '',
+        etf_amount:      c.etf_amount != null ? c.etf_amount : '',
+        commitment_type: c.commitment_type || '',
         status:          c.status          || 'Active',
         auto_renew:      !!c.auto_renew,
       });
+    }).catch(err => {
+      console.error('Failed to load contract:', err);
     }).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (contract?.contract_number || contract?.name) {
+      window.dispatchEvent(new CustomEvent('tems-recent-item', {
+        detail: { path: `/contracts/${id}`, label: contract.contract_number || contract.name, type: 'contract' }
+      }));
+    }
+  }, [contract]);
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setDirty(true); };
 
@@ -105,6 +133,24 @@ export default function ContractDetail() {
 
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>Loading contract…</div>;
   if (!contract) return <div style={{ padding: 60, textAlign: 'center', color: '#ef4444' }}>Contract not found.</div>;
+
+  const setR = (k, v) => setRateForm(p => ({ ...p, [k]: v }));
+  const openNewRate  = () => { setEditingRate(null); setRateForm({ ...EMPTY_RATE, usoc_codes_id: usocCodes[0]?.usoc_codes_id || '' }); setRateModal(true); };
+  const openEditRate = r => { setEditingRate(r); setRateForm({ usoc_codes_id: r.usoc_codes_id, mrc: r.mrc ?? '', nrc: r.nrc ?? '', effective_date: r.effective_date?.split('T')[0] || '', expiration_date: r.expiration_date?.split('T')[0] || '', notes: r.notes || '' }); setRateModal(true); };
+  const refreshRates = () => getContractRates({ contracts_id: id }).then(r => setRates(r.data));
+  const saveRate = async () => {
+    try {
+      const payload = { ...rateForm, contracts_id: id };
+      if (editingRate) await updateContractRate(editingRate.contract_rates_id, payload);
+      else await createContractRate(payload);
+      setRateModal(false); refreshRates(); showToast(editingRate ? 'Rate updated.' : 'Rate added.');
+    } catch { showToast('Save failed.', false); }
+  };
+  const deleteRate = async rId => {
+    if (!window.confirm('Delete this rate?')) return;
+    try { await deleteContractRate(rId); refreshRates(); showToast('Rate deleted.'); }
+    catch { showToast('Delete failed.', false); }
+  };
 
   const daysToExpiry = contract.end_date
     ? Math.ceil((new Date(contract.end_date) - new Date()) / 86400000)
@@ -130,11 +176,7 @@ export default function ContractDetail() {
       )}
 
       {/* Header bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'white', padding: '14px 20px', borderRadius: 12,
-        border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.075)',
-      }}>
+      <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             className="btn btn-ghost btn-sm"
@@ -143,7 +185,7 @@ export default function ContractDetail() {
           >
             <ArrowLeft size={15} /> Back
           </button>
-          <div style={{ width: 1, height: 24, background: '#e2e8f0' }} />
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
@@ -152,7 +194,7 @@ export default function ContractDetail() {
               <FileText size={18} color="#0d9488" />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>
                 {contract.contract_number || contract.name}
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -162,7 +204,7 @@ export default function ContractDetail() {
           </div>
           <span className={STATUS_BADGE[contract.status] || 'badge badge-gray'}>{contract.status}</span>
           {contract.auto_renew === 1 && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+            <span className="badge-auto-renew">
               <RefreshCw size={10} /> Auto-Renew
             </span>
           )}
@@ -185,7 +227,7 @@ export default function ContractDetail() {
         >
           <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
         </button>
-      </div>
+      </DetailHeader>
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -223,11 +265,7 @@ export default function ContractDetail() {
       <div className="page-card">
         <div className="page-card-header">
           <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Contract Details</span>
-          {dirty && (
-            <span style={{ fontSize: 11, color: '#f59e0b', background: '#fef3c7', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-              Unsaved changes
-            </span>
-          )}
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -240,9 +278,9 @@ export default function ContractDetail() {
           </Field>
 
           <Field label="Vendor Account *">
-            <select className="form-input" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
+            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
               <option value="">Select vendor…</option>
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {accounts.map(a => <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>)}
             </select>
           </Field>
 
@@ -270,6 +308,23 @@ export default function ContractDetail() {
 
           <Field label="Term (months)">
             <input className="form-input" type="number" value={form.term_months} onChange={e => set('term_months', e.target.value)} />
+          </Field>
+
+          <Field label="Minimum Spend ($)">
+            <input className="form-input" type="number" step="0.01" value={form.minimum_spend} onChange={e => set('minimum_spend', e.target.value)} />
+          </Field>
+
+          <Field label="ETF Amount ($)">
+            <input className="form-input" type="number" step="0.01" value={form.etf_amount} onChange={e => set('etf_amount', e.target.value)} />
+          </Field>
+
+          <Field label="Commitment Type">
+            <select className="form-input" value={form.commitment_type} onChange={e => set('commitment_type', e.target.value)}>
+              <option value="">None</option>
+              <option value="Volume">Volume</option>
+              <option value="Revenue">Revenue</option>
+              <option value="Term">Term</option>
+            </select>
           </Field>
 
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: 8 }}>
@@ -312,9 +367,9 @@ export default function ContractDetail() {
             </thead>
             <tbody>
               {circuits.map(ci => (
-                <tr key={ci.id}>
+                <tr key={ci.circuits_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.id}`)}>{ci.circuit_id}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.circuits_id}`)}>{ci.circuit_number}</span>
                   </td>
                   <td>{ci.account_name}</td>
                   <td>{ci.location || '—'}</td>
@@ -326,6 +381,54 @@ export default function ContractDetail() {
                   <td>{ci.install_date ? dayjs(ci.install_date).format('MM/DD/YYYY') : '—'}</td>
                   <td>{ci.disconnect_date ? dayjs(ci.disconnect_date).format('MM/DD/YYYY') : '—'}</td>
                   <td><span className={CIRC_STATUS_BADGE[ci.status] || 'badge badge-gray'}>{ci.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Rate Schedule */}
+      <div className="page-card">
+        <div className="page-card-header">
+          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Tag size={16} color="#7c3aed" /> Rate Schedule
+          </span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#64748b' }}>{rates.length} rate{rates.length !== 1 ? 's' : ''}</span>
+            <button className="btn btn-primary" onClick={openNewRate} style={{ fontSize: 12 }}><Plus size={14} /> Add Rate</button>
+          </div>
+        </div>
+        {rates.length === 0 ? (
+          <div style={{ padding: 36, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+            <Tag size={22} style={{ marginBottom: 8, opacity: 0.35 }} />
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>No rates defined yet</div>
+            <div style={{ fontSize: 11 }}>Add USOC-based rates to this contract's rate schedule.</div>
+          </div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>USOC Code</th><th>Description</th><th>Category</th><th>MRC</th><th>NRC</th><th>Effective</th><th>Expiration</th><th>Notes</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rates.map(r => (
+                <tr key={r.contract_rates_id}>
+                  <td><span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/usoc-codes/${r.usoc_codes_id}`)}>{r.usoc_code}</span></td>
+                  <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.usoc_description || '—'}</td>
+                  <td><span className="badge badge-purple">{r.usoc_category}</span></td>
+                  <td style={{ fontWeight: 700 }}>{r.mrc != null ? `$${Number(r.mrc).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}</td>
+                  <td style={{ fontWeight: 700 }}>{r.nrc != null ? `$${Number(r.nrc).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}</td>
+                  <td>{r.effective_date ? dayjs(r.effective_date).format('MM/DD/YYYY') : '—'}</td>
+                  <td>{r.expiration_date ? dayjs(r.expiration_date).format('MM/DD/YYYY') : '—'}</td>
+                  <td style={{ color: '#94a3b8', fontSize: 12, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.notes || '—'}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => openEditRate(r)}><Pencil size={13} /></button>
+                      <button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteRate(r.contract_rates_id)}><Trash2 size={13} /></button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -357,9 +460,9 @@ export default function ContractDetail() {
             </thead>
             <tbody>
               {orders.map(o => (
-                <tr key={o.id}>
+                <tr key={o.orders_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/orders/${o.id}`)}>{o.order_number}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/orders/${o.orders_id}`)}>{o.order_number}</span>
                   </td>
                   <td>{o.account_name}</td>
                   <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b', fontSize: 13 }}>{o.description || '—'}</td>
@@ -375,6 +478,27 @@ export default function ContractDetail() {
           </table>
         )}
       </div>
+
+      {/* Rate Modal */}
+      <Modal open={rateModal} title={editingRate ? 'Edit Rate' : 'Add Rate'} onClose={() => setRateModal(false)} onSave={saveRate}>
+        <div><label className="form-label">USOC Code *</label>
+          <select className="form-input" value={rateForm.usoc_codes_id} onChange={e => setR('usoc_codes_id', e.target.value)}>
+            <option value="">Select USOC…</option>
+            {usocCodes.map(u => <option key={u.usoc_codes_id} value={u.usoc_codes_id}>{u.usoc_code} — {u.description}</option>)}
+          </select>
+        </div>
+        <div className="form-row">
+          <div><label className="form-label">MRC ($)</label><input className="form-input" type="number" step="0.01" value={rateForm.mrc} onChange={e => setR('mrc', e.target.value)} /></div>
+          <div><label className="form-label">NRC ($)</label><input className="form-input" type="number" step="0.01" value={rateForm.nrc} onChange={e => setR('nrc', e.target.value)} /></div>
+        </div>
+        <div className="form-row">
+          <div><label className="form-label">Effective Date</label><input className="form-input" type="date" value={rateForm.effective_date} onChange={e => setR('effective_date', e.target.value)} /></div>
+          <div><label className="form-label">Expiration Date</label><input className="form-input" type="date" value={rateForm.expiration_date} onChange={e => setR('expiration_date', e.target.value)} /></div>
+        </div>
+        <div><label className="form-label">Notes</label><textarea className="form-input" rows={2} value={rateForm.notes} onChange={e => setR('notes', e.target.value)} /></div>
+      </Modal>
+
+      <NoteTimeline entityType="contract" entityId={id} />
     </div>
   );
 }

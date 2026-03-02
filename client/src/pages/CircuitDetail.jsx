@@ -2,6 +2,8 @@ import React, { useContext, useEffect, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Network, Save, Receipt, ShoppingCart, AlertTriangle } from 'lucide-react';
+import DetailHeader from '../components/DetailHeader';
+import NoteTimeline from '../components/NoteTimeline';
 import {
   getCircuit, updateCircuit,
   getCircuitInvoices,
@@ -77,16 +79,16 @@ export default function CircuitDetail() {
     ]).then(([ci, inv, ac, co, or_]) => {
       const c = ci.data;
       setCircuit(c);
-      setPageTitle(c.circuit_id);
+      setPageTitle(c.circuit_number);
       setInvoices(inv.data);
       setAccounts(ac.data);
       setContracts(co.data);
       setOrders(or_.data);
       setForm({
-        account_id:      c.account_id || '',
-        contract_id:     c.contract_id || '',
-        order_id:        c.order_id || '',
-        circuit_id:      c.circuit_id || '',
+        accounts_id:      c.accounts_id || '',
+        contracts_id:     c.contracts_id || '',
+        orders_id:        c.orders_id || '',
+        circuit_number:      c.circuit_number || '',
         type:            c.type || 'Internet',
         bandwidth:       c.bandwidth || '',
         location:        c.location || '',
@@ -96,11 +98,19 @@ export default function CircuitDetail() {
         disconnect_date: c.disconnect_date ? c.disconnect_date.split('T')[0] : '',
       });
       // Fetch full order if linked
-      if (c.order_id) {
-        getOrder(c.order_id).then(r => setOrder(r.data)).catch(() => setOrder(null));
+      if (c.orders_id) {
+        getOrder(c.orders_id).then(r => setOrder(r.data)).catch(() => setOrder(null));
       }
     }).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (circuit?.circuit_number) {
+      window.dispatchEvent(new CustomEvent('tems-recent-item', {
+        detail: { path: `/circuits/${id}`, label: circuit.circuit_number, type: 'circuit' }
+      }));
+    }
+  }, [circuit]);
 
   const set = (k, v) => {
     setForm(p => ({ ...p, [k]: v }));
@@ -115,8 +125,8 @@ export default function CircuitDetail() {
       setDirty(false);
       showToast('Circuit saved successfully.');
       // Reload order if order_id changed
-      if (form.order_id) {
-        getOrder(form.order_id).then(r => setOrder(r.data)).catch(() => setOrder(null));
+      if (form.orders_id) {
+        getOrder(form.orders_id).then(r => setOrder(r.data)).catch(() => setOrder(null));
       } else {
         setOrder(null);
       }
@@ -148,11 +158,7 @@ export default function CircuitDetail() {
       )}
 
       {/* Page header bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'white', padding: '14px 20px', borderRadius: 12,
-        border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.075)',
-      }}>
+      <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             className="btn btn-ghost btn-sm"
@@ -161,7 +167,7 @@ export default function CircuitDetail() {
           >
             <ArrowLeft size={15} /> Back
           </button>
-          <div style={{ width: 1, height: 24, background: '#cbd5e1' }} />
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
@@ -170,8 +176,8 @@ export default function CircuitDetail() {
               <Network size={18} color="#7c3aed" />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>
-                {circuit.circuit_id}
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>
+                {circuit.circuit_number}
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
                 {circuit.location || 'No location'} · {circuit.account_name}
@@ -189,7 +195,7 @@ export default function CircuitDetail() {
         >
           <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
         </button>
-      </div>
+      </DetailHeader>
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -216,22 +222,18 @@ export default function CircuitDetail() {
       <div className="page-card">
         <div className="page-card-header">
           <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Circuit Details</span>
-          {dirty && (
-            <span style={{ fontSize: 11, color: '#f59e0b', background: '#fef3c7', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-              Unsaved changes
-            </span>
-          )}
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
           <Field label="Circuit ID *">
-            <input className="form-input" value={form.circuit_id} onChange={e => set('circuit_id', e.target.value)} />
+            <input className="form-input" value={form.circuit_number} onChange={e => set('circuit_number', e.target.value)} />
           </Field>
 
           <Field label="Vendor Account *">
-            <select className="form-input" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
+            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
               <option value="">Select vendor…</option>
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {accounts.map(a => <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>)}
             </select>
           </Field>
 
@@ -262,16 +264,16 @@ export default function CircuitDetail() {
           </Field>
 
           <Field label="Contract">
-            <select className="form-input" value={form.contract_id || ''} onChange={e => set('contract_id', e.target.value || null)}>
+            <select className="form-input" value={form.contracts_id || ''} onChange={e => set('contracts_id', e.target.value || null)}>
               <option value="">None</option>
-              {contracts.map(c => <option key={c.id} value={c.id}>{c.contract_number}</option>)}
+              {contracts.map(c => <option key={c.contracts_id} value={c.contracts_id}>{c.contract_number}</option>)}
             </select>
           </Field>
 
           <Field label="Linked Order">
-            <select className="form-input" value={form.order_id || ''} onChange={e => set('order_id', e.target.value || null)}>
+            <select className="form-input" value={form.orders_id || ''} onChange={e => set('orders_id', e.target.value || null)}>
               <option value="">None</option>
-              {orders.map(o => <option key={o.id} value={o.id}>{o.order_number} — {o.account_name || ''}</option>)}
+              {orders.map(o => <option key={o.orders_id} value={o.orders_id}>{o.order_number} — {o.account_name || ''}</option>)}
             </select>
           </Field>
 
@@ -313,7 +315,7 @@ export default function CircuitDetail() {
             <tbody>
               <tr>
                 <td>
-                  <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/orders/${order.id}`)}>{order.order_number}</span>
+                  <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/orders/${order.orders_id}`)}>{order.order_number}</span>
                 </td>
                 <td>{order.account_name}</td>
                 <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.description || '—'}</td>
@@ -361,9 +363,9 @@ export default function CircuitDetail() {
             </thead>
             <tbody>
               {invoices.map(inv => (
-                <tr key={inv.id}>
+                <tr key={inv.invoices_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/invoices/${inv.id}`)}>{inv.invoice_number}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/invoices/${inv.invoices_id}`)}>{inv.invoice_number}</span>
                   </td>
                   <td>{inv.account_name}</td>
                   <td>{inv.invoice_date ? dayjs(inv.invoice_date).format('MM/DD/YYYY') : '—'}</td>
@@ -387,6 +389,8 @@ export default function CircuitDetail() {
           </table>
         )}
       </div>
+
+      <NoteTimeline entityType="circuit" entityId={id} />
     </div>
   );
 }

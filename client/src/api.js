@@ -53,3 +53,83 @@ export const getCostSavings   = (params) => api.get('/cost-savings', { params })
 export const createCostSaving = d  => api.post('/cost-savings', d);
 export const updateCostSaving = (id,d) => api.put(`/cost-savings/${id}`, d);
 export const deleteCostSaving = id => api.delete(`/cost-savings/${id}`);
+
+export const getUsocCodes     = (params) => api.get('/usoc-codes', { params });
+export const getUsocCode      = id => api.get(`/usoc-codes/${id}`);
+export const createUsocCode   = d  => api.post('/usoc-codes', d);
+export const updateUsocCode   = (id,d) => api.put(`/usoc-codes/${id}`, d);
+export const deleteUsocCode   = id => api.delete(`/usoc-codes/${id}`);
+
+export const getContractRates  = (params) => api.get('/contract-rates', { params });
+export const getContractRate   = id => api.get(`/contract-rates/${id}`);
+export const createContractRate = d  => api.post('/contract-rates', d);
+export const updateContractRate = (id,d) => api.put(`/contract-rates/${id}`, d);
+export const deleteContractRate = id => api.delete(`/contract-rates/${id}`);
+
+export const getDisputes       = (params) => api.get('/disputes', { params });
+export const getDispute        = id => api.get(`/disputes/${id}`);
+export const createDispute     = d  => api.post('/disputes', d);
+export const updateDispute     = (id,d) => api.put(`/disputes/${id}`, d);
+export const deleteDispute     = id => api.delete(`/disputes/${id}`);
+
+export const getRateValidation = () => api.get('/rate-validation');
+
+// ── Auth / Users / Roles ───────────────────────────────────
+export const getCurrentUser   = () => api.get('/users/me');
+export const getUsers         = () => api.get('/users');
+export const getUser          = id => api.get(`/users/${id}`);
+export const createUser       = d  => api.post('/users', d);
+export const updateUser       = (id,d) => api.put(`/users/${id}`, d);
+export const deleteUser       = id => api.delete(`/users/${id}`);
+
+export const getRoles         = () => api.get('/roles');
+export const getRole          = id => api.get(`/roles/${id}`);
+export const createRole       = d  => api.post('/roles', d);
+export const updateRole       = (id,d) => api.put(`/roles/${id}`, d);
+export const deleteRole       = id => api.delete(`/roles/${id}`);
+export const getPermissions   = () => api.get('/roles/permissions/all');
+
+export const getAuditLog      = (params) => api.get('/roles/audit-log', { params });
+
+// ── Batch Upload ───────────────────────────────────────────
+export const getBatchTables       = () => api.get('/batch-upload/tables');
+export const downloadBatchTemplate = (table) => api.get(`/batch-upload/template/${table}`, { responseType: 'blob' });
+export const uploadBatchFile      = (table, file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return api.post(`/batch-upload/upload/${table}`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+// ── Notes / Activity ───────────────────────────────────
+export const getNotes    = (entityType, entityId) => api.get('/notes', { params: { entity_type: entityType, entity_id: entityId } });
+export const createNote  = d => api.post('/notes', d);
+export const deleteNote  = id => api.delete(`/notes/${id}`);
+
+// ── Invoice Reader ─────────────────────────────────────
+export const getReaderFields    = () => api.get('/invoice-reader/fields');
+export const parseInvoiceFile   = (file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return api.post('/invoice-reader/parse', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const processInvoiceFile = (file, { template_id, accounts_id, mappings, sheet_name } = {}) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  if (template_id) fd.append('template_id', template_id);
+  if (accounts_id) fd.append('accounts_id', accounts_id);
+  if (mappings) fd.append('mappings', JSON.stringify(mappings));
+  if (sheet_name) fd.append('sheet_name', sheet_name);
+  return api.post('/invoice-reader/process', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const getReaderTemplates  = (params) => api.get('/invoice-reader/templates', { params });
+export const getReaderTemplate   = id => api.get(`/invoice-reader/templates/${id}`);
+export const createReaderTemplate = d => api.post('/invoice-reader/templates', d);
+export const updateReaderTemplate = (id, d) => api.put(`/invoice-reader/templates/${id}`, d);
+export const deleteReaderTemplate = id => api.delete(`/invoice-reader/templates/${id}`);
+export const getReaderUploads    = (params) => api.get('/invoice-reader/uploads', { params });

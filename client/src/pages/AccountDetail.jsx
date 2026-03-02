@@ -3,6 +3,8 @@ import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building2, Save, Network, DollarSign } from 'lucide-react';
 import { getAccount, updateAccount, getAccountCircuits } from '../api';
+import DetailHeader from '../components/DetailHeader';
+import NoteTimeline from '../components/NoteTimeline';
 import dayjs from 'dayjs';
 
 const VENDOR_TYPES = ['AT&T', 'Comcast', 'Verizon', 'Lumen', 'Spectrum', 'Other'];
@@ -58,6 +60,14 @@ export default function AccountDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (account?.name) {
+      window.dispatchEvent(new CustomEvent('tems-recent-item', {
+        detail: { path: `/accounts/${id}`, label: account.name, type: 'account' }
+      }));
+    }
+  }, [account]);
+
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setDirty(true); };
 
   const handleSave = async () => {
@@ -94,11 +104,7 @@ export default function AccountDetail() {
       )}
 
       {/* Header bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'white', padding: '14px 20px', borderRadius: 12,
-        border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.075)',
-      }}>
+      <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             className="btn btn-ghost btn-sm"
@@ -107,7 +113,7 @@ export default function AccountDetail() {
           >
             <ArrowLeft size={15} /> Back
           </button>
-          <div style={{ width: 1, height: 24, background: '#cbd5e1' }} />
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
@@ -116,7 +122,7 @@ export default function AccountDetail() {
               <Building2 size={18} color="#2563eb" />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>{account.name}</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>{account.name}</div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
                 {account.vendor_type}{account.account_number ? ` · Acct #${account.account_number}` : ''}
               </div>
@@ -134,7 +140,7 @@ export default function AccountDetail() {
         >
           <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
         </button>
-      </div>
+      </DetailHeader>
 
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -164,11 +170,7 @@ export default function AccountDetail() {
       <div className="page-card">
         <div className="page-card-header">
           <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Account Details</span>
-          {dirty && (
-            <span style={{ fontSize: 11, color: '#f59e0b', background: '#fef3c7', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-              Unsaved changes
-            </span>
-          )}
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -238,9 +240,9 @@ export default function AccountDetail() {
             </thead>
             <tbody>
               {circuits.map(ci => (
-                <tr key={ci.id}>
+                <tr key={ci.circuits_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.id}`)}>{ci.circuit_id}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.circuits_id}`)}>{ci.circuit_number}</span>
                   </td>
                   <td>{ci.location || '—'}</td>
                   <td>{ci.type || '—'}</td>
@@ -262,6 +264,8 @@ export default function AccountDetail() {
           </table>
         )}
       </div>
+
+      <NoteTimeline entityType="account" entityId={id} />
     </div>
   );
 }

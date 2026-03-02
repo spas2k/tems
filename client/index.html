@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TEMS — Telecom Expense Management</title>
     <link rel="icon" type="image/svg+xml" href="/tems-icon.svg" />
+    <script>
+      // Prevent flash: apply dark class before first paint
+      (function(){
+        var t = localStorage.getItem('tems-theme') || 'light';
+        var dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

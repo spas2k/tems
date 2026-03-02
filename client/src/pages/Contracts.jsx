@@ -1,141 +1,122 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, FileText } from 'lucide-react';
+import { Plus, FileText, Trash2, AlertTriangle } from 'lucide-react';
 import { getContracts, createContract, updateContract, deleteContract, getAccounts } from '../api';
-import Modal from '../components/Modal';
+import useCrudTable from '../hooks/useCrudTable';
+import DataTable from '../components/DataTable';
+import CrudModal from '../components/CrudModal';
 
 const STATUSES = ['Active', 'Pending', 'Expired', 'Terminated'];
 const STATUS_BADGE = { Active: 'badge badge-green', Pending: 'badge badge-blue', Expired: 'badge badge-gray', Terminated: 'badge badge-red' };
 
-const EMPTY = { account_id: '', name: '', contract_number: '', start_date: '', end_date: '', contracted_rate: '', rate_unit: '', term_months: '', status: 'Active', auto_renew: false };
+const EMPTY = { accounts_id: '', name: '', contract_number: '', start_date: '', end_date: '', contracted_rate: '', rate_unit: '', term_months: '', status: 'Active', auto_renew: false };
+
+const FILTER_CONFIG = {
+  account_name: 'select', contract_number: 'text', name: 'text',
+  start_date: 'date', end_date: 'date', contracted_rate: 'text',
+  term_months: 'text', auto_renew: 'boolean', status: 'select',
+};
 
 export default function Contracts() {
   const navigate = useNavigate();
-  const [data, setData]         = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [modal, setModal]       = useState(false);
-  const [editing, setEditing]   = useState(null);
-  const [form, setForm]         = useState(EMPTY);
-  const [toast, setToast]       = useState(null);
+  const table = useCrudTable({
+    api: { list: getContracts, create: createContract, update: updateContract, delete: deleteContract },
+    idKey: 'contracts_id',
+    emptyForm: EMPTY,
+    filterConfig: FILTER_CONFIG,
+    related: { accounts: getAccounts },
+    defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
+  });
 
-  const load = () => {
-    setLoading(true);
-    Promise.all([getContracts(), getAccounts()])
-      .then(([c, a]) => { setData(c.data); setAccounts(a.data); })
-      .finally(() => setLoading(false));
-  };
-  useEffect(() => { load(); }, []);
+  const accounts = table.related.accounts;
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const showToast = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 2500); };
+  const columns = [
+    { key: 'account_name', label: 'Vendor', filterType: 'select',
+      filterOptions: accounts.map(a => a.name), style: { fontWeight: 600 } },
+    { key: 'contract_number', label: 'Contract #', copyable: true,
+      render: (v, row) => (
+        <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }}
+              onClick={() => navigate(`/contracts/${row.contracts_id}`)}>
+          {v || row.name}
+        </span>
+      ) },
+    { key: 'name', label: 'Name', style: { color: '#64748b', fontSize: 13 } },
+    { key: 'start_date', label: 'Start Date', filterType: 'date', format: 'date' },
+    { key: 'end_date', label: 'End Date', filterType: 'date', format: 'date' },
+    { key: 'contracted_rate', label: 'Rate', format: 'currency', summary: 'sum', style: { fontWeight: 700 } },
+    { key: 'term_months', label: 'Term', render: v => v ? `${v} mo` : '—' },
+    { key: 'auto_renew', label: 'Auto-Renew', filterType: 'select',
+      filterOptions: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
+      render: v => v ? <span className="badge badge-teal">Yes</span> : <span className="badge badge-gray">No</span> },
+    { key: 'status', label: 'Status', filterType: 'select', filterOptions: STATUSES, badge: STATUS_BADGE },
+  ];
 
-  const openNew  = () => { setEditing(null); setForm({ ...EMPTY, account_id: accounts[0]?.id || '' }); setModal(true); };
-  const openEdit = rec => {
-    setEditing(rec);
-    setForm({ ...rec, start_date: rec.start_date?.split('T')[0] || '', end_date: rec.end_date?.split('T')[0] || '' });
-    setModal(true);
-  };
+  const formFields = [
+    { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
+      options: accounts.map(a => ({ value: a.accounts_id, label: a.name })), placeholder: 'Select vendor…' },
+    { key: 'contract_number', label: 'Contract Number', half: true },
+    { key: 'name', label: 'Contract Name', half: true },
+    { key: 'start_date', label: 'Start Date', type: 'date', half: true },
+    { key: 'end_date', label: 'End Date', type: 'date', half: true },
+    { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
+    { key: 'rate_unit', label: 'Rate Unit', placeholder: 'e.g. /month, /year', half: true },
+    { key: 'term_months', label: 'Term (months)', type: 'number', half: true },
+    { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
+    { key: 'auto_renew', label: 'Auto-Renew', type: 'checkbox' },
+  ];
 
-  const handleSave = async () => {
-    try {
-      if (editing) await updateContract(editing.id, form);
-      else await createContract(form);
-      setModal(false); load(); showToast(editing ? 'Contract updated.' : 'Contract created.');
-    } catch { showToast('Save failed.', false); }
-  };
-
-  const handleDelete = async id => {
-    if (!window.confirm('Delete this contract?')) return;
-    try { await deleteContract(id); load(); showToast('Contract deleted.'); }
-    catch { showToast('Delete failed.', false); }
-  };
-
-  const active = data.filter(d => d.status === 'Active').length;
+  const active = table.data.filter(d => d.status === 'Active').length;
+  const now = new Date();
+  const expiring30 = table.data.filter(d => { if (!d.end_date) return false; const days = (new Date(d.end_date) - now) / 86400000; return days > 0 && days <= 30; });
+  const expired = table.data.filter(d => { if (!d.end_date) return false; return (new Date(d.end_date) - now) / 86400000 <= 0 && d.status !== 'Expired' && d.status !== 'Terminated'; });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {toast && (
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? '#dcfce7' : '#fee2e2', color: toast.ok ? '#15803d' : '#dc2626', padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 13, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
-          {toast.msg}
+      {table.renderToast()}
+
+      {/* Expiration alert banners */}
+      {expired.length > 0 && (
+        <div className="expiration-banner expiration-banner-danger">
+          <AlertTriangle size={18} />
+          <span>{expired.length} contract{expired.length > 1 ? 's have' : ' has'} expired and may need attention</span>
+        </div>
+      )}
+      {expiring30.length > 0 && (
+        <div className="expiration-banner expiration-banner-warn">
+          <AlertTriangle size={18} />
+          <span>{expiring30.length} contract{expiring30.length > 1 ? 's' : ''} expiring within 30 days: {expiring30.map(c => c.contract_number || c.name).join(', ')}</span>
         </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-        <div className="kpi-card teal"><div className="kpi-label">Total Contracts</div><div className="kpi-value">{data.length}</div><div className="kpi-icon"><FileText size={40} /></div></div>
+        <div className="kpi-card teal"><div className="kpi-label">Total Contracts</div><div className="kpi-value">{table.data.length}</div><div className="kpi-icon"><FileText size={40} /></div></div>
         <div className="kpi-card green"><div className="kpi-label">Active</div><div className="kpi-value">{active}</div></div>
-        <div className="kpi-card orange"><div className="kpi-label">Expiring Soon</div><div className="kpi-value">{data.filter(d => { if (!d.end_date) return false; const days = (new Date(d.end_date) - new Date()) / 86400000; return days > 0 && days <= 90; }).length}</div><div className="kpi-sub">Within 90 days</div></div>
+        <div className="kpi-card orange"><div className="kpi-label">Expiring Soon</div>
+          <div className="kpi-value">{table.data.filter(d => { if (!d.end_date) return false; const days = (new Date(d.end_date) - new Date()) / 86400000; return days > 0 && days <= 90; }).length}</div>
+          <div className="kpi-sub">Within 90 days</div>
+        </div>
       </div>
 
-      <div className="page-card">
-        <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>All Contracts</span>
-          <button className="btn btn-primary" onClick={openNew}><Plus size={15} /> New Contract</button>
-        </div>
-        {loading ? <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Loading…</div> : (
-          <table className="data-table">
-            <thead><tr>
-              <th>Vendor</th><th>Contract #</th><th>Name</th><th>Start Date</th><th>End Date</th><th>Rate</th><th>Term</th><th>Auto-Renew</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody>
-              {data.map(row => (
-                <tr key={row.id}>
-                  <td style={{ fontWeight: 600 }}>{row.account_name}</td>
-                  <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/contracts/${row.id}`)}>{row.contract_number || row.name}</span>
-                  </td>
-                  <td style={{ color: '#64748b', fontSize: 13 }}>{row.name}</td>
-                  <td>{row.start_date?.split('T')[0] || '—'}</td>
-                  <td>{row.end_date?.split('T')[0] || '—'}</td>
-                  <td style={{ fontWeight: 700 }}>{row.contracted_rate != null ? `$${Number(row.contracted_rate).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}</td>
-                  <td>{row.term_months ? `${row.term_months} mo` : '—'}</td>
-                  <td>{row.auto_renew ? <span className="badge badge-teal">Yes</span> : <span className="badge badge-gray">No</span>}</td>
-                  <td><span className={STATUS_BADGE[row.status] || 'badge badge-gray'}>{row.status}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => openEdit(row)}><Pencil size={13} /></button>
-                      <button className="btn btn-danger btn-sm btn-icon" onClick={() => handleDelete(row.id)}><Trash2 size={13} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        {...table.tableProps}
+        title="All Contracts"
+        exportFilename="Contracts"
+        bulkActions={[
+          { label: 'Delete', icon: Trash2, danger: true, onClick: rows => { if (window.confirm(`Delete ${rows.length} records?`)) rows.forEach(r => table.handleDelete(r.contracts_id)); } }
+        ]}
+        headerRight={<button className="btn btn-primary" onClick={() => navigate('/contracts/new')}><Plus size={15} /> New Contract</button>}
+      />
 
-      <Modal open={modal} title={editing ? 'Edit Contract' : 'New Contract'} onClose={() => setModal(false)} onSave={handleSave}>
-        <div><label className="form-label">Vendor Account *</label>
-          <select className="form-input" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
-            <option value="">Select vendor…</option>
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </div>
-        <div className="form-row">
-          <div><label className="form-label">Contract Number</label><input className="form-input" value={form.contract_number} onChange={e => set('contract_number', e.target.value)} /></div>
-          <div><label className="form-label">Contract Name</label><input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} /></div>
-        </div>
-        <div className="form-row">
-          <div><label className="form-label">Start Date</label><input className="form-input" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} /></div>
-          <div><label className="form-label">End Date</label><input className="form-input" type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} /></div>
-        </div>
-        <div className="form-row">
-          <div><label className="form-label">Contracted Rate ($)</label><input className="form-input" type="number" step="0.01" value={form.contracted_rate} onChange={e => set('contracted_rate', e.target.value)} /></div>
-          <div><label className="form-label">Rate Unit</label><input className="form-input" value={form.rate_unit} onChange={e => set('rate_unit', e.target.value)} placeholder="e.g. /month, /year" /></div>
-        </div>
-        <div className="form-row">
-          <div><label className="form-label">Term (months)</label><input className="form-input" type="number" value={form.term_months} onChange={e => set('term_months', e.target.value)} /></div>
-          <div><label className="form-label">Status</label>
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <input type="checkbox" id="ar" checked={!!form.auto_renew} onChange={e => set('auto_renew', e.target.checked)} style={{ width: 16, height: 16 }} />
-          <label htmlFor="ar" style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Auto-Renew</label>
-        </div>
-      </Modal>
+      <CrudModal
+        open={table.modal}
+        title="Edit Contract"
+        onClose={() => table.setModal(false)}
+        onSave={table.handleSave}
+        form={table.form}
+        setField={table.setField}
+        fields={formFields}
+      />
     </div>
   );
 }

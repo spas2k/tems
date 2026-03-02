@@ -2,6 +2,8 @@ import React, { useContext, useEffect, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Save, Network, AlertTriangle } from 'lucide-react';
+import DetailHeader from '../components/DetailHeader';
+import NoteTimeline from '../components/NoteTimeline';
 import {
   getOrder, updateOrder, getOrderCircuits,
   getAccounts, getContracts, getCircuits,
@@ -73,9 +75,9 @@ export default function OrderDetail() {
       setContracts(co.data);
       setAllCircuits(allCi.data);
       setForm({
-        account_id:      ord.account_id      || '',
-        contract_id:     ord.contract_id     || '',
-        circuit_id:      ord.circuit_id      || '',
+        accounts_id:      ord.accounts_id      || '',
+        contracts_id:     ord.contracts_id     || '',
+        circuits_id:      ord.circuits_id      || '',
         order_number:    ord.order_number    || '',
         description:     ord.description     || '',
         contracted_rate: ord.contracted_rate != null ? ord.contracted_rate : '',
@@ -86,6 +88,14 @@ export default function OrderDetail() {
       });
     }).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (order?.order_number) {
+      window.dispatchEvent(new CustomEvent('tems-recent-item', {
+        detail: { path: `/orders/${id}`, label: order.order_number, type: 'order' }
+      }));
+    }
+  }, [order]);
 
   const set = (k, v) => {
     setForm(p => ({ ...p, [k]: v }));
@@ -129,11 +139,7 @@ export default function OrderDetail() {
       )}
 
       {/* Page header bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'white', padding: '14px 20px', borderRadius: 12,
-        border: '1px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.075)',
-      }}>
+      <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             className="btn btn-ghost btn-sm"
@@ -142,7 +148,7 @@ export default function OrderDetail() {
           >
             <ArrowLeft size={15} /> Back
           </button>
-          <div style={{ width: 1, height: 24, background: '#cbd5e1' }} />
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
@@ -151,7 +157,7 @@ export default function OrderDetail() {
               <ShoppingCart size={18} color="#d97706" />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>
                 {order.order_number}
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -175,7 +181,7 @@ export default function OrderDetail() {
         >
           <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
         </button>
-      </div>
+      </DetailHeader>
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -211,11 +217,7 @@ export default function OrderDetail() {
       <div className="page-card">
         <div className="page-card-header">
           <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Order Details</span>
-          {dirty && (
-            <span style={{ fontSize: 11, color: '#f59e0b', background: '#fef3c7', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-              Unsaved changes
-            </span>
-          )}
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -224,9 +226,9 @@ export default function OrderDetail() {
           </Field>
 
           <Field label="Vendor Account *">
-            <select className="form-input" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
+            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
               <option value="">Select vendor…</option>
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {accounts.map(a => <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>)}
             </select>
           </Field>
 
@@ -235,9 +237,9 @@ export default function OrderDetail() {
           </Field>
 
           <Field label="Contract">
-            <select className="form-input" value={form.contract_id || ''} onChange={e => set('contract_id', e.target.value || null)}>
+            <select className="form-input" value={form.contracts_id || ''} onChange={e => set('contracts_id', e.target.value || null)}>
               <option value="">None</option>
-              {contracts.map(c => <option key={c.id} value={c.id}>{c.contract_number}</option>)}
+              {contracts.map(c => <option key={c.contracts_id} value={c.contracts_id}>{c.contract_number}</option>)}
             </select>
           </Field>
 
@@ -302,9 +304,9 @@ export default function OrderDetail() {
             </thead>
             <tbody>
               {circuits.map(ci => (
-                <tr key={ci.id}>
+                <tr key={ci.circuits_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.id}`)}>{ci.circuit_id}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.circuits_id}`)}>{ci.circuit_number}</span>
                   </td>
                   <td>{ci.account_name}</td>
                   <td>{ci.location || '—'}</td>
@@ -326,6 +328,8 @@ export default function OrderDetail() {
           </table>
         )}
       </div>
+
+      <NoteTimeline entityType="order" entityId={id} />
     </div>
   );
 }
