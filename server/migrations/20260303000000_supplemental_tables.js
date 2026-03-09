@@ -27,7 +27,7 @@ exports.up = async function (knex) {
   // ── accounts: add contact_name ───────────────────────────
   if (!(await knex.schema.hasColumn('accounts', 'contact_name'))) {
     await knex.schema.alterTable('accounts', t => {
-      t.string('contact_name', 120).nullable().after('vendor_type');
+      t.string('contact_name', 120).nullable();
     });
   }
 

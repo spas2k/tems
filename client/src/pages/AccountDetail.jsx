@@ -285,9 +285,9 @@ export default function AccountDetail() {
             </thead>
             <tbody>
               {circuits.map(ci => (
-                <tr key={ci.circuits_id}>
+                <tr key={ci.cir_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.circuits_id}`)}>{ci.circuit_number}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.cir_id}`)}>{ci.circuit_id}</span>
                   </td>
                   <td>{ci.location || '—'}</td>
                   <td>{ci.type || '—'}</td>

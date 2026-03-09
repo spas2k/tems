@@ -80,7 +80,7 @@ const CROSS_TABLE_MAP = {
   order_number:     { table: 'orders',    field: 'order_number' },
   invoice_number:   { table: 'invoices',  field: 'invoice_number' },
   invoice_date:     { table: 'invoices',  field: 'invoice_date' },
-  circuit_number:   { table: 'circuits',  field: 'circuit_number' },
+  circuit_number:   { table: 'circuits',  field: 'circuit_id' },
   circuit_location: { table: 'circuits',  field: 'location' },
 };
 
@@ -212,7 +212,7 @@ const TEMPLATES = [
       tableKey: 'circuits', reportName: 'Active Circuit Summary',
       linkedTables: [{ tableKey: 'accounts', joinFrom: 'circuits' }],
       fields: [
-        { table: 'circuits', field: 'circuit_number' }, { table: 'accounts', field: 'name' },
+        { table: 'circuits', field: 'circuit_id' }, { table: 'accounts', field: 'name' },
         { table: 'circuits', field: 'location' }, { table: 'circuits', field: 'type' },
         { table: 'circuits', field: 'bandwidth' }, { table: 'circuits', field: 'contracted_rate' },
         { table: 'circuits', field: 'status' },
@@ -250,7 +250,7 @@ const TEMPLATES = [
       ],
       fields: [
         { table: 'invoices', field: 'invoice_number' }, { table: 'accounts', field: 'name' },
-        { table: 'circuits', field: 'circuit_number' }, { table: 'line_items', field: 'description' },
+        { table: 'circuits', field: 'circuit_id' }, { table: 'line_items', field: 'description' },
         { table: 'line_items', field: 'amount' }, { table: 'line_items', field: 'contracted_rate' },
         { table: 'line_items', field: 'variance' }, { table: 'line_items', field: 'audit_status' },
       ],
@@ -356,7 +356,7 @@ const TEMPLATES = [
         { table: 'accounts', field: 'name' }, { table: 'invoices', field: 'invoice_number' },
         { table: 'invoices', field: 'invoice_date' }, { table: 'invoices', field: 'total_amount' },
         { table: 'line_items', field: 'description' }, { table: 'line_items', field: 'amount' },
-        { table: 'line_items', field: 'audit_status' }, { table: 'circuits', field: 'circuit_number' },
+        { table: 'line_items', field: 'audit_status' }, { table: 'circuits', field: 'circuit_id' },
         { table: 'circuits', field: 'location' },
       ],
       filters: [], filterLogic: 'AND', sorts: [{ id: 's1', table: 'invoices', field: 'invoice_date', direction: 'desc' }],
@@ -591,7 +591,7 @@ export default function CreateReport() {
     setSorts([]); setGroupBy([]); setAggregations([]);
     setColOverrides({}); setResults(null); setRunError(null); setFieldSearch('');
     setShowLinkPicker(false); setExpandedFieldTables(new Set([key]));
-    setActiveSection(p => ({ ...p, fields: true }));
+    setActiveSection(p => ({ ...p, source: false, fields: true }));
   }, []);
 
   // ── Linked table operations ───────────────────────────────
@@ -972,6 +972,25 @@ export default function CreateReport() {
 
               {/* 1. Data Source */}
               <SectionHeader label="1. DATA SOURCE" icon={Database} expanded={activeSection.source} onToggle={() => toggleSection('source')} color="#60a5fa" count={tableKey ? 1 : 0} />
+              {!activeSection.source && tableKey && tables[tableKey] && (() => {
+                const td = tables[tableKey];
+                const Icon = TABLE_ICONS[td.icon] || Database;
+                return (
+                  <div style={{ padding: '6px 10px' }}>
+                    <button onClick={() => toggleSection('source')} style={{
+                      background: td.color, border: `1.5px solid ${td.color}`,
+                      borderRadius: 8, padding: '7px 10px', cursor: 'pointer', textAlign: 'left',
+                      color: '#fff', width: '100%', transition: 'all 0.15s',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Icon size={13} />
+                        <span style={{ fontWeight: 700, fontSize: 12, flex: 1 }}>{td.label}</span>
+                        <span style={{ fontSize: 10, opacity: 0.7 }}>{td.fields.length}f</span>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })()}
               {activeSection.source && (
                 <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   {Object.values(tables).map(td => {

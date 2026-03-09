@@ -47,12 +47,12 @@ import AuditLog     from './pages/AuditLog';
 import Preferences  from './pages/Preferences';
 import BatchUpload  from './pages/BatchUpload';
 import Projects     from './pages/Projects';
-import ServiceProviders from './pages/ServiceProviders';
 import Milestones      from './pages/Milestones';
 import InvoiceApprovers from './pages/InvoiceApprovers';
 import InvoiceReader   from './pages/InvoiceReader';
 import Tickets         from './pages/Tickets';
 import TicketDetail    from './pages/TicketDetail';
+import TicketAdd       from './pages/TicketAdd';
 import GLCodes         from './pages/GLCodes';
 import CreateGraph     from './pages/CreateGraph';
 import Reports        from './pages/Reports';
@@ -78,7 +78,7 @@ import { globalSearch } from './api';
 const SEARCH_GROUPS = [
   { key: 'vendors',   idKey: 'accounts_id',  label: 'Vendors',   color: '#2563eb', path: id => `/vendors/${id}`,   display: r => r.name },
   { key: 'contracts', idKey: 'contracts_id', label: 'Contracts', color: '#0d9488', path: id => `/contracts/${id}`, display: r => r.contract_number || r.name },
-  { key: 'circuits',  idKey: 'circuits_id',  label: 'Circuits',  color: '#7c3aed', path: id => `/circuits/${id}`,  display: r => r.circuit_number },
+  { key: 'circuits',  idKey: 'cir_id',  label: 'Circuits',  color: '#7c3aed', path: id => `/circuits/${id}`,  display: r => r.circuit_id },
   { key: 'orders',    idKey: 'orders_id',    label: 'Orders',    color: '#d97706', path: id => `/orders/${id}`,    display: r => r.order_number },
   { key: 'invoices',  idKey: 'invoices_id',  label: 'Invoices',  color: '#dc2626', path: id => `/invoices/${id}`,  display: r => r.invoice_number },
   { key: 'usoc_codes', idKey: 'usoc_codes_id', label: 'USOC Codes', color: '#9333ea', path: id => `/usoc-codes/${id}`, display: r => `${r.usoc_code} — ${r.description}` },
@@ -407,7 +407,6 @@ const NAV = [
   { path: '/vendors',  icon: Landmark,  label: 'Vendors',
     children: [
       { path: '/vendors',           icon: Landmark,    label: 'All Vendors' },
-      { path: '/service-providers', icon: Building2,   label: 'Service Providers' },
       { path: '/vendor-remit',      icon: CreditCard,  label: 'Vendor Remit' },
     ],
   },
@@ -508,7 +507,6 @@ const PAGE_META = {
   '/cost-savings': { label: 'Cost Savings',sub: 'Billing errors & savings pipeline' },
   '/cost-savings/new': { label: 'New Savings', sub: 'Record a new savings opportunity' },
   '/projects':           { label: 'Projects',          sub: 'Manage telecom projects' },
-  '/service-providers':  { label: 'Service Providers', sub: 'Telecom service provider directory' },
   '/milestones':         { label: 'Milestones',        sub: 'Order provisioning milestones' },
   '/invoice-approvers':  { label: 'Invoice Approvers', sub: 'Invoice approval workflow management' },
   '/gl-codes':           { label: 'GL Codes',          sub: 'General ledger code management' },
@@ -529,6 +527,7 @@ const PAGE_META = {
   '/announcements':  { label: 'Announcements',    sub: 'System-wide announcement banners' },
   '/spend-categories': { label: 'Spend Categories', sub: 'Spending classification hierarchy' },
   '/tickets':        { label: 'Tickets & Issues', sub: 'Issue tracking and resolution' },
+  '/tickets/new':    { label: 'New Ticket',        sub: 'Create a new ticket' },
   '/tickets/:id':    { label: 'Ticket Detail',    sub: 'View and manage a ticket' },
   '/reports':        { label: 'Reports',      sub: 'Graphs and custom reports' },
   '/create-graph':   { label: 'Create Graph', sub: 'Build a custom chart' },
@@ -597,7 +596,6 @@ function AppShell() {
   // Paths not listed here (Dashboard, Reports, etc.) are always visible.
   const NAV_RESOURCE = {
     '/vendors':            'accounts',
-    '/service-providers':  'accounts',
     '/contracts':          'contracts',
     '/usoc-codes':         'usoc_codes',
     '/disputes':           'disputes',
@@ -727,7 +725,7 @@ function AppShell() {
     : location.pathname.startsWith('/vendor-remit/') && location.pathname !== '/vendor-remit'
     ? '/vendor-remit/:id'
     : location.pathname.startsWith('/tickets/') && location.pathname !== '/tickets'
-    ? '/tickets/:id'
+    ? (location.pathname === '/tickets/new' ? '/tickets/new' : '/tickets/:id')
     : location.pathname.startsWith('/field-catalog/') && location.pathname !== '/field-catalog'
     ? '/field-catalog/:category'
     : '/' + location.pathname.split('/')[1];
@@ -841,7 +839,7 @@ function AppShell() {
           </div>
           {navExpanded && (
             <div>
-              <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: 16, letterSpacing: '-0.3px' }}>TEMS <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b' }}>v0.8.2</span></div>
+              <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: 16, letterSpacing: '-0.3px' }}>TEMS <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b' }}>v0.8.3</span></div>
               <div style={{ color: '#64748b', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px' }}>Telecom Expense</div>
             </div>
           )}
@@ -1100,7 +1098,6 @@ function AppShell() {
             <Route path="/cost-savings" element={<CostSavings />} />
             <Route path="/cost-savings/new" element={<CostSavingAdd />} />
             <Route path="/projects"           element={<Projects />} />
-            <Route path="/service-providers" element={<ServiceProviders />} />
             <Route path="/milestones"         element={<Milestones />} />
             <Route path="/invoice-approvers" element={<InvoiceApprovers />} />
             <Route path="/gl-codes"          element={<GLCodes />} />
@@ -1125,6 +1122,7 @@ function AppShell() {
             <Route path="/announcements"   element={<Announcements />} />
             <Route path="/spend-categories" element={<SpendCategories />} />
             <Route path="/tickets"      element={<Tickets />} />
+            <Route path="/tickets/new" element={<TicketAdd />} />
             <Route path="/tickets/:id" element={<TicketDetail />} />
           </Routes>
           </ErrorBoundary>

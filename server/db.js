@@ -1,6 +1,5 @@
 // ============================================================
-// Database Connection — Knex Query Builder
-// Supports MySQL, PostgreSQL, and MSSQL via knexfile.js
+// Database Connection — Knex Query Builder (PostgreSQL)
 // ============================================================
 
 const knex = require('knex');
@@ -22,9 +21,11 @@ db.raw('SELECT 1')
 
 // ── Helper: insert a row and return the auto-generated PK ──
 // PK convention: every table's primary key is `{table_name}_id`
-// Works across MySQL (returns number), PostgreSQL & MSSQL (return object)
+// Exception: circuits table uses `cir_id` as its PK
+// PostgreSQL returns an object from .returning()
+const PK_OVERRIDES = { circuits: 'cir_id' };
 db.insertReturningId = async function (table, data) {
-  const pkColumn = `${table}_id`;                    // e.g. accounts_id, circuits_id
+  const pkColumn = PK_OVERRIDES[table] || `${table}_id`; // e.g. accounts_id, cir_id
   const result = await this(table).insert(data).returning(pkColumn);
   const first = result[0];
   return typeof first === 'object' ? first[pkColumn] : first;

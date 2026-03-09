@@ -12,10 +12,10 @@ const TYPES = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', '
 const STATUSES = ['Active', 'Pending', 'Disconnected', 'Suspended'];
 const STATUS_BADGE = { Active: 'badge badge-green', Pending: 'badge badge-blue', Disconnected: 'badge badge-gray', Suspended: 'badge badge-orange' };
 
-const EMPTY = { accounts_id: '', contracts_id: '', orders_id: '', circuit_number: '', location: '', type: 'Internet', bandwidth: '', contracted_rate: '', install_date: '', status: 'Active' };
+const EMPTY = { accounts_id: '', contracts_id: '', orders_id: '', circuit_id: '', location: '', type: 'Internet', bandwidth: '', contracted_rate: '', install_date: '', status: 'Active' };
 
 const FILTER_CONFIG = {
-  circuit_number: 'text', account_name: 'select', location: 'text',
+  circuit_id: 'text', account_name: 'select', location: 'text',
   type: 'select', bandwidth: 'text', contracted_rate: 'text', status: 'select',
 };
 
@@ -27,7 +27,7 @@ export default function Circuits() {
   const canDelete = hasPermission('circuits', 'delete');
   const table = useCrudTable({
     api: { list: getCircuits, create: createCircuit, update: updateCircuit, delete: deleteCircuit },
-    idKey: 'circuits_id',
+    idKey: 'cir_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
     related: { accounts: getAccounts, contracts: getContracts },
@@ -37,7 +37,7 @@ export default function Circuits() {
   const { accounts, contracts } = table.related;
 
   const columns = [
-    { key: 'circuit_number', label: 'Circuit ID', copyable: true, link: row => navigate(`/circuits/${row.circuits_id}`) },
+    { key: 'circuit_id', label: 'Circuit ID', copyable: true, link: row => navigate(`/circuits/${row.cir_id}`) },
     { key: 'account_name', label: 'Vendor', filterType: 'select', filterOptions: accounts.map(a => a.name) },
     { key: 'location', label: 'Location' },
     { key: 'type', label: 'Type', filterType: 'select', filterOptions: TYPES },
@@ -47,7 +47,7 @@ export default function Circuits() {
   ];
 
   const formFields = [
-    { key: 'circuit_number', label: 'Circuit ID *', half: true },
+    { key: 'circuit_id', label: 'Circuit ID *', half: true },
     { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
       options: accounts.map(a => ({ value: a.accounts_id, label: a.name })), placeholder: 'Select vendor…', half: true },
     { key: 'location', label: 'Location' },
@@ -79,7 +79,7 @@ export default function Circuits() {
         titleIcon={<Network size={15} color="#7c3aed" />}
         exportFilename="Circuits"
         bulkActions={canDelete ? [
-          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.circuits_id, { skipConfirm: true })); } }
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.cir_id, { skipConfirm: true })); } }
         ] : []}
         headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/circuits/new')}><Plus size={15} /> New Circuit</button> : null}
       />

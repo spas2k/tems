@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { LifeBuoy, Link2 } from 'lucide-react';
+import { LifeBuoy, Link2, Terminal } from 'lucide-react';
 import { createTicket } from '../api';
+import { useConsoleErrors } from '../context/ConsoleErrorContext';
 
 const CATEGORIES = [
+  'Enhancement',
+  'System Issue',
   'Billing Error',
   'Rate Dispute',
   'Service Issue',
@@ -11,6 +14,9 @@ const CATEGORIES = [
   'Invoice Discrepancy',
   'Provisioning',
   'Access & Permissions',
+  'Bug Report',
+  'Feature Request',
+  'Documentation',
   'Other',
 ];
 
@@ -45,6 +51,7 @@ export default function CreateTicketModal({
   defaultTitle     = '',
   contextInfo      = null,
 }) {
+  const { errors: consoleErrors, formatted } = useConsoleErrors();
   const [form, setForm] = useState({
     title:       defaultTitle,
     description: '',
@@ -52,6 +59,7 @@ export default function CreateTicketModal({
     priority:    'Medium',
     due_date:    '',
     tags:        '',
+    console_errors: '',
   });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
@@ -66,6 +74,7 @@ export default function CreateTicketModal({
         priority:    'Medium',
         due_date:    '',
         tags:        '',
+        console_errors: '',
       });
       setError('');
     }
@@ -174,6 +183,31 @@ export default function CreateTicketModal({
               </select>
             </div>
           </div>
+
+          {/* Console Errors */}
+          {consoleErrors.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Console Errors</label>
+                <button
+                  type="button"
+                  onClick={() => set('console_errors', formatted())}
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <Terminal size={11} /> Attach {consoleErrors.length} error{consoleErrors.length !== 1 ? 's' : ''}
+                </button>
+              </div>
+              {form.console_errors && (
+                <textarea
+                  className="form-input"
+                  value={form.console_errors}
+                  onChange={e => set('console_errors', e.target.value)}
+                  rows={3}
+                  style={{ width: '100%', resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+                />
+              )}
+            </div>
+          )}
 
           {/* Due date + Tags row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>

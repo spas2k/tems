@@ -27,20 +27,20 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
-    const row = await baseQuery().where('ci.circuits_id', req.params.id).first();
+    const row = await baseQuery().where('ci.cir_id', req.params.id).first();
     if (!row) return res.status(404).json({ error: 'Not found' });
     res.json(row);
   } catch (err) { safeError(res, err, 'circuits'); }
 });
 
-router.post('/', circuitRules, validate, auditCreate('circuits', 'circuits_id'), async (req, res) => {
+router.post('/', circuitRules, validate, auditCreate('circuits', 'cir_id'), async (req, res) => {
   try {
-    const { accounts_id, contracts_id, orders_id, circuit_number, type, bandwidth, location, contracted_rate, status, install_date, disconnect_date } = req.body;
+    const { accounts_id, contracts_id, orders_id, circuit_id, type, bandwidth, location, contracted_rate, status, install_date, disconnect_date } = req.body;
     const id = await db.insertReturningId('circuits', {
       accounts_id,
       contracts_id: contracts_id || null,
       orders_id:    orders_id    || null,
-      circuit_number,
+      circuit_id,
       type:            type            || null,
       bandwidth:       bandwidth       || null,
       location:        location        || null,
@@ -49,19 +49,19 @@ router.post('/', circuitRules, validate, auditCreate('circuits', 'circuits_id'),
       install_date:    install_date    || null,
       disconnect_date: disconnect_date || null,
     });
-    const row = await baseQuery().where('ci.circuits_id', id).first();
+    const row = await baseQuery().where('ci.cir_id', id).first();
     res.status(201).json(row);
   } catch (err) { safeError(res, err, 'circuits'); }
 });
 
-router.put('/:id', idParam, ...circuitRules, validate, auditUpdate('circuits', 'circuits_id'), async (req, res) => {
+router.put('/:id', idParam, ...circuitRules, validate, auditUpdate('circuits', 'cir_id'), async (req, res) => {
   try {
-    const { accounts_id, contracts_id, orders_id, circuit_number, type, bandwidth, location, contracted_rate, status, install_date, disconnect_date } = req.body;
-    await db('circuits').where('circuits_id', req.params.id).update({
+    const { accounts_id, contracts_id, orders_id, circuit_id, type, bandwidth, location, contracted_rate, status, install_date, disconnect_date } = req.body;
+    await db('circuits').where('cir_id', req.params.id).update({
       accounts_id,
       contracts_id:    contracts_id    || null,
       orders_id:       orders_id       || null,
-      circuit_number,
+      circuit_id,
       type:            type            || null,
       bandwidth:       bandwidth       || null,
       location:        location        || null,
@@ -70,7 +70,7 @@ router.put('/:id', idParam, ...circuitRules, validate, auditUpdate('circuits', '
       install_date:    install_date    || null,
       disconnect_date: disconnect_date || null,
     });
-    const row = await baseQuery().where('ci.circuits_id', req.params.id).first();
+    const row = await baseQuery().where('ci.cir_id', req.params.id).first();
     res.json(row);
   } catch (err) { safeError(res, err, 'circuits'); }
 });
@@ -87,7 +87,7 @@ router.get('/:id/invoices', idParam, validate, async (req, res) => {
       )
       .count('li.line_items_id as line_item_count')
       .sum('li.amount as circuit_total')
-      .where('li.circuits_id', req.params.id)
+      .where('li.cir_id', req.params.id)
       .groupBy(
         'i.invoices_id', 'i.accounts_id', 'i.invoice_number', 'i.invoice_date',
         'i.due_date', 'i.period_start', 'i.period_end', 'i.total_amount',
@@ -98,9 +98,9 @@ router.get('/:id/invoices', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'circuits'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('circuits', 'circuits_id'), auditDelete('circuits', 'circuits_id'), async (req, res) => {
+router.delete('/:id', idParam, validate, cascadeGuard('circuits', 'cir_id'), auditDelete('circuits', 'cir_id'), async (req, res) => {
   try {
-    await db('circuits').where('circuits_id', req.params.id).del();
+    await db('circuits').where('cir_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'circuits'); }
 });

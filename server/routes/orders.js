@@ -11,9 +11,9 @@ function baseQuery() {
   return db('orders as o')
     .leftJoin('accounts as a', 'o.accounts_id', 'a.accounts_id')
     .leftJoin('contracts as co', 'o.contracts_id', 'co.contracts_id')
-    .leftJoin('circuits as ci', 'o.circuits_id', 'ci.circuits_id')
+    .leftJoin('circuits as ci', 'o.cir_id', 'ci.cir_id')
     .leftJoin('users as u', 'o.assigned_users_id', 'u.users_id')
-    .select('o.*', 'a.name as account_name', 'co.contract_number', 'ci.circuit_number as circuit_identifier', 'u.display_name as assigned_user_name');
+    .select('o.*', 'a.name as account_name', 'co.contract_number', 'ci.circuit_id as circuit_identifier', 'u.display_name as assigned_user_name');
 }
 
 router.get('/', async (req, res) => {
@@ -36,9 +36,9 @@ router.get('/:id', idParam, validate, async (req, res) => {
 
 router.post('/', orderRules, validate, auditCreate('orders', 'orders_id'), async (req, res) => {
   try {
-    const { accounts_id, contracts_id, circuits_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
+    const { accounts_id, contracts_id, cir_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
     const id = await db.insertReturningId('orders', {
-      accounts_id, contracts_id, circuits_id: circuits_id || null,
+      accounts_id, contracts_id, cir_id: cir_id || null,
       order_number, description, contracted_rate, order_date,
       due_date: due_date || null,
       status: status || 'In Progress',
@@ -52,9 +52,9 @@ router.post('/', orderRules, validate, auditCreate('orders', 'orders_id'), async
 
 router.put('/:id', idParam, ...orderRules, validate, auditUpdate('orders', 'orders_id'), async (req, res) => {
   try {
-    const { accounts_id, contracts_id, circuits_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
+    const { accounts_id, contracts_id, cir_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
     await db('orders').where('orders_id', req.params.id).update({
-      accounts_id, contracts_id, circuits_id: circuits_id || null,
+      accounts_id, contracts_id, cir_id: cir_id || null,
       order_number, description, contracted_rate, order_date,
       due_date: due_date || null, status, notes: notes || '',
       assigned_users_id: assigned_users_id || null,
@@ -72,7 +72,7 @@ router.get('/:id/circuits', idParam, validate, async (req, res) => {
       .select('ci.*', 'a.name as account_name', 'co.contract_number')
       .where('ci.orders_id', req.params.id)
       .orderBy('ci.install_date', 'desc')
-      .orderBy('ci.circuit_number');
+      .orderBy('ci.circuit_id');
     res.json(rows);
   } catch (err) { safeError(res, err, 'orders'); }
 });

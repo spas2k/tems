@@ -11,7 +11,7 @@ import { useConfirm } from '../context/ConfirmContext';
 const STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
 const STATUS_BADGE = { Pending: 'badge badge-orange', 'In Progress': 'badge badge-blue', Completed: 'badge badge-green', Cancelled: 'badge badge-gray' };
 
-const EMPTY = { accounts_id: '', contracts_id: '', circuits_id: '', order_number: '', description: '', contracted_rate: '', status: 'Pending', order_date: '', due_date: '', notes: '' };
+const EMPTY = { accounts_id: '', contracts_id: '', cir_id: '', order_number: '', description: '', contracted_rate: '', status: 'Pending', order_date: '', due_date: '', notes: '' };
 
 const FILTER_CONFIG = {
   order_number: 'text', account_name: 'select', description: 'text',
@@ -32,7 +32,7 @@ export default function Orders() {
     filterConfig: FILTER_CONFIG,
     related: { accounts: getAccounts, contracts: getContracts, circuits: getCircuits },
     defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
-    beforeSave: form => ({ ...form, circuits_id: form.circuits_id || null }),
+    beforeSave: form => ({ ...form, cir_id: form.cir_id || null }),
   });
 
   const { accounts, circuits } = table.related;
@@ -56,8 +56,8 @@ export default function Orders() {
     { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
     { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
     { key: 'description', label: 'Description', placeholder: 'Brief description of this order' },
-    { key: 'circuits_id', label: 'Related Circuit (optional)', type: 'select',
-      options: circuits.map(c => ({ value: c.circuits_id, label: `${c.circuit_number} — ${c.location}` })), placeholder: 'None' },
+    { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
+      options: circuits.map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location}` })), placeholder: 'None' },
     { key: 'order_date', label: 'Order Date', type: 'date', half: true },
     { key: 'due_date', label: 'Due Date', type: 'date', half: true },
     { key: 'notes', label: 'Notes', type: 'textarea' },

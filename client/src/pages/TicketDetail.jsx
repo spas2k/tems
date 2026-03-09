@@ -1,14 +1,20 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, LifeBuoy, Save, Send, Trash2, Clock, User } from 'lucide-react';
+import { ArrowLeft, LifeBuoy, Save, Send, Trash2, Clock, ChevronDown, ChevronRight, Terminal, Bug } from 'lucide-react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useAuth } from '../context/AuthContext';
 import { getTicket, updateTicket, deleteTicket, addTicketComment, deleteTicketComment, getUsers } from '../api';
 import { useConfirm } from '../context/ConfirmContext';
+import ChangeHistory from '../components/ChangeHistory';
 
-const CATEGORIES  = ['Billing Error', 'Rate Dispute', 'Service Issue', 'Contract Problem', 'Data Quality', 'Invoice Discrepancy', 'Provisioning', 'Access & Permissions', 'Other'];
-const PRIORITIES  = ['Low', 'Medium', 'High', 'Critical'];
-const STATUSES    = ['Open', 'In Progress', 'Pending Vendor', 'Pending Internal', 'Resolved', 'Closed'];
+const CATEGORIES = [
+  'Enhancement', 'System Issue',
+  'Billing Error', 'Rate Dispute', 'Service Issue', 'Contract Problem',
+  'Data Quality', 'Invoice Discrepancy', 'Provisioning', 'Access & Permissions',
+  'Bug Report', 'Feature Request', 'Documentation', 'Other',
+];
+const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const STATUSES   = ['Open', 'In Progress', 'Pending Vendor', 'Pending Internal', 'On Hold', 'In Review', 'Resolved', 'Closed'];
 
 const SOURCE_PATHS = {
   invoice:  id => `/invoices/${id}`,
@@ -31,6 +37,8 @@ function statusBadgeClass(s) {
   if (s === 'In Progress') return 'badge badge-purple';
   if (s === 'Resolved')    return 'badge badge-green';
   if (s === 'Closed')      return 'badge badge-gray';
+  if (s === 'On Hold')     return 'badge badge-amber';
+  if (s === 'In Review')   return 'badge badge-cyan';
   return 'badge badge-orange';
 }
 
@@ -52,7 +60,6 @@ function relativeTime(dateStr) {
   return fmt(dateStr);
 }
 
-/** Safely renders **bold** markers in system comment text */
 function parseBold(text) {
   if (!text) return null;
   const parts = text.split(/\*\*(.+?)\*\*/g);
@@ -66,12 +73,12 @@ function initials(name) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 }
 
-function Avatar({ name, system = false }) {
+function Avatar({ name, system = false, size = 34 }) {
   const bg = system ? '#e0f2fe' : '#eff6ff';
   const color = system ? '#0284c7' : '#2563eb';
   return (
-    <div style={{ width: 32, height: 32, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color, flexShrink: 0 }}>
-      {system ? <Clock size={14} color={color} /> : initials(name)}
+    <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 700, color, flexShrink: 0 }}>
+      {system ? <Clock size={size * 0.42} color={color} /> : initials(name)}
     </div>
   );
 }
@@ -94,7 +101,9 @@ export default function TicketDetail() {
   const [toast,    setToast]    = useState('');
   const [newComment, setNewComment] = useState('');
   const [sending,    setSending]   = useState(false);
-  const feedEndRef = useRef(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [devOpen,    setDevOpen]    = useState(false);
+  const [showAll,    setShowAll]    = useState(false);
 
   const showToast = msg => {
     setToast(msg);
@@ -111,21 +120,29 @@ export default function TicketDetail() {
       ]);
       const t = ticketRes.data;
       setTicket(t);
-      setComments(t.comments || []);
+      setComments([...(t.comments || [])].reverse());
       setForm({
-        title:            t.title || '',
-        description:      t.description || '',
-        category:         t.category || 'Other',
-        priority:         t.priority || 'Medium',
-        status:           t.status || 'Open',
-        assigned_users_id: t.assigned_users_id || '',
-        due_date:         t.due_date ? t.due_date.split('T')[0] : '',
-        tags:             t.tags || '',
-        resolution:       t.resolution || '',
+        title:              t.title || '',
+        description:        t.description || '',
+        category:           t.category || 'Other',
+        priority:           t.priority || 'Medium',
+        status:             t.status || 'Open',
+        assigned_users_id:  t.assigned_users_id || '',
+        due_date:           t.due_date ? t.due_date.split('T')[0] : '',
+        tags:               t.tags || '',
+        resolution:         t.resolution || '',
+        steps_to_reproduce: t.steps_to_reproduce || '',
+        expected_behavior:  t.expected_behavior || '',
+        actual_behavior:    t.actual_behavior || '',
+        console_errors:     t.console_errors || '',
       });
       setUsers(usersRes.data || []);
       setDirty(false);
       setTitle?.(`Ticket ${t.ticket_number}`);
+      // Auto-expand dev section if any dev fields have content
+      if (t.steps_to_reproduce || t.expected_behavior || t.actual_behavior || t.console_errors) {
+        setDevOpen(true);
+      }
     } catch {
       setError('Failed to load ticket.');
     } finally {
@@ -136,9 +153,7 @@ export default function TicketDetail() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (feedEndRef.current) {
-      feedEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    // no auto-scroll — newest comments are shown at top
   }, [comments]);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setDirty(true); };
@@ -148,6 +163,7 @@ export default function TicketDetail() {
     try {
       await updateTicket(id, form);
       showToast('Ticket updated.');
+      setRefreshKey(k => k + 1);
       load();
     } catch (e) {
       setError(e?.response?.data?.error || 'Save failed.');
@@ -213,6 +229,8 @@ export default function TicketDetail() {
     ? (SOURCE_PATHS[ticket.source_entity_type] || (() => '#'))(ticket.source_entity_id)
     : null;
 
+  const hasDevContent = form.environment || form.steps_to_reproduce || form.expected_behavior || form.actual_behavior || form.console_errors || form.browser_info;
+
   return (
     <div className="page-wrapper">
       {/* Toast */}
@@ -224,8 +242,10 @@ export default function TicketDetail() {
 
       {/* Header */}
       <div style={{
+        position: 'sticky', top: 0, zIndex: 50,
         background: 'linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%)',
         borderRadius: 14, padding: '20px 24px', marginBottom: 22, color: '#fff',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <button
@@ -244,9 +264,15 @@ export default function TicketDetail() {
               </span>
               <span className={statusBadgeClass(form.status)} style={{ fontSize: 11 }}>{form.status}</span>
               <span className={priorityBadgeClass(form.priority)} style={{ fontSize: 11 }}>{form.priority}</span>
+              {ticket?.category && (
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', padding: '2px 8px', background: 'rgba(255,255,255,0.1)', borderRadius: 6 }}>
+                  {ticket.category}
+                </span>
+              )}
             </div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>
               Created {fmt(ticket?.created_at)} by {ticket?.created_by}
+              {ticket?.assigned_user_name && <> · Assigned to <strong style={{ color: 'rgba(255,255,255,0.85)' }}>{ticket.assigned_user_name}</strong></>}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -276,8 +302,8 @@ export default function TicketDetail() {
         <div style={{ marginBottom: 14, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#dc2626' }}>{error}</div>
       )}
 
-      {/* Two-column layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
+      {/* Two-column layout — activity panel is larger now */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 580px', gap: 20, alignItems: 'start' }}>
 
         {/* ── Left: form ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -305,13 +331,11 @@ export default function TicketDetail() {
               Ticket Details
             </div>
 
-            {/* Title */}
             <div style={{ marginBottom: 16 }}>
               <label className="form-label">Title</label>
               <input className="form-input" value={form.title} onChange={e => set('title', e.target.value)} style={{ width: '100%' }} />
             </div>
 
-            {/* Description */}
             <div style={{ marginBottom: 16 }}>
               <label className="form-label">Description</label>
               <textarea
@@ -323,7 +347,6 @@ export default function TicketDetail() {
               />
             </div>
 
-            {/* Category / Priority / Status */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
               <div>
                 <label className="form-label">Category</label>
@@ -345,8 +368,7 @@ export default function TicketDetail() {
               </div>
             </div>
 
-            {/* Assignee / Due Date */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: isResolved ? 16 : 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
               <div>
                 <label className="form-label">Assigned To</label>
                 <select className="form-input" value={form.assigned_users_id} onChange={e => set('assigned_users_id', e.target.value)} style={{ width: '100%' }}>
@@ -360,15 +382,13 @@ export default function TicketDetail() {
               </div>
             </div>
 
-            {/* Tags */}
-            <div style={{ marginTop: 14 }}>
+            <div style={{ marginBottom: isResolved ? 14 : 0 }}>
               <label className="form-label">Tags</label>
               <input className="form-input" value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="billing, q2, vendor-x" style={{ width: '100%' }} />
             </div>
 
-            {/* Resolution (if resolved/closed) */}
             {isResolved && (
-              <div style={{ marginTop: 14 }}>
+              <div>
                 <label className="form-label">Resolution Notes</label>
                 <textarea
                   className="form-input"
@@ -378,6 +398,79 @@ export default function TicketDetail() {
                   placeholder="Describe how this was resolved…"
                   style={{ width: '100%', resize: 'vertical' }}
                 />
+              </div>
+            )}
+          </div>
+
+          {/* Development Details — collapsible */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <button
+              onClick={() => setDevOpen(o => !o)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 700, color: '#374151', textAlign: 'left',
+              }}
+            >
+              <Bug size={15} color="#7c3aed" />
+              Development Details
+              {hasDevContent && <span style={{ fontSize: 11, color: '#7c3aed', fontWeight: 500, marginLeft: 4 }}>has content</span>}
+              <span style={{ marginLeft: 'auto', color: '#94a3b8' }}>
+                {devOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </span>
+            </button>
+            {devOpen && (
+              <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ marginTop: 14 }}>
+                  <label className="form-label">Steps to Reproduce</label>
+                  <textarea
+                    className="form-input"
+                    value={form.steps_to_reproduce}
+                    onChange={e => set('steps_to_reproduce', e.target.value)}
+                    rows={3}
+                    placeholder="1. Go to…&#10;2. Click on…&#10;3. See error"
+                    style={{ width: '100%', resize: 'vertical' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label className="form-label">Expected Behavior</label>
+                    <textarea
+                      className="form-input"
+                      value={form.expected_behavior}
+                      onChange={e => set('expected_behavior', e.target.value)}
+                      rows={2}
+                      placeholder="What should have happened?"
+                      style={{ width: '100%', resize: 'vertical' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Actual Behavior</label>
+                    <textarea
+                      className="form-input"
+                      value={form.actual_behavior}
+                      onChange={e => set('actual_behavior', e.target.value)}
+                      rows={2}
+                      placeholder="What actually happened?"
+                      style={{ width: '100%', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Terminal size={13} color="#ea580c" /> Console Errors
+                  </label>
+                  <textarea
+                    className="form-input"
+                    value={form.console_errors}
+                    onChange={e => set('console_errors', e.target.value)}
+                    rows={4}
+                    placeholder="Paste console errors or stack traces here…"
+                    style={{ width: '100%', resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -399,29 +492,68 @@ export default function TicketDetail() {
               ))}
             </div>
           </div>
+
+          {/* Change History */}
+          <ChangeHistory resource="tickets" resourceId={id} refreshKey={refreshKey} />
         </div>
 
-        {/* ── Right: activity feed ── */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 200px)', position: 'sticky', top: 16 }}>
-          {/* Feed header */}
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', fontWeight: 700, fontSize: 13, color: '#374151', display: 'flex', alignItems: 'center', gap: 8 }}>
-            Activity & Comments
-            <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400, color: '#94a3b8' }}>{comments.length} entries</span>
+        {/* ── Right: activity feed (larger, more prominent) ── */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 160px)', position: 'sticky', top: 140 }}>
+          {/* Feed header — more prominent */}
+          <div style={{
+            padding: '16px 20px', borderBottom: '1px solid #e2e8f0',
+            background: 'linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%)',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Send size={14} color="#fff" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Activity & Comments</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>{comments.length} entries</div>
+            </div>
           </div>
 
-          {/* Comments feed */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* New comment input — pinned above feed */}
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+            <textarea
+              className="form-input"
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment(); }}
+              placeholder="Add a comment… (Ctrl+Enter to send)"
+              rows={3}
+              style={{ width: '100%', resize: 'none', marginBottom: 10 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleAddComment}
+                disabled={sending || !newComment.trim()}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <Send size={14} /> {sending ? 'Sending…' : 'Comment'}
+              </button>
+            </div>
+          </div>
+
+          {/* Comments feed — newest first, 10 at a time */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {comments.length === 0 && (
-              <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, padding: '24px 0' }}>No activity yet.</div>
+              <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, padding: '32px 0' }}>
+                <LifeBuoy size={28} style={{ marginBottom: 8, opacity: 0.3 }} />
+                <div style={{ fontWeight: 600 }}>No activity yet</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Comments and status changes will appear here.</div>
+              </div>
             )}
-            {comments.map(c => {
+            {(showAll ? comments : comments.slice(0, 10)).map(c => {
               const isSystem = c.comment_type !== 'comment' && c.comment_type !== 'note';
               return (
-                <div key={c.ticket_comments_id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <Avatar name={c.author} system={isSystem} />
-                  <div style={{ flex: 1 }}>
+                <div key={c.ticket_comments_id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <Avatar name={c.author} system={isSystem} size={36} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: isSystem ? '#0284c7' : '#1e293b' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: isSystem ? '#0284c7' : '#1e293b' }}>
                         {isSystem ? 'System' : c.author}
                       </span>
                       <span style={{ fontSize: 11, color: '#94a3b8' }}>{relativeTime(c.created_at)}</span>
@@ -432,13 +564,14 @@ export default function TicketDetail() {
                     <div style={{
                       fontSize: 13,
                       color: isSystem ? '#475569' : '#1e293b',
-                      marginTop: 3,
-                      padding: isSystem ? '6px 10px' : '8px 12px',
+                      marginTop: 4,
+                      padding: isSystem ? '8px 12px' : '10px 14px',
                       background: isSystem ? '#f0f9ff' : '#f8fafc',
-                      borderRadius: 8,
+                      borderRadius: 10,
                       border: `1px solid ${isSystem ? '#bae6fd' : '#e2e8f0'}`,
                       fontStyle: isSystem ? 'italic' : 'normal',
-                      lineHeight: 1.6,
+                      lineHeight: 1.65,
+                      wordBreak: 'break-word',
                     }}>
                       {isSystem ? parseBold(c.content) : c.content}
                     </div>
@@ -454,30 +587,18 @@ export default function TicketDetail() {
                 </div>
               );
             })}
-            <div ref={feedEndRef} />
-          </div>
-
-          {/* New comment input */}
-          <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', background: '#fafafa' }}>
-            <textarea
-              className="form-input"
-              value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment(); }}
-              placeholder="Add a comment… (Ctrl+Enter to send)"
-              rows={2}
-              style={{ width: '100%', resize: 'none', marginBottom: 8 }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {comments.length > 10 && (
               <button
-                className="btn btn-primary btn-sm"
-                onClick={handleAddComment}
-                disabled={sending || !newComment.trim()}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                onClick={() => setShowAll(s => !s)}
+                style={{
+                  margin: '4px auto 0', background: 'none', border: '1px solid #e2e8f0',
+                  borderRadius: 8, padding: '6px 18px', cursor: 'pointer',
+                  fontSize: 12, color: '#2563eb', fontWeight: 600,
+                }}
               >
-                <Send size={13} /> {sending ? 'Sending…' : 'Comment'}
+                {showAll ? `Show less` : `See all ${comments.length} entries`}
               </button>
-            </div>
+            )}
           </div>
         </div>
       </div>

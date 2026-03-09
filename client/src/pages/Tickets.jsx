@@ -1,14 +1,13 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LifeBuoy, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useAuth } from '../context/AuthContext';
 import { getTickets } from '../api';
-import CreateTicketModal from '../components/CreateTicketModal';
 
-const STATUSES    = ['Open', 'In Progress', 'Pending Vendor', 'Pending Internal', 'Resolved', 'Closed'];
+const STATUSES    = ['Open', 'In Progress', 'Pending Vendor', 'Pending Internal', 'On Hold', 'In Review', 'Resolved', 'Closed'];
 const PRIORITIES  = ['Low', 'Medium', 'High', 'Critical'];
-const CATEGORIES  = ['Billing Error', 'Rate Dispute', 'Service Issue', 'Contract Problem', 'Data Quality', 'Invoice Discrepancy', 'Provisioning', 'Access & Permissions', 'Other'];
+const CATEGORIES  = ['Enhancement', 'System Issue', 'Billing Error', 'Rate Dispute', 'Service Issue', 'Contract Problem', 'Data Quality', 'Invoice Discrepancy', 'Provisioning', 'Access & Permissions', 'Bug Report', 'Feature Request', 'Documentation', 'Other'];
 
 function priorityBadgeClass(p) {
   if (p === 'Critical') return 'badge badge-red';
@@ -22,6 +21,8 @@ function statusBadgeClass(s) {
   if (s === 'In Progress')      return 'badge badge-purple';
   if (s === 'Resolved')         return 'badge badge-green';
   if (s === 'Closed')           return 'badge badge-gray';
+  if (s === 'On Hold')          return 'badge badge-amber';
+  if (s === 'In Review')        return 'badge badge-cyan';
   return 'badge badge-orange'; // Pending Vendor / Pending Internal
 }
 
@@ -47,6 +48,7 @@ export default function Tickets() {
   const { setTitle } = useContext(PageTitleContext) || {};
   const { user }     = useAuth();
   const navigate     = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [tickets,   setTickets]   = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -54,7 +56,14 @@ export default function Tickets() {
   const [search,    setSearch]    = useState('');
   const [myTickets, setMyTickets] = useState(false);
   const [filters,   setFilters]   = useState({ status: '', priority: '', category: '' });
-  const [showModal, setShowModal] = useState(false);
+
+  // Apply URL params (e.g. ?my=1, ?status=Open)
+  useEffect(() => {
+    const urlStatus = searchParams.get('status');
+    const urlMy     = searchParams.get('my');
+    if (urlStatus) setFilters(f => ({ ...f, status: urlStatus }));
+    if (urlMy === '1') setMyTickets(true);
+  }, [searchParams]);
 
   useEffect(() => { setTitle?.('Tickets & Issues'); }, [setTitle]);
 
@@ -93,10 +102,6 @@ export default function Tickets() {
   const clearAll  = () => { setFilters({ status: '', priority: '', category: '' }); setSearch(''); setMyTickets(false); };
   const hasFilter = filters.status || filters.priority || filters.category || search || myTickets;
 
-  const handleCreated = (ticket) => {
-    navigate(`/tickets/${ticket.tickets_id}`);
-  };
-
   return (
     <div className="page-wrapper">
       {/* Page header */}
@@ -110,7 +115,7 @@ export default function Tickets() {
             <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>Issue tracking and resolution</p>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className="btn btn-primary" onClick={() => navigate('/tickets/new')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Plus size={16} /> New Ticket
         </button>
       </div>
@@ -248,12 +253,6 @@ export default function Tickets() {
           </div>
         )}
       </div>
-
-      <CreateTicketModal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        onCreated={handleCreated}
-      />
     </div>
   );
 }

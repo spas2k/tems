@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
   } catch (err) { safeError(res, err, 'users'); }
 });
 
-// GET /api/users/demo-users — list the three switchable demo personas (dev mode only)
+// GET /api/users/demo-users — list all active users for impersonation (dev mode only)
 // Must be defined BEFORE /:id so it isn't swallowed by that route.
 router.get('/demo-users', async (req, res) => {
   if ((process.env.AUTH_MODE || 'dev') === 'sso') {
@@ -41,8 +41,8 @@ router.get('/demo-users', async (req, res) => {
     const rows = await db('users as u')
       .leftJoin('roles as r', 'u.roles_id', 'r.roles_id')
       .select('u.users_id', 'u.display_name', 'u.email', 'r.name as role_name')
-      .whereIn('u.email', ['admin@tems.local', 'manager@tems.local', 'viewer@tems.local'])
-      .orderBy('u.users_id');
+      .where('u.status', 'Active')
+      .orderBy('u.display_name');
     res.json(rows);
   } catch (err) { safeError(res, err, 'users'); }
 });

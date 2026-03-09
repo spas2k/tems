@@ -131,7 +131,7 @@ router.get('/audit-log/resource/:resource/:id', async (req, res) => {
       'accounts', 'circuits', 'contracts', 'disputes', 'invoices',
       'orders', 'usoc_codes', 'locations', 'vendor_remit', 'roles', 'users',
       'field_catalog', 'spend_categories', 'announcements', 'allocations',
-      'contract_rates', 'cost_savings',
+      'contract_rates', 'cost_savings', 'tickets',
     ]);
     if (!ALLOWED_RESOURCES.has(resource)) {
       return res.status(400).json({ error: 'Invalid resource' });

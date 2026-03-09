@@ -14,7 +14,7 @@ import { useConfirm } from '../context/ConfirmContext';
 const CHARGE_TYPES = ['MRC', 'NRC', 'Usage', 'Tax/Surcharge', 'Credit', 'Other'];
 const STATUS_BADGE = { Paid: 'badge badge-green', Open: 'badge badge-blue', Disputed: 'badge badge-orange', Void: 'badge badge-gray', Closed: 'badge badge-gray' };
 
-const EMPTY_LI    = { description: '', circuits_id: '', usoc_codes_id: '', charge_type: 'MRC', amount: '', mrc_amount: '', nrc_amount: '', contracted_rate: '', period_start: '', period_end: '' };
+const EMPTY_LI    = { description: '', cir_id: '', usoc_codes_id: '', charge_type: 'MRC', amount: '', mrc_amount: '', nrc_amount: '', contracted_rate: '', period_start: '', period_end: '' };
 const EMPTY_ALLOC = { cost_center: '', department: '', percentage: '', notes: '' };
 
 const NAV_SECTIONS = [
@@ -308,8 +308,8 @@ export default function InvoiceDetail() {
                   <tr key={li.line_items_id}>
                     <td style={{ maxWidth: 180 }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{li.description}</span></td>
                     <td style={{ fontSize: 12 }}>
-                      {li.circuits_id
-                        ? <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${li.circuits_id}`)}>{li.circuit_identifier}</span>
+                      {li.cir_id
+                        ? <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${li.cir_id}`)}>{li.circuit_identifier}</span>
                         : <span style={{ color: '#94a3b8' }}>—</span>}
                     </td>
                     <td style={{ fontSize: 12 }}>
@@ -373,9 +373,9 @@ export default function InvoiceDetail() {
         <div><label className="form-label">Description *</label><input className="form-input" value={liForm.description} onChange={e => setLi('description', e.target.value)} /></div>
         <div className="form-row">
           <div><label className="form-label">Circuit (optional)</label>
-            <select className="form-input" value={liForm.circuits_id || ''} onChange={e => setLi('circuits_id', e.target.value || null)}>
+            <select className="form-input" value={liForm.cir_id || ''} onChange={e => setLi('cir_id', e.target.value || null)}>
               <option value="">None</option>
-              {circuits.map(c => <option key={c.circuits_id} value={c.circuits_id}>{c.circuit_number} — {c.location}</option>)}
+              {circuits.map(c => <option key={c.cir_id} value={c.cir_id}>{c.circuit_id} — {c.location}</option>)}
             </select>
           </div>
           <div><label className="form-label">USOC Code (optional)</label>

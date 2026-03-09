@@ -255,7 +255,7 @@ const INVOICE_FIELDS = [
 ];
 
 const LINE_ITEM_FIELDS = [
-  { field: 'circuit_number', label: 'Circuit Number',  table: 'line_items', type: 'string', lookup: 'circuits' },
+  { field: 'circuit_id', label: 'Circuit Number',  table: 'line_items', type: 'string', lookup: 'circuits' },
   { field: 'description',    label: 'Description',     table: 'line_items', type: 'string' },
   { field: 'charge_type',    label: 'Charge Type',     table: 'line_items', type: 'string' },
   { field: 'amount',         label: 'Amount',          table: 'line_items', type: 'decimal', required: true },
@@ -500,10 +500,10 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
 
     // Build circuit & USOC lookup caches
     const circuitCache = {};
-    const circuitCol = Object.entries(lineItemMappings).find(([, m]) => m.field === 'circuit_number')?.[0];
+    const circuitCol = Object.entries(lineItemMappings).find(([, m]) => m.field === 'circuit_id')?.[0];
     if (circuitCol) {
-      const circuits = await db('circuits').select('circuits_id', 'circuit_number');
-      circuits.forEach(c => { circuitCache[c.circuit_number] = c.circuits_id; });
+      const circuits = await db('circuits').select('cir_id', 'circuit_id');
+      circuits.forEach(c => { circuitCache[c.circuit_id] = c.cir_id; });
     }
 
     const usocCache = {};
@@ -541,8 +541,8 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
       for (const [srcCol, mapping] of Object.entries(lineItemMappings)) {
         const val = coerceVal(row[srcCol], mapping.type || 'string');
         if (val !== null && val !== undefined) {
-          if (mapping.field === 'circuit_number') {
-            lineItem.circuits_id = circuitCache[val] || null;
+          if (mapping.field === 'circuit_id') {
+            lineItem.cir_id = circuitCache[val] || null;
           } else if (mapping.field === 'usoc_code') {
             lineItem.usoc_codes_id = usocCache[val] || null;
           } else {

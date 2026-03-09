@@ -20,8 +20,8 @@ const DEPS = {
     { table: 'contract_rates', fk: 'contracts_id', label: 'contract rates' },
   ],
   circuits: [
-    { table: 'line_items',   fk: 'circuits_id',  label: 'line items' },
-    { table: 'cost_savings', fk: 'circuits_id',  label: 'cost savings' },
+    { table: 'line_items',   fk: 'cir_id',  label: 'line items' },
+    { table: 'cost_savings', fk: 'cir_id',  label: 'cost savings' },
   ],
   orders: [
     { table: 'circuits', fk: 'orders_id', label: 'circuits' },

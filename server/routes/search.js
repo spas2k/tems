@@ -26,8 +26,8 @@ router.get('/', async (req, res) => {
         .limit(6),
 
       db('circuits as ci')
-        .select('ci.circuits_id', 'ci.circuit_number', 'ci.location as sub')
-        .where('ci.circuit_number', matchOperator, like)
+        .select('ci.cir_id', 'ci.circuit_id', 'ci.location as sub')
+        .where('ci.circuit_id', matchOperator, like)
         .orWhere('ci.location', matchOperator, like)
         .orWhere('ci.type', matchOperator, like)
         .limit(6),

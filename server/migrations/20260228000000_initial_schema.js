@@ -2,7 +2,7 @@
  * TEMS — Initial Database Schema Migration
  *
  * Creates all 8 tables in dependency order.
- * Supports MySQL, PostgreSQL, and MSSQL through Knex's
+ * Supports PostgreSQL through Knex's
  * database-agnostic schema builder.
  *
  * Naming conventions:

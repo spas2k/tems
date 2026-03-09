@@ -10,26 +10,35 @@ const { validate, idParam } = require('./_validators');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
 const CATEGORIES = [
+  'Enhancement', 'System Issue', 'Bug Report',
   'Billing Error', 'Rate Dispute', 'Service Issue', 'Contract Problem',
-  'Data Quality', 'Invoice Discrepancy', 'Provisioning', 'Access & Permissions', 'Other',
+  'Data Quality', 'Invoice Discrepancy', 'Provisioning',
+  'Access & Permissions', 'Feature Request', 'Documentation', 'Other',
 ];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-const STATUSES   = ['Open', 'In Progress', 'Pending Vendor', 'Pending Internal', 'Resolved', 'Closed'];
+const STATUSES   = [
+  'Open', 'In Progress', 'Pending Vendor', 'Pending Internal',
+  'On Hold', 'In Review', 'Resolved', 'Closed',
+];
 
 const ticketRules = [
   body('title').trim().notEmpty().withMessage('title is required').isLength({ max: 255 }),
-  body('description').optional({ values: 'falsy' }).trim().isLength({ max: 5000 }),
+  body('description').optional({ values: 'falsy' }).trim().isLength({ max: 10000 }),
   body('category').optional().isIn(CATEGORIES).withMessage('Invalid category'),
   body('priority').optional().isIn(PRIORITIES).withMessage('Invalid priority'),
   body('status').optional().isIn(STATUSES).withMessage('Invalid status'),
   body('source_entity_type').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 50 }),
-  body('source_entity_id').optional({ nullable: true }).isInt({ min: 1 }),
+  body('source_entity_id').optional({ nullable: true, values: 'falsy' }).isInt({ min: 1 }),
   body('source_label').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 255 }),
-  body('assigned_users_id').optional({ nullable: true }).isInt({ min: 1 }),
+  body('assigned_users_id').optional({ nullable: true, values: 'falsy' }).isInt({ min: 1 }),
   body('due_date').optional({ nullable: true, values: 'falsy' }).isISO8601(),
   body('resolved_date').optional({ nullable: true, values: 'falsy' }).isISO8601(),
-  body('resolution').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 5000 }),
+  body('resolution').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 10000 }),
   body('tags').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 500 }),
+  body('steps_to_reproduce').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 10000 }),
+  body('expected_behavior').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 5000 }),
+  body('actual_behavior').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 5000 }),
+  body('console_errors').optional({ nullable: true, values: 'falsy' }).trim(),
 ];
 
 function baseQuery() {
@@ -37,6 +46,12 @@ function baseQuery() {
     .leftJoin('users as u', 't.assigned_users_id', 'u.users_id')
     .select('t.*', 'u.display_name as assigned_user_name');
 }
+
+// ── GET /api/tickets/meta ────────────────────────────────
+// Returns categories, priorities, statuses for dynamic forms
+router.get('/meta', async (_req, res) => {
+  res.json({ categories: CATEGORIES, priorities: PRIORITIES, statuses: STATUSES });
+});
 
 // ── GET /api/tickets ─────────────────────────────────────
 router.get('/', async (req, res) => {
@@ -73,6 +88,8 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
       title, description, category, priority, status,
       source_entity_type, source_entity_id, source_label,
       assigned_users_id, due_date, resolution, tags,
+      steps_to_reproduce, expected_behavior, actual_behavior,
+      console_errors,
     } = req.body;
 
     const created_by = req.user?.display_name || req.user?.username || 'System';
@@ -93,6 +110,10 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
       due_date:           due_date           || null,
       resolution:         resolution?.trim() || null,
       tags:               tags?.trim()       || null,
+      steps_to_reproduce: steps_to_reproduce?.trim() || null,
+      expected_behavior:  expected_behavior?.trim() || null,
+      actual_behavior:    actual_behavior?.trim() || null,
+      console_errors:     console_errors?.trim() || null,
     });
 
     // Update to the real ticket number (zero-padded 5 digits based on PK)
@@ -107,6 +128,37 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
       comment_type: 'status_change',
     });
 
+    // Notify assignee if set at creation time
+    if (assigned_users_id) {
+      await db.insertReturningId('notifications', {
+        users_id:    Number(assigned_users_id),
+        type:        'info',
+        title:       'Ticket Assigned to You',
+        message:     `${ticket_number}: ${title.trim()}`,
+        entity_type: 'ticket',
+        entity_id:   id,
+      });
+    }
+
+    // Notify all admin users about the new ticket
+    const admins = await db('users')
+      .join('roles', 'users.roles_id', 'roles.roles_id')
+      .where('roles.name', 'Admin')
+      .where('users.status', 'Active')
+      .select('users.users_id');
+    if (admins.length) {
+      await db('notifications').insert(
+        admins.map(a => ({
+          users_id:    a.users_id,
+          type:        'info',
+          title:       'New Ticket Created',
+          message:     `${ticket_number}: ${title.trim()}`,
+          entity_type: 'ticket',
+          entity_id:   id,
+        }))
+      );
+    }
+
     const row = await baseQuery().where('t.tickets_id', id).first();
     res.status(201).json(row);
   } catch (err) { safeError(res, err, 'tickets'); }
@@ -119,6 +171,8 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
       title, description, category, priority, status,
       source_entity_type, source_entity_id, source_label,
       assigned_users_id, due_date, resolved_date, resolution, tags,
+      steps_to_reproduce, expected_behavior, actual_behavior,
+      console_errors,
     } = req.body;
 
     const author = req.user?.display_name || req.user?.username || 'System';
@@ -144,13 +198,23 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
       });
     }
 
-    // Auto-log assignment change
+    // Auto-log assignment change + notify new assignee
     const newAssignee = assigned_users_id ? Number(assigned_users_id) : null;
     if (prev && prev.assigned_users_id !== newAssignee) {
       let content;
       if (newAssignee) {
         const u = await db('users').where('users_id', newAssignee).first();
         content = `Assigned to **${u?.display_name || 'Unknown'}**`;
+        // Notify the new assignee
+        const ticketRow = await db('tickets').where('tickets_id', req.params.id).first();
+        await db.insertReturningId('notifications', {
+          users_id:    newAssignee,
+          type:        'info',
+          title:       'Ticket Assigned to You',
+          message:     `${ticketRow?.ticket_number}: ${title?.trim() || ticketRow?.title}`,
+          entity_type: 'ticket',
+          entity_id:   Number(req.params.id),
+        });
       } else {
         content = 'Unassigned';
       }
@@ -182,6 +246,10 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
       resolved_date:      autoResolvedDate,
       resolution:         resolution?.trim() || null,
       tags:               tags?.trim()       || null,
+      steps_to_reproduce: steps_to_reproduce?.trim() || null,
+      expected_behavior:  expected_behavior?.trim() || null,
+      actual_behavior:    actual_behavior?.trim() || null,
+      console_errors:     console_errors?.trim() || null,
       updated_at:         db.fn.now(),
     });
 

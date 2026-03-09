@@ -191,6 +191,7 @@ export const updateTicket        = (id, d)      => api.put(`/tickets/${id}`, d);
 export const deleteTicket        = id           => api.delete(`/tickets/${id}`);
 export const addTicketComment    = (id, d)      => api.post(`/tickets/${id}/comments`, d);
 export const deleteTicketComment = (tid, cid)   => api.delete(`/tickets/${tid}/comments/${cid}`);
+export const getTicketMeta       = ()           => api.get('/tickets/meta');
 
 // ── Report Builder ─────────────────────────────────────────
 export const getReportCatalog  = ()       => api.get('/reports/catalog');

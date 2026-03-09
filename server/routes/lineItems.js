@@ -9,12 +9,12 @@ const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit')
 // Reusable base query for line items with joined circuit/invoice/usoc info
 function baseQuery() {
   return db('line_items as li')
-    .leftJoin('circuits as ci', 'li.circuits_id', 'ci.circuits_id')
+    .leftJoin('circuits as ci', 'li.cir_id', 'ci.cir_id')
     .leftJoin('invoices as i', 'li.invoices_id', 'i.invoices_id')
     .leftJoin('usoc_codes as u', 'li.usoc_codes_id', 'u.usoc_codes_id')
     .select(
       'li.*',
-      'ci.circuit_number as circuit_identifier', 'ci.location as circuit_location',
+      'ci.circuit_id as circuit_identifier', 'ci.location as circuit_location',
       'i.invoice_number',
       'u.usoc_code', 'u.description as usoc_description', 'u.category as usoc_category'
     );
@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
     if (req.query.invoices_id) query = query.where('li.invoices_id', req.query.invoices_id);
-    if (req.query.circuits_id) query = query.where('li.circuits_id', req.query.circuits_id);
+    if (req.query.cir_id) query = query.where('li.cir_id', req.query.cir_id);
     const rows = await query;
     res.json(rows);
   } catch (err) { safeError(res, err, 'lineItems'); }
@@ -40,7 +40,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
 
 router.post('/', lineItemRules, validate, auditCreate('line_items', 'line_items_id'), async (req, res) => {
   try {
-    const { invoices_id, circuits_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
+    const { invoices_id, cir_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
     const variance = (contracted_rate != null && amount != null)
       ? parseFloat(amount) - parseFloat(contracted_rate)
       : null;
@@ -51,7 +51,7 @@ router.post('/', lineItemRules, validate, auditCreate('line_items', 'line_items_
       else audit_status = 'Pending';
     }
     const id = await db.insertReturningId('line_items', {
-      invoices_id, circuits_id: circuits_id || null,
+      invoices_id, cir_id: cir_id || null,
       usoc_codes_id: usoc_codes_id || null,
       description, charge_type, amount,
       mrc_amount: mrc_amount != null ? mrc_amount : (charge_type === 'MRC' ? amount : null),
@@ -66,7 +66,7 @@ router.post('/', lineItemRules, validate, auditCreate('line_items', 'line_items_
 
 router.put('/:id', idParam, ...lineItemRules, validate, auditUpdate('line_items', 'line_items_id'), async (req, res) => {
   try {
-    const { invoices_id, circuits_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
+    const { invoices_id, cir_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
     const variance = (contracted_rate != null && amount != null)
       ? parseFloat(amount) - parseFloat(contracted_rate)
       : null;
@@ -76,7 +76,7 @@ router.put('/:id', idParam, ...lineItemRules, validate, auditUpdate('line_items'
       else audit_status = 'Pending';
     }
     await db('line_items').where('line_items_id', req.params.id).update({
-      invoices_id, circuits_id: circuits_id || null,
+      invoices_id, cir_id: cir_id || null,
       usoc_codes_id: usoc_codes_id || null,
       description, charge_type, amount,
       mrc_amount: mrc_amount != null ? mrc_amount : (charge_type === 'MRC' ? amount : null),

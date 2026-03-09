@@ -94,7 +94,7 @@ const circuitRules = [
   requiredFk('accounts_id'),
   optionalFk('contracts_id'),
   optionalFk('orders_id'),
-  requiredStr('circuit_number', 100),
+  requiredStr('circuit_id', 100),
   optionalStr('type', 60),
   optionalStr('bandwidth', 40),
   optionalStr('location', 200),
@@ -107,7 +107,7 @@ const circuitRules = [
 const orderRules = [
   requiredFk('accounts_id'),
   optionalFk('contracts_id'),
-  optionalFk('circuits_id'),
+  optionalFk('cir_id'),
   requiredStr('order_number', 80),
   optionalStr('description', 255),
   optionalDecimal('contracted_rate'),
@@ -133,7 +133,7 @@ const invoiceRules = [
 
 const lineItemRules = [
   requiredFk('invoices_id'),
-  optionalFk('circuits_id'),
+  optionalFk('cir_id'),
   optionalFk('usoc_codes_id'),
   optionalStr('description', 255),
   enumField('charge_type', ['MRC', 'NRC', 'Tax/Surcharge', 'Usage', 'One-Time', 'Other']),
@@ -156,7 +156,7 @@ const allocationRules = [
 
 const costSavingsRules = [
   requiredFk('accounts_id'),
-  optionalFk('circuits_id'),
+  optionalFk('cir_id'),
   optionalFk('line_items_id'),
   optionalFk('invoices_id'),
   optionalStr('category', 80),

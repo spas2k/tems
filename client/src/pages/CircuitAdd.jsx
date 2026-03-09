@@ -7,7 +7,7 @@ const TYPES = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', '
 const STATUSES = ['Active', 'Pending', 'Disconnected', 'Suspended'];
 
 const EMPTY = {
-  accounts_id: '', contracts_id: '', circuit_number: '',
+  accounts_id: '', contracts_id: '', circuit_id: '',
   location: '', type: 'Internet', bandwidth: '',
   contracted_rate: '', install_date: '', status: 'Active',
 };
@@ -17,7 +17,7 @@ const SECTIONS = [
     title: 'Circuit Identification',
     description: 'Key identifiers and vendor assignment',
     fields: (rel) => [
-      { key: 'circuit_number', label: 'Circuit ID *', half: true },
+      { key: 'circuit_id', label: 'Circuit ID *', half: true },
       { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
         options: (rel.accounts || []).map(a => ({ value: a.accounts_id, label: a.name })),
         placeholder: 'Select vendor…', half: true },
@@ -61,7 +61,7 @@ export default function CircuitAdd() {
       defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
       onSubmit={d => createCircuit(d)}
       backPath="/circuits"
-      redirectOnSave={res => `/circuits/${res.data.circuits_id}`}
+      redirectOnSave={res => `/circuits/${res.data.cir_id}`}
     />
   );
 }

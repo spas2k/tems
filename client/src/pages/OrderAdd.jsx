@@ -6,7 +6,7 @@ import FormPage from '../components/FormPage';
 const STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
 
 const EMPTY = {
-  accounts_id: '', contracts_id: '', circuits_id: '', order_number: '',
+  accounts_id: '', contracts_id: '', cir_id: '', order_number: '',
   description: '', contracted_rate: '', status: 'Pending',
   order_date: '', due_date: '', notes: '',
 };
@@ -29,8 +29,8 @@ const SECTIONS = [
     description: 'What this order is for and related records',
     fields: (rel) => [
       { key: 'description', label: 'Description', placeholder: 'Brief description of this order' },
-      { key: 'circuits_id', label: 'Related Circuit (optional)', type: 'select',
-        options: (rel.circuits || []).map(c => ({ value: c.circuits_id, label: `${c.circuit_number} — ${c.location || ''}` })),
+      { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
+        options: (rel.circuits || []).map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location || ''}` })),
         placeholder: 'None' },
     ],
   },
@@ -62,7 +62,7 @@ export default function OrderAdd() {
         return { accounts: acct.data, circuits: circ.data };
       }}
       defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
-      beforeSave={form => ({ ...form, circuits_id: form.circuits_id || null })}
+      beforeSave={form => ({ ...form, cir_id: form.cir_id || null })}
       onSubmit={d => createOrder(d)}
       backPath="/orders"
       redirectOnSave={res => `/orders/${res.data.orders_id}`}

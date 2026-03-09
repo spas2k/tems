@@ -172,10 +172,10 @@ app.get('/api/dashboard', async (req, res) => {
     // Recent variances — line items with non-zero variance
     const recentVariances = await db('line_items as li')
       .leftJoin('invoices as i', 'li.invoices_id', 'i.invoices_id')
-      .leftJoin('circuits as ci', 'li.circuits_id', 'ci.circuits_id')
+      .leftJoin('circuits as ci', 'li.cir_id', 'ci.cir_id')
       .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
       .select('li.line_items_id', 'li.description', 'li.amount', 'li.contracted_rate', 'li.variance', 'li.audit_status',
-              'i.invoice_number', 'i.invoices_id', 'ci.circuit_number', 'a.name as account_name')
+              'i.invoice_number', 'i.invoices_id', 'ci.circuit_id', 'a.name as account_name')
       .where('li.audit_status', 'Variance')
       .orderBy('li.line_items_id', 'desc')
       .limit(10);
@@ -198,7 +198,7 @@ app.get('/api/rate-validation', async (req, res) => {
   try {
     const rows = await db('line_items as li')
       .leftJoin('invoices as i',       'li.invoices_id',   'i.invoices_id')
-      .leftJoin('circuits as ci',      'li.circuits_id',   'ci.circuits_id')
+      .leftJoin('circuits as ci',      'li.cir_id',   'ci.cir_id')
       .leftJoin('accounts as a',       'i.accounts_id',    'a.accounts_id')
       .leftJoin('contracts as co',     'ci.contracts_id',  'co.contracts_id')
       .leftJoin('contract_rates as cr', function () {
@@ -212,7 +212,7 @@ app.get('/api/rate-validation', async (req, res) => {
         'i.invoice_number', 'i.invoices_id', 'i.invoice_date',
         'a.name as account_name', 'a.accounts_id',
         'co.contract_number', 'co.contracts_id',
-        'ci.circuit_number',
+        'ci.circuit_id',
         'u.usoc_code', 'u.description as usoc_description',
         'cr.mrc as rate_mrc', 'cr.nrc as rate_nrc', 'cr.effective_date as rate_effective',
       )

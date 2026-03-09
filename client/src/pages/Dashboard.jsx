@@ -309,7 +309,7 @@ export default function Dashboard() {
                       {v.invoice_number}
                     </span>
                   </td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{v.circuit_number || '—'}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{v.circuit_id || '—'}</td>
                   <td style={{ fontWeight: 700 }}>${Number(v.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                   <td>${Number(v.contracted_rate || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                   <td style={{ color: '#ef4444', fontWeight: 700 }}>${Number(v.variance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>

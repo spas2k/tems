@@ -30,7 +30,7 @@ const CATALOG = {
       o:  { table: 'orders',    on: ['ci.orders_id',    'o.orders_id']     },
     },
     fields: [
-      { key: 'circuit_number',  label: 'Circuit Number',    type: 'text',   col: 'ci.circuit_number' },
+      { key: 'circuit_number',  label: 'Circuit Number',    type: 'text',   col: 'ci.circuit_id' },
       { key: 'location',        label: 'Location',          type: 'text',   col: 'ci.location' },
       { key: 'type',            label: 'Circuit Type',      type: 'select', col: 'ci.type',
         options: ['MPLS','Internet','Ethernet','Voice','SD-WAN','Dedicated','Other'] },
@@ -80,7 +80,7 @@ const CATALOG = {
     joins: {
       i:  { table: 'invoices',  on: ['li.invoices_id',  'i.invoices_id']  },
       a:  { table: 'accounts',  on: ['i.accounts_id',   'a.accounts_id'],  dependsOn: 'i' },
-      ci: { table: 'circuits',  on: ['li.circuits_id',  'ci.circuits_id'] },
+      ci: { table: 'circuits',  on: ['li.cir_id',  'ci.cir_id'] },
     },
     fields: [
       { key: 'description',    label: 'Description',      type: 'text',   col: 'li.description' },
@@ -97,7 +97,7 @@ const CATALOG = {
       { key: 'invoice_number', label: 'Invoice Number',   type: 'text',   col: 'i.invoice_number',   join: 'i' },
       { key: 'invoice_date',   label: 'Invoice Date',     type: 'date',   col: 'i.invoice_date',     format: 'date', join: 'i' },
       { key: 'account_name',   label: 'Vendor Name',      type: 'text',   col: 'a.name',             join: ['i','a'] },
-      { key: 'circuit_number', label: 'Circuit Number',   type: 'text',   col: 'ci.circuit_number',  join: 'ci' },
+      { key: 'circuit_number', label: 'Circuit Number',   type: 'text',   col: 'ci.circuit_id',  join: 'ci' },
       { key: 'circuit_location',label: 'Circuit Location',type: 'text',   col: 'ci.location',        join: 'ci' },
     ],
   },
@@ -279,7 +279,6 @@ const TABLES = {
       { key: 'commitment_type', label: 'Commitment Type', type: 'text',   col: 'commitment_type' },
       { key: 'status',          label: 'Status',          type: 'select', col: 'status', options: ['Active','Expired','Pending','Cancelled'] },
       { key: 'auto_renew',      label: 'Auto Renew',      type: 'boolean',col: 'auto_renew' },
-      { key: 'created_at',      label: 'Created Date',    type: 'date',   col: 'created_at', format: 'date' },
     ],
   },
   orders: {
@@ -291,10 +290,8 @@ const TABLES = {
       { key: 'description',     label: 'Description',     type: 'text',   col: 'description' },
       { key: 'order_date',      label: 'Order Date',      type: 'date',   col: 'order_date',      format: 'date' },
       { key: 'due_date',        label: 'Due Date',        type: 'date',   col: 'due_date',        format: 'date' },
-      { key: 'completion_date', label: 'Completion Date', type: 'date',   col: 'completion_date', format: 'date' },
       { key: 'contracted_rate', label: 'Contracted Rate', type: 'number', col: 'contracted_rate', format: 'currency', aggregable: true },
       { key: 'status',          label: 'Status',          type: 'select', col: 'status', options: ['Pending','In Progress','Completed','Cancelled'] },
-      { key: 'created_at',      label: 'Created Date',    type: 'date',   col: 'created_at', format: 'date' },
     ],
   },
   circuits: {
@@ -302,7 +299,7 @@ const TABLES = {
     description: 'Circuit inventory: bandwidth, rates, status',
     table: 'circuits', alias: 'ci', color: '#7c3aed', icon: 'Network',
     fields: [
-      { key: 'circuit_number',  label: 'Circuit Number',  type: 'text',   col: 'circuit_number' },
+      { key: 'circuit_number',  label: 'Circuit Number',  type: 'text',   col: 'circuit_id' },
       { key: 'type',            label: 'Circuit Type',    type: 'select', col: 'type', options: ['MPLS','Internet','Ethernet','Voice','SD-WAN','Dedicated','Other'] },
       { key: 'bandwidth',       label: 'Bandwidth',       type: 'text',   col: 'bandwidth' },
       { key: 'location',        label: 'Location',        type: 'text',   col: 'location' },
@@ -310,7 +307,6 @@ const TABLES = {
       { key: 'install_date',    label: 'Install Date',    type: 'date',   col: 'install_date',    format: 'date' },
       { key: 'disconnect_date', label: 'Disconnect Date', type: 'date',   col: 'disconnect_date', format: 'date' },
       { key: 'status',          label: 'Status',          type: 'select', col: 'status', options: ['Active','Pending','Disconnected','Suspended'] },
-      { key: 'created_at',      label: 'Created Date',    type: 'date',   col: 'created_at', format: 'date' },
     ],
   },
   invoices: {
@@ -326,7 +322,6 @@ const TABLES = {
       { key: 'total_amount',   label: 'Total Amount',   type: 'number', col: 'total_amount',  format: 'currency', aggregable: true },
       { key: 'status',         label: 'Status',         type: 'select', col: 'status', options: ['Open','Paid','Disputed','Overdue','Void'] },
       { key: 'payment_date',   label: 'Payment Date',   type: 'date',   col: 'payment_date',  format: 'date' },
-      { key: 'created_at',     label: 'Created Date',   type: 'date',   col: 'created_at',    format: 'date' },
     ],
   },
   line_items: {
@@ -344,7 +339,6 @@ const TABLES = {
       { key: 'audit_status',    label: 'Audit Status',    type: 'select', col: 'audit_status', options: ['Pending','Validated','Variance','Disputed'] },
       { key: 'period_start',    label: 'Period Start',    type: 'date',   col: 'period_start', format: 'date' },
       { key: 'period_end',      label: 'Period End',      type: 'date',   col: 'period_end',   format: 'date' },
-      { key: 'created_at',      label: 'Created Date',    type: 'date',   col: 'created_at',   format: 'date' },
     ],
   },
   allocations: {
@@ -357,7 +351,6 @@ const TABLES = {
       { key: 'percentage',       label: 'Percentage (%)', type: 'number', col: 'percentage',       aggregable: true },
       { key: 'allocated_amount', label: 'Allocated $',    type: 'number', col: 'allocated_amount', format: 'currency', aggregable: true },
       { key: 'notes',            label: 'Notes',          type: 'text',   col: 'notes' },
-      { key: 'created_at',       label: 'Created Date',   type: 'date',   col: 'created_at', format: 'date' },
     ],
   },
   disputes: {
@@ -373,7 +366,6 @@ const TABLES = {
       { key: 'resolved_date',    label: 'Resolved Date',    type: 'date',   col: 'resolved_date',   format: 'date' },
       { key: 'reference_number', label: 'Reference Number', type: 'text',   col: 'reference_number' },
       { key: 'resolution_notes', label: 'Resolution Notes', type: 'text',   col: 'resolution_notes' },
-      { key: 'created_at',       label: 'Created Date',     type: 'date',   col: 'created_at', format: 'date' },
     ],
   },
   cost_savings: {
@@ -387,7 +379,6 @@ const TABLES = {
       { key: 'identified_date',   label: 'Identified Date',   type: 'date',   col: 'identified_date',   format: 'date' },
       { key: 'projected_savings', label: 'Projected Savings', type: 'number', col: 'projected_savings', format: 'currency', aggregable: true },
       { key: 'realized_savings',  label: 'Realized Savings',  type: 'number', col: 'realized_savings',  format: 'currency', aggregable: true },
-      { key: 'created_at',        label: 'Created Date',      type: 'date',   col: 'created_at', format: 'date' },
     ],
   },
   usoc_codes: {
@@ -500,8 +491,8 @@ const EDGES = [
   ['invoices', 'disputes',     'invoices_id', 'invoices_id'],
   ['invoices', 'cost_savings', 'invoices_id', 'invoices_id'],
   // circuits
-  ['circuits', 'line_items',   'circuits_id', 'circuits_id'],
-  ['circuits', 'cost_savings', 'circuits_id', 'circuits_id'],
+  ['circuits', 'line_items',   'cir_id', 'cir_id'],
+  ['circuits', 'cost_savings', 'cir_id', 'cir_id'],
   // line_items
   ['line_items', 'allocations',  'line_items_id', 'line_items_id'],
   ['line_items', 'disputes',     'line_items_id', 'line_items_id'],

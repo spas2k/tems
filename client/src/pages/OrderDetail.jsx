@@ -161,7 +161,7 @@ export default function OrderDetail() {
       setForm({
         accounts_id:      ord.accounts_id      || '',
         contracts_id:     ord.contracts_id     || '',
-        circuits_id:      ord.circuits_id      || '',
+        cir_id:      ord.cir_id      || '',
         order_number:    ord.order_number    || '',
         description:     ord.description     || '',
         contracted_rate: ord.contracted_rate != null ? ord.contracted_rate : '',
@@ -427,9 +427,9 @@ export default function OrderDetail() {
             </thead>
             <tbody>
               {circuits.map(ci => (
-                <tr key={ci.circuits_id}>
+                <tr key={ci.cir_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.circuits_id}`)}>{ci.circuit_number}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.cir_id}`)}>{ci.circuit_id}</span>
                   </td>
                   <td>{ci.account_name}</td>
                   <td>{ci.location || '—'}</td>

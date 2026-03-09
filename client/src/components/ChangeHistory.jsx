@@ -14,7 +14,7 @@ const ACTION_CONFIG = {
 
 const SKIP_FIELDS = new Set([
   'updated_at', 'created_at', 'password_hash', 'sso_subject',
-  'accounts_id', 'circuits_id', 'contracts_id', 'disputes_id',
+  'accounts_id', 'cir_id', 'contracts_id', 'disputes_id',
   'invoices_id', 'orders_id', 'usoc_codes_id', 'locations_id',
   'vendor_remit_id', 'audit_log_id',
 ]);

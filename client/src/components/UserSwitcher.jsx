@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Check, LogOut, Settings, User } from 'lucide-react';
+import { ChevronDown, Check, LogOut, Settings, User, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const ROLE_COLORS = {
@@ -8,13 +8,6 @@ const ROLE_COLORS = {
   Manager: { bg: '#0d9488', text: '#fff', badge: '#ccfbf1', badgeText: '#0f766e' },
   Analyst: { bg: '#d97706', text: '#fff', badge: '#fef3c7', badgeText: '#92400e' },
   Viewer:  { bg: '#64748b', text: '#fff', badge: '#f1f5f9', badgeText: '#475569' },
-};
-
-// Human-readable persona labels for the 3 demo users
-const PERSONA_LABEL = {
-  'admin@tems.local':   { label: 'Admin',  tag: 'Full access' },
-  'manager@tems.local': { label: 'User',   tag: 'Most features' },
-  'viewer@tems.local':  { label: 'Guest',  tag: 'Read-only' },
 };
 
 function Avatar({ name, role, size = 34 }) {
@@ -40,6 +33,7 @@ export default function UserSwitcher() {
   } = useAuth();
 
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const ref = useRef(null);
 
   // Close on outside click
@@ -54,16 +48,18 @@ export default function UserSwitcher() {
   if (!user) return null;
 
   const roleColors = ROLE_COLORS[user.role_name] || ROLE_COLORS.Viewer;
-  const personaLabel = PERSONA_LABEL[user.email] || null;
+
+  const filteredUsers = demoUsers.filter(du =>
+    !search.trim() ||
+    du.display_name.toLowerCase().includes(search.toLowerCase()) ||
+    du.email.toLowerCase().includes(search.toLowerCase()) ||
+    (du.role_name || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleSwitch = (demoUser) => {
-    // Switching to admin@tems.local = end impersonation (use default admin)
-    if (demoUser.email === 'admin@tems.local') {
-      endImpersonation();
-    } else {
-      switchDemoUser(demoUser.users_id);
-    }
+    switchDemoUser(demoUser.users_id);
     setOpen(false);
+    setSearch('');
   };
 
   return (
@@ -90,7 +86,7 @@ export default function UserSwitcher() {
               background: roleColors.badge, color: roleColors.badgeText,
               letterSpacing: '0.3px',
             }}>
-              {personaLabel ? personaLabel.label : user.role_name}
+              {user.role_name}
             </span>
             {isImpersonating && (
               <span style={{
@@ -132,7 +128,7 @@ export default function UserSwitcher() {
             </div>
           </div>
 
-          {/* Demo user switcher */}
+          {/* Impersonate any user */}
           {demoUsers.length > 0 && (
             <>
               <div style={{
@@ -140,44 +136,59 @@ export default function UserSwitcher() {
                 fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
                 letterSpacing: '0.7px', color: '#94a3b8',
               }}>
-                Switch Demo User
+                Impersonate User
               </div>
-              {demoUsers.map(du => {
-                const isActive = du.users_id === user.users_id;
-                const duColors = ROLE_COLORS[du.role_name] || ROLE_COLORS.Viewer;
-                const duPersona = PERSONA_LABEL[du.email];
-                return (
-                  <div
-                    key={du.users_id}
-                    onClick={() => handleSwitch(du)}
-                    className={`us-dropdown-item${isActive ? ' us-dropdown-item-active' : ''}`}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 16px', cursor: 'pointer',
-                      transition: 'background 0.12s',
-                    }}
-                  >
-                    <Avatar name={du.display_name} role={du.role_name} size={30} />
-                    <div style={{ flex: 1 }}>
-                      <div className="rc-results-count" style={{ fontWeight: 600, fontSize: 13 }}>
-                        {du.display_name}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              {/* Search box */}
+              <div style={{ padding: '4px 12px 6px', position: 'relative' }}>
+                <Search size={13} style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search users…"
+                  autoFocus
+                  style={{
+                    width: '100%', padding: '5px 8px 5px 28px', fontSize: 12,
+                    borderRadius: 7, border: '1px solid #e2e8f0',
+                    outline: 'none', boxSizing: 'border-box',
+                    background: '#f8fafc', color: '#1e293b',
+                  }}
+                />
+              </div>
+              <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                {filteredUsers.length === 0 && (
+                  <div style={{ padding: '10px 16px', fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>No users found</div>
+                )}
+                {filteredUsers.map(du => {
+                  const isActive = du.users_id === user.users_id;
+                  const duColors = ROLE_COLORS[du.role_name] || ROLE_COLORS.Viewer;
+                  return (
+                    <div
+                      key={du.users_id}
+                      onClick={() => handleSwitch(du)}
+                      className={`us-dropdown-item${isActive ? ' us-dropdown-item-active' : ''}`}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '8px 16px', cursor: 'pointer',
+                        transition: 'background 0.12s',
+                      }}
+                    >
+                      <Avatar name={du.display_name} role={du.role_name} size={30} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="rc-results-count" style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {du.display_name}
+                        </div>
                         <span style={{
                           fontSize: 10, fontWeight: 700, padding: '0px 5px', borderRadius: 99,
                           background: duColors.badge, color: duColors.badgeText,
                         }}>
-                          {duPersona ? duPersona.label : du.role_name}
+                          {du.role_name}
                         </span>
-                        {duPersona && (
-                          <span style={{ fontSize: 10, color: '#94a3b8' }}>{duPersona.tag}</span>
-                        )}
                       </div>
+                      {isActive && <Check size={14} color="#2563eb" />}
                     </div>
-                    {isActive && <Check size={14} color="#2563eb" />}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </>
           )}
 

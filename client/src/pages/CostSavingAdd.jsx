@@ -7,7 +7,7 @@ const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rat
 const STATUSES = ['Identified', 'In Progress', 'Resolved'];
 
 const EMPTY = {
-  accounts_id: '', circuits_id: '', category: 'Billing Error',
+  accounts_id: '', cir_id: '', category: 'Billing Error',
   description: '', projected_savings: '', realized_savings: '',
   status: 'Identified', identified_date: '', resolved_date: '', notes: '',
 };
@@ -38,8 +38,8 @@ const SECTIONS = [
     fields: (rel) => [
       { key: 'identified_date', label: 'Identified Date', type: 'date', half: true },
       { key: 'resolved_date', label: 'Resolved Date', type: 'date', half: true },
-      { key: 'circuits_id', label: 'Related Circuit (optional)', type: 'select',
-        options: (rel.circuits || []).map(c => ({ value: c.circuits_id, label: `${c.circuit_number} — ${c.location || ''}` })),
+      { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
+        options: (rel.circuits || []).map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location || ''}` })),
         placeholder: 'None' },
     ],
   },
@@ -64,7 +64,7 @@ export default function CostSavingAdd() {
         return { accounts: acct.data, circuits: circ.data };
       }}
       defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
-      beforeSave={form => ({ ...form, circuits_id: form.circuits_id || null })}
+      beforeSave={form => ({ ...form, cir_id: form.cir_id || null })}
       onSubmit={d => createCostSaving(d)}
       backPath="/cost-savings"
     />

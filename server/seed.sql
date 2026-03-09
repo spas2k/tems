@@ -1,7 +1,6 @@
 -- ============================================================
 -- TEMS - Telecom Expense Management System
--- SQL Seed Script (DEPRECATED)
--- Database: doctore
+-- SQL Seed Script (DEPRECATED - PostgreSQL)
 --
 -- *** DEPRECATED: This file uses the OLD column naming scheme. ***
 -- *** Use Knex migrations and seeds instead:                   ***
@@ -10,8 +9,6 @@
 -- *** See server/migrations/ and server/seeds/ for current     ***
 -- *** schema and data with the new {table}_id PK convention.   ***
 -- ============================================================
-
-USE doctore;
 
 -- ----------------------------------------------------------------
 -- Drop tables in reverse dependency order
@@ -29,23 +26,23 @@ DROP TABLE IF EXISTS accounts;
 -- accounts
 -- ----------------------------------------------------------------
 CREATE TABLE accounts (
-  id             INT AUTO_INCREMENT PRIMARY KEY,
+  id             SERIAL PRIMARY KEY,
   name           VARCHAR(120) NOT NULL,
   account_number VARCHAR(80),
   vendor_type    VARCHAR(60),
   contact_email  VARCHAR(120),
   contact_phone  VARCHAR(40),
   status         VARCHAR(30) NOT NULL DEFAULT 'Active',
-  created_at     DATE NOT NULL DEFAULT (CURDATE()),
-  INDEX idx_accounts_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  created_at     DATE NOT NULL DEFAULT CURRENT_DATE
+);
+CREATE INDEX idx_accounts_status ON accounts (status);
 
 -- ----------------------------------------------------------------
 -- contracts
 -- ----------------------------------------------------------------
 CREATE TABLE contracts (
-  id               INT AUTO_INCREMENT PRIMARY KEY,
-  account_id       INT NOT NULL,
+  id               SERIAL PRIMARY KEY,
+  account_id       INT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   name             VARCHAR(160) NOT NULL,
   contract_number  VARCHAR(80),
   start_date       DATE,
@@ -54,19 +51,18 @@ CREATE TABLE contracts (
   rate_unit        VARCHAR(60),
   term_months      INT,
   status           VARCHAR(30) NOT NULL DEFAULT 'Active',
-  auto_renew       TINYINT(1) NOT NULL DEFAULT 0,
-  FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
-  INDEX idx_contracts_account (account_id),
-  INDEX idx_contracts_status  (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  auto_renew       BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX idx_contracts_account ON contracts (account_id);
+CREATE INDEX idx_contracts_status  ON contracts (status);
 
 -- ----------------------------------------------------------------
 -- orders  (before circuits — circuits reference orders)
 -- ----------------------------------------------------------------
 CREATE TABLE orders (
-  id               INT AUTO_INCREMENT PRIMARY KEY,
-  account_id       INT NOT NULL,
-  contract_id      INT NOT NULL,
+  id               SERIAL PRIMARY KEY,
+  account_id       INT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  contract_id      INT NOT NULL REFERENCES contracts(id) ON DELETE RESTRICT,
   circuit_id       INT DEFAULT NULL,
   order_number     VARCHAR(80) NOT NULL,
   description      VARCHAR(255),
@@ -74,22 +70,20 @@ CREATE TABLE orders (
   order_date       DATE,
   due_date         DATE,
   status           VARCHAR(40) NOT NULL DEFAULT 'In Progress',
-  notes            TEXT,
-  FOREIGN KEY (account_id)  REFERENCES accounts(id)  ON DELETE RESTRICT,
-  FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE RESTRICT,
-  INDEX idx_orders_account  (account_id),
-  INDEX idx_orders_contract (contract_id),
-  INDEX idx_orders_status   (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  notes            TEXT
+);
+CREATE INDEX idx_orders_account  ON orders (account_id);
+CREATE INDEX idx_orders_contract ON orders (contract_id);
+CREATE INDEX idx_orders_status   ON orders (status);
 
 -- ----------------------------------------------------------------
 -- circuits
 -- ----------------------------------------------------------------
 CREATE TABLE circuits (
-  id               INT AUTO_INCREMENT PRIMARY KEY,
-  account_id       INT NOT NULL,
-  contract_id      INT NOT NULL,
-  order_id         INT DEFAULT NULL,
+  id               SERIAL PRIMARY KEY,
+  account_id       INT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  contract_id      INT NOT NULL REFERENCES contracts(id) ON DELETE RESTRICT,
+  order_id         INT DEFAULT NULL REFERENCES orders(id) ON DELETE SET NULL,
   circuit_id       VARCHAR(100) NOT NULL,
   type             VARCHAR(60),
   bandwidth        VARCHAR(40),
@@ -97,21 +91,18 @@ CREATE TABLE circuits (
   contracted_rate  DECIMAL(12,2),
   status           VARCHAR(40) NOT NULL DEFAULT 'Pending',
   install_date     DATE,
-  disconnect_date  DATE,
-  FOREIGN KEY (account_id)  REFERENCES accounts(id)  ON DELETE RESTRICT,
-  FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE RESTRICT,
-  FOREIGN KEY (order_id)    REFERENCES orders(id)    ON DELETE SET NULL,
-  INDEX idx_circuits_account  (account_id),
-  INDEX idx_circuits_contract (contract_id),
-  INDEX idx_circuits_status   (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  disconnect_date  DATE
+);
+CREATE INDEX idx_circuits_account  ON circuits (account_id);
+CREATE INDEX idx_circuits_contract ON circuits (contract_id);
+CREATE INDEX idx_circuits_status   ON circuits (status);
 
 -- ----------------------------------------------------------------
 -- invoices
 -- ----------------------------------------------------------------
 CREATE TABLE invoices (
-  id              INT AUTO_INCREMENT PRIMARY KEY,
-  account_id      INT NOT NULL,
+  id              SERIAL PRIMARY KEY,
+  account_id      INT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   invoice_number  VARCHAR(80) NOT NULL,
   invoice_date    DATE,
   due_date        DATE,
@@ -119,70 +110,62 @@ CREATE TABLE invoices (
   period_end      DATE,
   total_amount    DECIMAL(12,2) NOT NULL DEFAULT 0,
   status          VARCHAR(40)   NOT NULL DEFAULT 'Open',
-  payment_date    DATE,
-  FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE RESTRICT,
-  INDEX idx_invoices_account (account_id),
-  INDEX idx_invoices_status  (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  payment_date    DATE
+);
+CREATE INDEX idx_invoices_account ON invoices (account_id);
+CREATE INDEX idx_invoices_status  ON invoices (status);
 
 -- ----------------------------------------------------------------
 -- line_items
 -- ----------------------------------------------------------------
 CREATE TABLE line_items (
-  id               INT AUTO_INCREMENT PRIMARY KEY,
-  invoice_id       INT NOT NULL,
-  circuit_id       INT DEFAULT NULL,
+  id               SERIAL PRIMARY KEY,
+  invoice_id       INT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  circuit_id       INT DEFAULT NULL REFERENCES circuits(id) ON DELETE SET NULL,
   description      VARCHAR(255),
   charge_type      VARCHAR(60),
   amount           DECIMAL(12,2) NOT NULL,
   contracted_rate  DECIMAL(12,2),
   variance         DECIMAL(12,2),
   period_start     DATE,
-  period_end       DATE,
-  FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
-  FOREIGN KEY (circuit_id) REFERENCES circuits(id) ON DELETE SET NULL,
-  INDEX idx_li_invoice (invoice_id),
-  INDEX idx_li_circuit (circuit_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  period_end       DATE
+);
+CREATE INDEX idx_li_invoice ON line_items (invoice_id);
+CREATE INDEX idx_li_circuit ON line_items (circuit_id);
 
 -- ----------------------------------------------------------------
 -- allocations
 -- ----------------------------------------------------------------
 CREATE TABLE allocations (
-  id                INT AUTO_INCREMENT PRIMARY KEY,
-  line_item_id      INT NOT NULL,
+  id                SERIAL PRIMARY KEY,
+  line_item_id      INT NOT NULL REFERENCES line_items(id) ON DELETE CASCADE,
   cost_center       VARCHAR(120),
   department        VARCHAR(120),
   percentage        DECIMAL(5,2),
   allocated_amount  DECIMAL(12,2),
-  notes             TEXT,
-  FOREIGN KEY (line_item_id) REFERENCES line_items(id) ON DELETE CASCADE,
-  INDEX idx_alloc_li (line_item_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  notes             TEXT
+);
+CREATE INDEX idx_alloc_li ON allocations (line_item_id);
 
 -- ----------------------------------------------------------------
 -- cost_savings
 -- ----------------------------------------------------------------
 CREATE TABLE cost_savings (
-  id                 INT AUTO_INCREMENT PRIMARY KEY,
-  account_id         INT NOT NULL,
-  circuit_id         INT DEFAULT NULL,
-  line_item_id       INT DEFAULT NULL,
-  invoice_id         INT DEFAULT NULL,
+  id                 SERIAL PRIMARY KEY,
+  account_id         INT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  circuit_id         INT DEFAULT NULL REFERENCES circuits(id) ON DELETE SET NULL,
+  line_item_id       INT DEFAULT NULL REFERENCES line_items(id) ON DELETE SET NULL,
+  invoice_id         INT DEFAULT NULL REFERENCES invoices(id) ON DELETE SET NULL,
   category           VARCHAR(80),
   description        TEXT,
   identified_date    DATE,
   status             VARCHAR(40) NOT NULL DEFAULT 'Identified',
   projected_savings  DECIMAL(12,2),
   realized_savings   DECIMAL(12,2) DEFAULT 0,
-  notes              TEXT,
-  FOREIGN KEY (account_id)   REFERENCES accounts(id)   ON DELETE RESTRICT,
-  FOREIGN KEY (circuit_id)   REFERENCES circuits(id)   ON DELETE SET NULL,
-  FOREIGN KEY (line_item_id) REFERENCES line_items(id) ON DELETE SET NULL,
-  FOREIGN KEY (invoice_id)   REFERENCES invoices(id)   ON DELETE SET NULL,
-  INDEX idx_cs_account (account_id),
-  INDEX idx_cs_status  (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  notes              TEXT
+);
+CREATE INDEX idx_cs_account ON cost_savings (account_id);
+CREATE INDEX idx_cs_status  ON cost_savings (status);
 
 
 -- ================================================================

@@ -10,8 +10,8 @@ const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit')
 function baseQuery() {
   return db('cost_savings as cs')
     .leftJoin('accounts as a', 'cs.accounts_id', 'a.accounts_id')
-    .leftJoin('circuits as ci', 'cs.circuits_id', 'ci.circuits_id')
-    .select('cs.*', 'a.name as account_name', 'ci.circuit_number as circuit_identifier');
+    .leftJoin('circuits as ci', 'cs.cir_id', 'ci.cir_id')
+    .select('cs.*', 'a.name as account_name', 'ci.circuit_id as circuit_identifier');
 }
 
 router.get('/', async (req, res) => {
@@ -34,9 +34,9 @@ router.get('/:id', idParam, validate, async (req, res) => {
 
 router.post('/', costSavingsRules, validate, auditCreate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
-    const { accounts_id, circuits_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
+    const { accounts_id, cir_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
     const id = await db.insertReturningId('cost_savings', {
-      accounts_id, circuits_id: circuits_id || null,
+      accounts_id, cir_id: cir_id || null,
       line_items_id: line_items_id || null, invoices_id: invoices_id || null,
       category, description, identified_date,
       status: status || 'Identified',
@@ -50,9 +50,9 @@ router.post('/', costSavingsRules, validate, auditCreate('cost_savings', 'cost_s
 
 router.put('/:id', idParam, ...costSavingsRules, validate, auditUpdate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
-    const { accounts_id, circuits_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
+    const { accounts_id, cir_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
     await db('cost_savings').where('cost_savings_id', req.params.id).update({
-      accounts_id, circuits_id: circuits_id || null,
+      accounts_id, cir_id: cir_id || null,
       line_items_id: line_items_id || null, invoices_id: invoices_id || null,
       category, description, identified_date, status,
       projected_savings, realized_savings: realized_savings || 0,

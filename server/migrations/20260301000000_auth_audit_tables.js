@@ -4,12 +4,6 @@
 // ============================================================
 
 exports.up = async function (knex) {
-  // Disable FK checks — another app's table in this DB has an orphaned FK
-  // referencing a `users` table with a different PK column name.
-  if (knex.client.config.client === 'mysql2') {
-    await knex.raw('SET FOREIGN_KEY_CHECKS = 0');
-  }
-
   await knex.schema
 
     // ── roles ──────────────────────────────────────────────
@@ -74,10 +68,6 @@ exports.up = async function (knex) {
       t.index('users_id');
       t.index('created_at');
     });
-
-  if (knex.client.config.client === 'mysql2') {
-    await knex.raw('SET FOREIGN_KEY_CHECKS = 1');
-  }
 };
 
 exports.down = function (knex) {

@@ -11,7 +11,7 @@ const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rat
 const STATUSES = ['Identified', 'In Progress', 'Resolved'];
 const STATUS_BADGE = { Identified: 'badge badge-orange', 'In Progress': 'badge badge-blue', Resolved: 'badge badge-green' };
 
-const EMPTY = { accounts_id: '', circuits_id: '', category: 'Billing Error', description: '', projected_savings: '', realized_savings: '', status: 'Identified', identified_date: '', resolved_date: '', notes: '' };
+const EMPTY = { accounts_id: '', cir_id: '', category: 'Billing Error', description: '', projected_savings: '', realized_savings: '', status: 'Identified', identified_date: '', resolved_date: '', notes: '' };
 
 const FILTER_CONFIG = {
   account_name: 'select', category: 'select', description: 'text',
@@ -29,7 +29,7 @@ export default function CostSavings() {
     filterConfig: FILTER_CONFIG,
     related: { accounts: getAccounts, circuits: getCircuits },
     defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
-    beforeSave: form => ({ ...form, circuits_id: form.circuits_id || null }),
+    beforeSave: form => ({ ...form, cir_id: form.cir_id || null }),
   });
 
   const { accounts, circuits } = table.related;
@@ -59,8 +59,8 @@ export default function CostSavings() {
     { key: 'realized_savings', label: 'Realized Savings ($)', type: 'number', step: '0.01', half: true },
     { key: 'identified_date', label: 'Identified Date', type: 'date', half: true },
     { key: 'resolved_date', label: 'Resolved Date', type: 'date', half: true },
-    { key: 'circuits_id', label: 'Related Circuit (optional)', type: 'select',
-      options: circuits.map(c => ({ value: c.circuits_id, label: `${c.circuit_number} — ${c.location}` })), placeholder: 'None' },
+    { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
+      options: circuits.map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location}` })), placeholder: 'None' },
     { key: 'notes', label: 'Notes', type: 'textarea' },
   ];
 

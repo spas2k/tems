@@ -149,7 +149,7 @@ export default function CircuitDetail() {
     ]).then(([ci, inv, ac, co, or_]) => {
       const c = ci.data;
       setCircuit(c);
-      setPageTitle(c.circuit_number);
+      setPageTitle(c.circuit_id);
       setInvoices(inv.data);
       setAccounts(ac.data);
       setContracts(co.data);
@@ -158,7 +158,7 @@ export default function CircuitDetail() {
         accounts_id:      c.accounts_id || '',
         contracts_id:     c.contracts_id || '',
         orders_id:        c.orders_id || '',
-        circuit_number:      c.circuit_number || '',
+        circuit_id:      c.circuit_id || '',
         type:            c.type || 'Internet',
         bandwidth:       c.bandwidth || '',
         location:        c.location || '',
@@ -175,9 +175,9 @@ export default function CircuitDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (circuit?.circuit_number) {
+    if (circuit?.circuit_id) {
       window.dispatchEvent(new CustomEvent('tems-recent-item', {
-        detail: { path: `/circuits/${id}`, label: circuit.circuit_number, type: 'circuit' }
+        detail: { path: `/circuits/${id}`, label: circuit.circuit_id, type: 'circuit' }
       }));
     }
   }, [circuit]);
@@ -248,7 +248,7 @@ export default function CircuitDetail() {
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>
-                {circuit.circuit_number}
+                {circuit.circuit_id}
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
                 {circuit.location || 'No location'} · {circuit.account_name}
@@ -328,7 +328,7 @@ export default function CircuitDetail() {
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
           <Field label="Circuit ID *">
-            <input className="form-input" value={form.circuit_number} onChange={e => set('circuit_number', e.target.value)} />
+            <input className="form-input" value={form.circuit_id} onChange={e => set('circuit_id', e.target.value)} />
           </Field>
 
           <Field label="Vendor Account *">
