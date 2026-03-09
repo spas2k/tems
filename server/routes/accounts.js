@@ -1,65 +1,66 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const safeError = require('./_safeError');
+const { validate, idParam, accountRules } = require('./_validators');
+const cascadeGuard = require('./_cascadeGuard');
+const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM accounts ORDER BY name');
+    const rows = await db('accounts').orderBy('name');
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', idParam, validate, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM accounts WHERE id=?', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const row = await db('accounts').where('accounts_id', req.params.id).first();
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', accountRules, validate, auditCreate('accounts', 'accounts_id'), async (req, res) => {
   try {
-    const { name, account_number, vendor_type, contact_email, contact_phone, status } = req.body;
-    const [result] = await db.query(
-      'INSERT INTO accounts (name, account_number, vendor_type, contact_email, contact_phone, status) VALUES (?,?,?,?,?,?)',
-      [name, account_number, vendor_type, contact_email, contact_phone, status || 'Active']
-    );
-    const [rows] = await db.query('SELECT * FROM accounts WHERE id=?', [result.insertId]);
-    res.status(201).json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { name, account_number, vendor_type, contact_name, contact_email, contact_phone, status } = req.body;
+    const id = await db.insertReturningId('accounts', {
+      name, account_number, vendor_type, contact_name, contact_email, contact_phone,
+      status: status || 'Active',
+    });
+    const row = await db('accounts').where('accounts_id', id).first();
+    res.status(201).json(row);
+  } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', idParam, ...accountRules, validate, auditUpdate('accounts', 'accounts_id'), async (req, res) => {
   try {
-    const { name, account_number, vendor_type, contact_email, contact_phone, status } = req.body;
-    await db.query(
-      'UPDATE accounts SET name=?, account_number=?, vendor_type=?, contact_email=?, contact_phone=?, status=? WHERE id=?',
-      [name, account_number, vendor_type, contact_email, contact_phone, status, req.params.id]
-    );
-    const [rows] = await db.query('SELECT * FROM accounts WHERE id=?', [req.params.id]);
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { name, account_number, vendor_type, contact_name, contact_email, contact_phone, status } = req.body;
+    await db('accounts').where('accounts_id', req.params.id).update({
+      name, account_number, vendor_type, contact_name, contact_email, contact_phone, status,
+    });
+    const row = await db('accounts').where('accounts_id', req.params.id).first();
+    res.json(row);
+  } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.get('/:id/circuits', async (req, res) => {
+router.get('/:id/circuits', idParam, validate, async (req, res) => {
   try {
-    const sql = `
-      SELECT ci.*, co.contract_number
-      FROM circuits ci
-      LEFT JOIN contracts co ON ci.contract_id = co.id
-      WHERE ci.account_id = ?
-      ORDER BY ci.status, ci.location
-    `;
-    const [rows] = await db.query(sql, [req.params.id]);
+    const rows = await db('circuits as ci')
+      .leftJoin('contracts as co', 'ci.contracts_id', 'co.contracts_id')
+      .select('ci.*', 'co.contract_number')
+      .where('ci.accounts_id', req.params.id)
+      .orderBy('ci.status')
+      .orderBy('ci.location');
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', idParam, validate, cascadeGuard('accounts', 'accounts_id'), auditDelete('accounts', 'accounts_id'), async (req, res) => {
   try {
-    await db.query('DELETE FROM accounts WHERE id=?', [req.params.id]);
+    await db('accounts').where('accounts_id', req.params.id).del();
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'accounts'); }
 });
 
 module.exports = router;

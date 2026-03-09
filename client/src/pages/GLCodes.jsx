@@ -7,7 +7,7 @@ export default function GLCodes() {
       <div className="page-card" style={{ borderRadius: 14, overflow: 'hidden' }}>
         <div className="page-card-header" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <BookOpen size={22} />
-          <span style={{ fontWeight: 700, fontSize: 17, color: '#0f172a' }}>GL Codes</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 17 }}>GL Codes</span>
         </div>
         <div style={{ padding: 40, textAlign: 'center' }}>
           <BookOpen size={48} color="#94a3b8" style={{ marginBottom: 16 }} />

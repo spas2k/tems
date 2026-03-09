@@ -1,82 +1,87 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const safeError = require('./_safeError');
+const { validate, idParam, orderRules } = require('./_validators');
+const cascadeGuard = require('./_cascadeGuard');
+const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
-const BASE_SQL = `
-  SELECT o.*, a.name AS account_name, co.contract_number, ci.circuit_id AS circuit_identifier
-  FROM orders o
-  LEFT JOIN accounts a ON o.account_id = a.id
-  LEFT JOIN contracts co ON o.contract_id = co.id
-  LEFT JOIN circuits ci ON o.circuit_id = ci.id
-`;
+// Reusable base query for orders with joined names
+function baseQuery() {
+  return db('orders as o')
+    .leftJoin('accounts as a', 'o.accounts_id', 'a.accounts_id')
+    .leftJoin('contracts as co', 'o.contracts_id', 'co.contracts_id')
+    .leftJoin('circuits as ci', 'o.circuits_id', 'ci.circuits_id')
+    .leftJoin('users as u', 'o.assigned_users_id', 'u.users_id')
+    .select('o.*', 'a.name as account_name', 'co.contract_number', 'ci.circuit_number as circuit_identifier', 'u.display_name as assigned_user_name');
+}
 
 router.get('/', async (req, res) => {
   try {
-    const { account_id, status } = req.query;
-    let sql = BASE_SQL;
-    const params = [];
-    const wheres = [];
-    if (account_id) { wheres.push('o.account_id=?'); params.push(account_id); }
-    if (status)     { wheres.push('o.status=?');     params.push(status); }
-    if (wheres.length) sql += ' WHERE ' + wheres.join(' AND ');
-    sql += ' ORDER BY o.order_date DESC';
-    const [rows] = await db.query(sql, params);
+    let query = baseQuery();
+    if (req.query.accounts_id) query = query.where('o.accounts_id', req.query.accounts_id);
+    if (req.query.status)      query = query.where('o.status', req.query.status);
+    const rows = await query.orderBy('o.order_date', 'desc');
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', idParam, validate, async (req, res) => {
   try {
-    const [rows] = await db.query(BASE_SQL + ' WHERE o.id=?', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const row = await baseQuery().where('o.orders_id', req.params.id).first();
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', orderRules, validate, auditCreate('orders', 'orders_id'), async (req, res) => {
   try {
-    const { account_id, contract_id, circuit_id, order_number, description, contracted_rate, order_date, due_date, status, notes } = req.body;
-    const [result] = await db.query(
-      'INSERT INTO orders (account_id, contract_id, circuit_id, order_number, description, contracted_rate, order_date, due_date, status, notes) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [account_id, contract_id, circuit_id || null, order_number, description, contracted_rate, order_date, due_date || null, status || 'In Progress', notes || '']
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE o.id=?', [result.insertId]);
-    res.status(201).json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { accounts_id, contracts_id, circuits_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
+    const id = await db.insertReturningId('orders', {
+      accounts_id, contracts_id, circuits_id: circuits_id || null,
+      order_number, description, contracted_rate, order_date,
+      due_date: due_date || null,
+      status: status || 'In Progress',
+      notes: notes || '',
+      assigned_users_id: assigned_users_id || null,
+    });
+    const row = await baseQuery().where('o.orders_id', id).first();
+    res.status(201).json(row);
+  } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', idParam, ...orderRules, validate, auditUpdate('orders', 'orders_id'), async (req, res) => {
   try {
-    const { account_id, contract_id, circuit_id, order_number, description, contracted_rate, order_date, due_date, status, notes } = req.body;
-    await db.query(
-      'UPDATE orders SET account_id=?, contract_id=?, circuit_id=?, order_number=?, description=?, contracted_rate=?, order_date=?, due_date=?, status=?, notes=? WHERE id=?',
-      [account_id, contract_id, circuit_id || null, order_number, description, contracted_rate, order_date, due_date || null, status, notes || '', req.params.id]
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE o.id=?', [req.params.id]);
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { accounts_id, contracts_id, circuits_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
+    await db('orders').where('orders_id', req.params.id).update({
+      accounts_id, contracts_id, circuits_id: circuits_id || null,
+      order_number, description, contracted_rate, order_date,
+      due_date: due_date || null, status, notes: notes || '',
+      assigned_users_id: assigned_users_id || null,
+    });
+    const row = await baseQuery().where('o.orders_id', req.params.id).first();
+    res.json(row);
+  } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.get('/:id/circuits', async (req, res) => {
+router.get('/:id/circuits', idParam, validate, async (req, res) => {
   try {
-    const sql = `
-      SELECT ci.*, a.name AS account_name, co.contract_number
-      FROM circuits ci
-      LEFT JOIN accounts a ON ci.account_id = a.id
-      LEFT JOIN contracts co ON ci.contract_id = co.id
-      WHERE ci.order_id = ?
-      ORDER BY ci.install_date DESC, ci.circuit_id
-    `;
-    const [rows] = await db.query(sql, [req.params.id]);
+    const rows = await db('circuits as ci')
+      .leftJoin('accounts as a', 'ci.accounts_id', 'a.accounts_id')
+      .leftJoin('contracts as co', 'ci.contracts_id', 'co.contracts_id')
+      .select('ci.*', 'a.name as account_name', 'co.contract_number')
+      .where('ci.orders_id', req.params.id)
+      .orderBy('ci.install_date', 'desc')
+      .orderBy('ci.circuit_number');
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', idParam, validate, cascadeGuard('orders', 'orders_id'), auditDelete('orders', 'orders_id'), async (req, res) => {
   try {
-    await db.query('DELETE FROM orders WHERE id=?', [req.params.id]);
+    await db('orders').where('orders_id', req.params.id).del();
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'orders'); }
 });
 
 module.exports = router;

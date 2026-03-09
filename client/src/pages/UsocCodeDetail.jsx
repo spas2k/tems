@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Tag, Save, FileText } from 'lucide-react';
 import { getUsocCode, updateUsocCode, getContractRates } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
 
 const CATEGORIES = ['Access', 'Transport', 'Wireless', 'Feature', 'Surcharge'];
@@ -29,6 +30,7 @@ export default function UsocCodeDetail() {
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -65,6 +67,7 @@ export default function UsocCodeDetail() {
       const updated = await updateUsocCode(id, form);
       setUsoc(updated.data);
       setDirty(false);
+      setHistoryKey(k => k + 1);
       showToast('USOC code saved successfully.');
     } catch { showToast('Save failed.', false); }
     finally { setSaving(false); }
@@ -120,7 +123,7 @@ export default function UsocCodeDetail() {
       {/* Editable details */}
       <div className="page-card">
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>USOC Code Details</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>USOC Code Details</span>
           {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -146,7 +149,7 @@ export default function UsocCodeDetail() {
       {/* Contract Rates using this USOC */}
       <div className="page-card">
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
             <FileText size={16} color="#0d9488" /> Contract Rates Using This USOC
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>{rates.length} rate{rates.length !== 1 ? 's' : ''}</span>
@@ -180,6 +183,7 @@ export default function UsocCodeDetail() {
           </table>
         )}
       </div>
+      <ChangeHistory resource="usoc_codes" resourceId={id} refreshKey={historyKey} />
     </div>
   );
 }

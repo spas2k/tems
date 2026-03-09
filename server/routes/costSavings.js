@@ -1,66 +1,73 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const safeError = require('./_safeError');
+const { validate, idParam, costSavingsRules } = require('./_validators');
+const cascadeGuard = require('./_cascadeGuard');
+const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
-const BASE_SQL = `
-  SELECT cs.*, a.name AS account_name, ci.circuit_id AS circuit_identifier
-  FROM cost_savings cs
-  LEFT JOIN accounts a ON cs.account_id = a.id
-  LEFT JOIN circuits ci ON cs.circuit_id = ci.id
-`;
+// Reusable base query for cost savings with joined context
+function baseQuery() {
+  return db('cost_savings as cs')
+    .leftJoin('accounts as a', 'cs.accounts_id', 'a.accounts_id')
+    .leftJoin('circuits as ci', 'cs.circuits_id', 'ci.circuits_id')
+    .select('cs.*', 'a.name as account_name', 'ci.circuit_number as circuit_identifier');
+}
 
 router.get('/', async (req, res) => {
   try {
-    const { account_id, status } = req.query;
-    let sql = BASE_SQL;
-    const params = [];
-    const wheres = [];
-    if (account_id) { wheres.push('cs.account_id=?'); params.push(account_id); }
-    if (status)     { wheres.push('cs.status=?');     params.push(status); }
-    if (wheres.length) sql += ' WHERE ' + wheres.join(' AND ');
-    sql += ' ORDER BY cs.identified_date DESC';
-    const [rows] = await db.query(sql, params);
+    let query = baseQuery();
+    if (req.query.accounts_id) query = query.where('cs.accounts_id', req.query.accounts_id);
+    if (req.query.status)      query = query.where('cs.status', req.query.status);
+    const rows = await query.orderBy('cs.identified_date', 'desc');
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', idParam, validate, async (req, res) => {
   try {
-    const [rows] = await db.query(BASE_SQL + ' WHERE cs.id=?', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const row = await baseQuery().where('cs.cost_savings_id', req.params.id).first();
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', costSavingsRules, validate, auditCreate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
-    const { account_id, circuit_id, line_item_id, invoice_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
-    const [result] = await db.query(
-      'INSERT INTO cost_savings (account_id, circuit_id, line_item_id, invoice_id, category, description, identified_date, status, projected_savings, realized_savings, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [account_id, circuit_id || null, line_item_id || null, invoice_id || null, category, description, identified_date, status || 'Identified', projected_savings, realized_savings || 0, notes || '']
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE cs.id=?', [result.insertId]);
-    res.status(201).json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { accounts_id, circuits_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
+    const id = await db.insertReturningId('cost_savings', {
+      accounts_id, circuits_id: circuits_id || null,
+      line_items_id: line_items_id || null, invoices_id: invoices_id || null,
+      category, description, identified_date,
+      status: status || 'Identified',
+      projected_savings, realized_savings: realized_savings || 0,
+      notes: notes || '',
+    });
+    const row = await baseQuery().where('cs.cost_savings_id', id).first();
+    res.status(201).json(row);
+  } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', idParam, ...costSavingsRules, validate, auditUpdate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
-    const { account_id, circuit_id, line_item_id, invoice_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
-    await db.query(
-      'UPDATE cost_savings SET account_id=?, circuit_id=?, line_item_id=?, invoice_id=?, category=?, description=?, identified_date=?, status=?, projected_savings=?, realized_savings=?, notes=? WHERE id=?',
-      [account_id, circuit_id || null, line_item_id || null, invoice_id || null, category, description, identified_date, status, projected_savings, realized_savings || 0, notes || '', req.params.id]
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE cs.id=?', [req.params.id]);
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { accounts_id, circuits_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
+    await db('cost_savings').where('cost_savings_id', req.params.id).update({
+      accounts_id, circuits_id: circuits_id || null,
+      line_items_id: line_items_id || null, invoices_id: invoices_id || null,
+      category, description, identified_date, status,
+      projected_savings, realized_savings: realized_savings || 0,
+      notes: notes || '',
+    });
+    const row = await baseQuery().where('cs.cost_savings_id', req.params.id).first();
+    res.json(row);
+  } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', idParam, validate, cascadeGuard('cost_savings', 'cost_savings_id'), auditDelete('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
-    await db.query('DELETE FROM cost_savings WHERE id=?', [req.params.id]);
+    await db('cost_savings').where('cost_savings_id', req.params.id).del();
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
 module.exports = router;

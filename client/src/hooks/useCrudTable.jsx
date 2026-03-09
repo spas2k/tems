@@ -1,4 +1,119 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useConfirm } from '../context/ConfirmContext';
+
+// ── Filter engine ─────────────────────────────────────────────────────────────
+
+/** Default operator for each filter type */
+const DEFAULT_OP = { text: 'contains', select: 'equals', date: 'on', boolean: 'equals', number: 'equals' };
+
+/** Operators that are active with no value (no text input needed) */
+const NO_VALUE_OPS = new Set([
+  'is_empty', 'not_empty', 'this_week', 'this_month', 'this_quarter', 'this_year',
+]);
+
+/**
+ * Normalise a stored filter value (old plain-string or new {op,value} object)
+ * into { op, value }.
+ */
+function normalizeFilter(f, type = 'text') {
+  if (!f && f !== 0) return { op: DEFAULT_OP[type] || 'contains', value: '' };
+  if (typeof f === 'string') return { op: DEFAULT_OP[type] || 'contains', value: f };
+  return { op: f.op || DEFAULT_OP[type] || 'contains', value: f.value ?? '' };
+}
+
+/** Returns true if this filter should actually narrow results */
+function isFilterActive(f, type) {
+  const { op, value } = normalizeFilter(f, type);
+  if (NO_VALUE_OPS.has(op)) return true;
+  return value !== '';
+}
+
+/** Core per-cell predicate */
+function applyFilter(cell, op, value, type) {
+  // ops with no value
+  if (op === 'is_empty')  return cell === null || cell === undefined || cell === '';
+  if (op === 'not_empty') return cell !== null  && cell !== undefined && cell !== '';
+
+  // boolean shortcut
+  if (type === 'boolean') {
+    if (value === 'true')  return !!cell;
+    if (value === 'false') return !cell;
+    return true;
+  }
+
+  // date relative ops (no text value needed)
+  if (op === 'this_week') {
+    if (!cell) return false;
+    const d = new Date(cell), now = new Date();
+    const start = new Date(now); start.setDate(now.getDate() - now.getDay()); start.setHours(0, 0, 0, 0);
+    const end   = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999);
+    return d >= start && d <= end;
+  }
+  if (op === 'this_month') {
+    if (!cell) return false;
+    const d = new Date(cell), now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  if (op === 'this_quarter') {
+    if (!cell) return false;
+    const d = new Date(cell), now = new Date();
+    return d.getFullYear() === now.getFullYear() &&
+           Math.floor(d.getMonth() / 3) === Math.floor(now.getMonth() / 3);
+  }
+  if (op === 'this_year') {
+    if (!cell) return false;
+    return new Date(cell).getFullYear() === new Date().getFullYear();
+  }
+
+  // between (value encoded as "from|to")
+  if (op === 'between') {
+    const [from, to] = value.split('|');
+    const cv = type === 'number' ? Number(cell) : String(cell ?? '');
+    if (from && to)  return cv >= (type === 'number' ? Number(from) : from) && cv <= (type === 'number' ? Number(to) : to);
+    if (from)        return cv >= (type === 'number' ? Number(from) : from);
+    if (to)          return cv <= (type === 'number' ? Number(to)   : to);
+    return true;
+  }
+
+  // number comparisons
+  if (type === 'number') {
+    const cv = Number(cell), val = Number(value);
+    if (op === 'equals')     return cv === val;
+    if (op === 'not_equals') return cv !== val;
+    if (op === 'gt')         return cv > val;
+    if (op === 'gte')        return cv >= val;
+    if (op === 'lt')         return cv < val;
+    if (op === 'lte')        return cv <= val;
+  }
+
+  // string ops
+  const str = (cell ?? '').toString().toLowerCase();
+  const val = value.toLowerCase();
+  switch (op) {
+    case 'contains':     return str.includes(val);
+    case 'not_contains': return !str.includes(val);
+    case 'starts_with':  return str.startsWith(val);
+    case 'ends_with':    return str.endsWith(val);
+    case 'equals':       return str === val;
+    case 'not_equals':   return str !== val;
+    case 'on':           return str.includes(val);
+    case 'not_on':       return !str.includes(val);
+    case 'before':       return cell && String(cell) < value;
+    case 'after':        return cell && String(cell) > value;
+    case 'in_set': {
+      const set = value.split(/[,\n]/).map(v => v.trim().toLowerCase()).filter(Boolean);
+      return set.length === 0 || set.includes(str);
+    }
+    case 'not_in_set': {
+      const set = value.split(/[,\n]/).map(v => v.trim().toLowerCase()).filter(Boolean);
+      return set.length === 0 || !set.includes(str);
+    }
+    default: return str.includes(val);
+  }
+}
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
 
 /**
  * Shared hook for all CRUD list pages.
@@ -6,7 +121,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
  * @param {Object}   api           - { list, create?, update?, delete? }
  * @param {string}   idKey         - Primary key field name, e.g. 'orders_id'
  * @param {Object}   emptyForm     - Default form values for "New" modal
- * @param {Object}   filterConfig  - { fieldKey: 'text'|'select'|'date'|'boolean' }
+ * @param {Object}   filterConfig  - { fieldKey: 'text'|'select'|'date'|'boolean'|'number' }
  * @param {Object}   related       - { accounts: getAccountsFn, ... }
  * @param {Function} defaultValues - (related) => overrides for openNew
  * @param {Function} beforeSave    - (form, editing) => transformed payload
@@ -20,6 +135,9 @@ export default function useCrudTable({
   defaultValues,
   beforeSave,
 }) {
+  /* ── confirm dialog ───────────────────────────────────── */
+  const confirm = useConfirm();
+
   /* ── core data ───────────────────────────────────────── */
   const [data, setData] = useState([]);
   const [relatedData, setRelatedData] = useState(
@@ -35,14 +153,39 @@ export default function useCrudTable({
 
   /* ── filters ─────────────────────────────────────────── */
   const filterInit = useMemo(
-    () => Object.fromEntries(Object.keys(filterConfig).map(k => [k, ''])),
+    () => Object.fromEntries(
+      Object.keys(filterConfig).map(k => [k, { op: DEFAULT_OP[filterConfig[k]] || 'contains', value: '' }])
+    ),
     [] // filterConfig is static per page
   );
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState(filterInit);
   const setFilter    = (k, v) => setFilters(p => ({ ...p, [k]: v }));
   const clearFilters = ()     => setFilters(filterInit);
-  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+  const hasActiveFilters = Object.entries(filters).some(([k, f]) =>
+    isFilterActive(f, filterConfig[k] || 'text')
+  );
+
+  /* ── apply pre-set filters from navigation state ── */
+  /* Runs whenever location.key changes so same-page favorite switches work */
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.filters) {
+      // migrate plain-string values from navigation state into {op,value} objects
+      const wrapped = Object.fromEntries(
+        Object.entries(location.state.filters).map(([k, v]) => [
+          k,
+          typeof v === 'object' && v !== null && 'op' in v
+            ? v
+            : { op: DEFAULT_OP[filterConfig[k] || 'text'] || 'contains', value: String(v) },
+        ])
+      );
+      // Reset to defaults first so filters not in the favorite are cleared
+      setFilters({ ...filterInit, ...wrapped });
+      setShowFilters(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   /* ── sort ────────────────────────────────────────────── */
   const [sort, setSort] = useState({ key: null, dir: 'asc' });
@@ -60,15 +203,12 @@ export default function useCrudTable({
   /* ── processed data (filter → sort) ──────────────────── */
   const processedData = useMemo(() => {
     let result = data.filter(row =>
-      Object.entries(filters).every(([key, val]) => {
-        if (!val) return true;
-        const cell = row[key];
+      Object.entries(filters).every(([key, filterObj]) => {
         const type = filterConfig[key] || 'text';
-        if (type === 'select')  return cell === val;
-        if (type === 'date')    return (cell || '').includes(val);
-        if (type === 'boolean') return val === 'yes' ? !!cell : !cell;
-        // text — case-insensitive includes
-        return (cell ?? '').toString().toLowerCase().includes(val.toLowerCase());
+        const { op, value } = normalizeFilter(filterObj, type);
+        // skip inactive filters
+        if (!NO_VALUE_OPS.has(op) && value === '') return true;
+        return applyFilter(row[key], op, value, type);
       })
     );
     if (sort.key) {
@@ -155,8 +295,8 @@ export default function useCrudTable({
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this record?')) return;
+  const handleDelete = async (id, { skipConfirm = false } = {}) => {
+    if (!skipConfirm && !(await confirm('Delete this record?'))) return;
     try {
       await api.delete(id);
       load();
@@ -188,7 +328,16 @@ export default function useCrudTable({
     localStorage.setItem(storageKey, JSON.stringify(updated));
   };
   const loadFilter = (filtersObj) => {
-    setFilters(filtersObj);
+    // migrate old plain-string format from localStorage
+    const migrated = Object.fromEntries(
+      Object.entries(filtersObj).map(([k, v]) => [
+        k,
+        typeof v === 'object' && v !== null && 'op' in v
+          ? v
+          : { op: DEFAULT_OP[filterConfig[k] || 'text'] || 'contains', value: String(v || '') },
+      ])
+    );
+    setFilters(migrated);
     setShowFilters(true);
   };
 

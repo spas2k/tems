@@ -1,15 +1,18 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Save, Network, ShoppingCart, AlertTriangle, RefreshCw, Plus, Pencil, Trash2, Tag } from 'lucide-react';
+import { ArrowLeft, FileText, Save, Network, ShoppingCart, AlertTriangle, RefreshCw, Plus, Pencil, Trash2, Tag, ExternalLink, SlidersHorizontal, MessageSquare } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import {
   getContract, updateContract, getContractCircuits, getContractOrders, getAccounts,
   getContractRates, getUsocCodes, createContractRate, updateContractRate, deleteContractRate,
 } from '../api';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
+import ChangeHistory from '../components/ChangeHistory';
 import Modal from '../components/Modal';
 import dayjs from 'dayjs';
+import { useConfirm } from '../context/ConfirmContext';
 
 const STATUSES = ['Active', 'Pending', 'Expired', 'Terminated'];
 
@@ -32,6 +35,29 @@ const ORD_STATUS_BADGE = {
   Pending:       'badge badge-orange',
 };
 
+const NAV_SECTIONS = [
+  { key: 'details',  label: 'Contract Details', Icon: SlidersHorizontal },
+  { key: 'circuits', label: 'Circuits',          Icon: Network           },
+  { key: 'rates',    label: 'Rate Schedule',     Icon: Tag               },
+  { key: 'orders',   label: 'Orders',            Icon: ShoppingCart      },
+  { key: 'notes',    label: 'Notes & History',   Icon: MessageSquare     },
+];
+const NAV_BTN = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: 30, height: 30, borderRadius: 6, border: 'none',
+  background: 'transparent', cursor: 'pointer', color: '#cbd5e1',
+  transition: 'background 0.15s, color 0.15s',
+};
+function NavIcon({ label, Icon, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button title={label} onClick={onClick}
+      style={{ ...NAV_BTN, background: hover ? 'rgba(255,255,255,0.15)' : 'transparent', color: hover ? '#f8fafc' : '#cbd5e1' }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    ><Icon size={15} /></button>
+  );
+}
+
 function Field({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -44,7 +70,10 @@ function Field({ label, children }) {
 export default function ContractDetail() {
   const { id }   = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { setPageTitle } = useContext(PageTitleContext);
+  const { hasPermission } = useAuth();
+  const canUpdate = hasPermission('contracts', 'update');
 
   const [contract, setContract] = useState(null);
   const [circuits, setCircuits] = useState([]);
@@ -56,8 +85,11 @@ export default function ContractDetail() {
   const [form,    setForm]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
   const [dirty,   setDirty]   = useState(false);
   const [toast,   setToast]   = useState(null);
+  const refs = { details: useRef(null), circuits: useRef(null), rates: useRef(null), orders: useRef(null), notes: useRef(null) };
+  const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const [rateModal, setRateModal]     = useState(false);
   const [editingRate, setEditingRate] = useState(null);
@@ -123,6 +155,7 @@ export default function ContractDetail() {
       const updated = await updateContract(id, form);
       setContract(updated.data);
       setDirty(false);
+      setHistoryKey(k => k + 1);
       showToast('Contract saved successfully.');
     } catch {
       showToast('Save failed.', false);
@@ -147,7 +180,7 @@ export default function ContractDetail() {
     } catch { showToast('Save failed.', false); }
   };
   const deleteRate = async rId => {
-    if (!window.confirm('Delete this rate?')) return;
+    if (!(await confirm('Delete this rate?'))) return;
     try { await deleteContractRate(rId); refreshRates(); showToast('Rate deleted.'); }
     catch { showToast('Delete failed.', false); }
   };
@@ -219,14 +252,24 @@ export default function ContractDetail() {
             </span>
           )}
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={!dirty || saving}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}
-        >
-          <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 6px' }}>
+            {NAV_SECTIONS.map(({ key, label, Icon }) => (
+              <NavIcon key={key} label={label} Icon={Icon} onClick={() => scrollTo(key)} />
+            ))}
+          </div>
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {canUpdate && (
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}
+            >
+              <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          )}
+        </div>
       </DetailHeader>
 
       {/* KPI row */}
@@ -262,9 +305,9 @@ export default function ContractDetail() {
       </div>
 
       {/* Editable Contract Details */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Contract Details</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Contract Details</span>
           {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -344,10 +387,16 @@ export default function ContractDetail() {
       </div>
 
       {/* Circuits on this Contract */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.circuits} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            className="rc-results-count"
+            style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            onClick={() => navigate('/circuits', { state: { filters: { account_name: contract.account_name }, showFilters: true } })}
+            title="View all circuits for this vendor"
+          >
             <Network size={16} color="#7c3aed" /> Circuits on This Contract
+            <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>{circuits.length} circuit{circuits.length !== 1 ? 's' : ''}</span>
         </div>
@@ -389,9 +438,9 @@ export default function ContractDetail() {
       </div>
 
       {/* Rate Schedule */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.rates} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Tag size={16} color="#7c3aed" /> Rate Schedule
           </span>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -437,10 +486,16 @@ export default function ContractDetail() {
       </div>
 
       {/* Orders on this Contract */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.orders} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            className="rc-results-count"
+            style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            onClick={() => navigate('/orders', { state: { filters: { account_name: contract.account_name }, showFilters: true } })}
+            title="View all orders for this vendor"
+          >
             <ShoppingCart size={16} color="#d97706" /> Orders on This Contract
+            <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
         </div>
@@ -498,7 +553,10 @@ export default function ContractDetail() {
         <div><label className="form-label">Notes</label><textarea className="form-input" rows={2} value={rateForm.notes} onChange={e => setR('notes', e.target.value)} /></div>
       </Modal>
 
-      <NoteTimeline entityType="contract" entityId={id} />
+      <div ref={refs.notes} style={{ scrollMarginTop: 80 }}>
+        <NoteTimeline entityType="contract" entityId={id} />
+        <ChangeHistory resource="contracts" resourceId={id} refreshKey={historyKey} />
+      </div>
     </div>
   );
 }

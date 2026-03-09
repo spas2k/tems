@@ -111,7 +111,7 @@ export default function BatchUpload() {
       <div className="page-card" style={{ borderRadius: 14, marginBottom: 24, overflow: 'hidden' }}>
         <div className="page-card-header" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Upload size={22} />
-          <span style={{ fontWeight: 700, fontSize: 17, color: '#0f172a' }}>Batch Upload</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 17 }}>Batch Upload</span>
         </div>
 
         <div style={{ padding: 24 }}>

@@ -5,6 +5,8 @@ import { getOrders, createOrder, updateOrder, deleteOrder, getAccounts, getContr
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
 const STATUS_BADGE = { Pending: 'badge badge-orange', 'In Progress': 'badge badge-blue', Completed: 'badge badge-green', Cancelled: 'badge badge-gray' };
@@ -19,6 +21,10 @@ const FILTER_CONFIG = {
 
 export default function Orders() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const confirm = useConfirm();
+  const canCreate = hasPermission('orders', 'create');
+  const canDelete = hasPermission('orders', 'delete');
   const table = useCrudTable({
     api: { list: getOrders, create: createOrder, update: updateOrder, delete: deleteOrder },
     idKey: 'orders_id',
@@ -72,11 +78,12 @@ export default function Orders() {
         columns={columns}
         {...table.tableProps}
         title="All Orders"
+        titleIcon={<ShoppingCart size={15} color="#16a34a" />}
         exportFilename="Orders"
-        bulkActions={[
-          { label: 'Delete', icon: Trash2, danger: true, onClick: rows => { if (window.confirm(`Delete ${rows.length} records?`)) rows.forEach(r => table.handleDelete(r.orders_id)); } }
-        ]}
-        headerRight={<button className="btn btn-primary" onClick={() => navigate('/orders/new')}><Plus size={15} /> New Order</button>}
+        bulkActions={canDelete ? [
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.orders_id, { skipConfirm: true })); } }
+        ] : []}
+        headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/orders/new')}><Plus size={15} /> New Order</button> : null}
       />
 
       <CrudModal

@@ -1,8 +1,14 @@
 -- ============================================================
 -- TEMS - Telecom Expense Management System
--- SQL Seed Script
+-- SQL Seed Script (DEPRECATED)
 -- Database: doctore
--- Run: mysql -u root -p doctore < seed.sql
+--
+-- *** DEPRECATED: This file uses the OLD column naming scheme. ***
+-- *** Use Knex migrations and seeds instead:                   ***
+-- ***   npx knex migrate:latest                                ***
+-- ***   npx knex seed:run                                      ***
+-- *** See server/migrations/ and server/seeds/ for current     ***
+-- *** schema and data with the new {table}_id PK convention.   ***
 -- ============================================================
 
 USE doctore;

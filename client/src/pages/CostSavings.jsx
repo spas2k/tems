@@ -5,6 +5,7 @@ import { getCostSavings, createCostSaving, updateCostSaving, deleteCostSaving, g
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rate Negotiation', 'Duplicate', 'Other'];
 const STATUSES = ['Identified', 'In Progress', 'Resolved'];
@@ -19,6 +20,8 @@ const FILTER_CONFIG = {
 
 export default function CostSavings() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('cost_savings', 'create');
   const table = useCrudTable({
     api: { list: getCostSavings, create: createCostSaving, update: updateCostSaving, delete: deleteCostSaving },
     idKey: 'cost_savings_id',
@@ -79,7 +82,8 @@ export default function CostSavings() {
         columns={columns}
         {...table.tableProps}
         title="Savings Pipeline"
-        headerRight={<button className="btn btn-primary" onClick={() => navigate('/cost-savings/new')}><Plus size={15} /> New Opportunity</button>}
+        titleIcon={<Zap size={15} color="#16a34a" />}
+        headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/cost-savings/new')}><Plus size={15} /> New Opportunity</button> : null}
       />
 
       <CrudModal

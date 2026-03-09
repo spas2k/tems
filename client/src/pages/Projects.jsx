@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderKanban, Plus } from 'lucide-react';
+import { FolderKanban } from 'lucide-react';
 
 export default function Projects() {
   return (
@@ -7,7 +7,7 @@ export default function Projects() {
       <div className="page-card" style={{ borderRadius: 14, overflow: 'hidden' }}>
         <div className="page-card-header" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <FolderKanban size={22} />
-          <span style={{ fontWeight: 700, fontSize: 17, color: '#0f172a' }}>Projects</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 17 }}>Projects</span>
         </div>
         <div style={{ padding: 40, textAlign: 'center' }}>
           <FolderKanban size={48} color="#94a3b8" style={{ marginBottom: 16 }} />

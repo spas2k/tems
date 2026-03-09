@@ -4,13 +4,18 @@ import {
   LayoutDashboard, Building2, FileText, Network, ShoppingCart,
   Receipt, PieChart, Zap, DollarSign, ChevronLeft, ChevronRight, ChevronDown, User, Search, X, Tag,
   ShieldAlert, ShieldCheck, Users, Shield, Settings, Upload, Wrench, FolderKanban, Landmark, Flag, UserCheck, BookOpen,
-  BarChart2, LineChart, Bell, Clock, Command, AlertTriangle,
+  BarChart2, LineChart, Bell, Clock, Command, AlertTriangle, KeyRound, Menu,
+  MapPin, CreditCard, Megaphone, Layers, Database, LifeBuoy, AlertCircle,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { getContracts, getDashboard } from './api';
+import { getContracts, getDashboard, getNotifications, markAllNotificationsRead } from './api';
+import UserSwitcher from './components/UserSwitcher';
 
 import Dashboard    from './pages/Dashboard';
-import Accounts     from './pages/Accounts';
+import Accounts      from './pages/Accounts';
+import Vendors       from './pages/Vendors';
+import VendorDetail  from './pages/VendorDetail';
+import VendorAdd     from './pages/VendorAdd';
 import AccountAdd   from './pages/AccountAdd';
 import AccountDetail from './pages/AccountDetail';
 import Contracts    from './pages/Contracts';
@@ -35,7 +40,9 @@ import Disputes     from './pages/Disputes';
 import DisputeAdd   from './pages/DisputeAdd';
 import DisputeDetail from './pages/DisputeDetail';
 import RateAudit    from './pages/RateAudit';
-import UserManagement from './pages/UserManagement';
+import UsersPage      from './pages/Users';
+import UserDetail     from './pages/UserDetail';
+import UserAdd        from './pages/UserAdd';
 import AuditLog     from './pages/AuditLog';
 import Preferences  from './pages/Preferences';
 import BatchUpload  from './pages/BatchUpload';
@@ -44,14 +51,32 @@ import ServiceProviders from './pages/ServiceProviders';
 import Milestones      from './pages/Milestones';
 import InvoiceApprovers from './pages/InvoiceApprovers';
 import InvoiceReader   from './pages/InvoiceReader';
+import Tickets         from './pages/Tickets';
+import TicketDetail    from './pages/TicketDetail';
 import GLCodes         from './pages/GLCodes';
 import CreateGraph     from './pages/CreateGraph';
+import Reports        from './pages/Reports';
 import CreateReport    from './pages/CreateReport';
+import RolePermissions from './pages/RolePermissions';
+import Locations       from './pages/Locations';
+import LocationAdd     from './pages/LocationAdd';
+import LocationDetail  from './pages/LocationDetail';
+import FieldCatalog       from './pages/FieldCatalog';
+import FieldCatalogDetail from './pages/FieldCatalogDetail';
+import VendorRemit     from './pages/VendorRemit';
+import VendorRemitAdd  from './pages/VendorRemitAdd';
+import VendorRemitDetail from './pages/VendorRemitDetail';
+import Announcements   from './pages/Announcements';
+import SpendCategories from './pages/SpendCategories';
+import AnnouncementBanner from './components/AnnouncementBanner';
+import FavoritesPanel from './components/FavoritesPanel';
+import { FavoritesProvider } from './context/FavoritesContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { PageTitleContext } from './PageTitleContext';
 import { globalSearch } from './api';
 
 const SEARCH_GROUPS = [
-  { key: 'accounts',  idKey: 'accounts_id',  label: 'Accounts',  color: '#2563eb', path: id => `/accounts/${id}`,  display: r => r.name },
+  { key: 'vendors',   idKey: 'accounts_id',  label: 'Vendors',   color: '#2563eb', path: id => `/vendors/${id}`,   display: r => r.name },
   { key: 'contracts', idKey: 'contracts_id', label: 'Contracts', color: '#0d9488', path: id => `/contracts/${id}`, display: r => r.contract_number || r.name },
   { key: 'circuits',  idKey: 'circuits_id',  label: 'Circuits',  color: '#7c3aed', path: id => `/circuits/${id}`,  display: r => r.circuit_number },
   { key: 'orders',    idKey: 'orders_id',    label: 'Orders',    color: '#d97706', path: id => `/orders/${id}`,    display: r => r.order_number },
@@ -113,16 +138,16 @@ function GlobalSearch() {
           onFocus={() => results && setOpen(true)}
           placeholder="Search accounts, circuits, orders…"
           className="global-search-input"
-          style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: '#0f172a', fontWeight: 500 }}
+          style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, fontWeight: 500 }}
         />
         {query && <X size={14} color="#64748b" style={{ cursor: 'pointer', flexShrink: 0 }} onClick={clear} />}
       </div>
 
       {open && results && (
-        <div style={{
+        <div className="us-dropdown" style={{
           position: 'absolute', top: 50, left: '50%', transform: 'translateX(-50%)', width: 420, maxHeight: 500,
-          background: 'white', borderRadius: 12, border: '1px solid #e2e8f0',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.14)', overflowY: 'auto', zIndex: 9999,
+          borderRadius: 12,
+          overflowY: 'auto', zIndex: 9999,
         }}>
           {total === 0 ? (
             <div style={{ padding: '28px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
@@ -251,59 +276,83 @@ function NotificationCenter() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Fetch notifications from contracts + dashboard
-  useEffect(() => {
-    const load = async () => {
-      const notifs = [];
-      try {
-        const [contractsRes, dashRes] = await Promise.all([getContracts(), getDashboard()]);
-        const contracts = contractsRes.data;
-        const now = new Date();
+  const load = async () => {
+    const notifs = [];
+    try {
+      const [contractsRes, dashRes, dbNotifsRes] = await Promise.all([
+        getContracts(), getDashboard(), getNotifications(),
+      ]);
+      const contracts = contractsRes.data;
+      const now = new Date();
 
-        // Contract expiration alerts
-        contracts.forEach(c => {
-          if (!c.end_date || c.status === 'Terminated' || c.status === 'Expired') return;
-          const days = Math.floor((new Date(c.end_date) - now) / 86400000);
-          if (days <= 0) {
-            notifs.push({ id: `exp-${c.contracts_id}`, type: 'danger', title: 'Contract Expired',
-              message: `${c.contract_number || c.name} expired ${Math.abs(days)} days ago`,
-              path: `/contracts/${c.contracts_id}`, time: c.end_date });
-          } else if (days <= 30) {
-            notifs.push({ id: `exp30-${c.contracts_id}`, type: 'danger', title: 'Expiring in ' + days + ' days',
-              message: `${c.contract_number || c.name}`,
-              path: `/contracts/${c.contracts_id}`, time: c.end_date });
-          } else if (days <= 90) {
-            notifs.push({ id: `exp90-${c.contracts_id}`, type: 'warning', title: 'Expiring in ' + days + ' days',
-              message: `${c.contract_number || c.name}`,
-              path: `/contracts/${c.contracts_id}`, time: c.end_date });
-          }
+      // DB user-targeted notifications (invoice assignment, etc.) — shown first
+      (dbNotifsRes.data || []).forEach(n => {
+        const path = n.entity_type === 'invoice' ? `/invoices/${n.entity_id}`
+          : n.entity_type === 'order'   ? `/orders/${n.entity_id}`
+          : n.entity_type === 'ticket'  ? `/tickets/${n.entity_id}`
+          : '/';
+        notifs.push({
+          id:       `db-${n.notifications_id}`,
+          type:     n.type,
+          title:    n.title,
+          message:  n.message,
+          path,
+          time:     n.created_at,
+          isDbRead: n.is_read,
+          dbId:     n.notifications_id,
         });
+      });
 
-        // Dashboard variance alerts
-        const dash = dashRes.data;
-        if (dash.recentVariances?.length > 0) {
-          notifs.push({ id: 'variances', type: 'warning', title: 'Rate Variances Found',
-            message: `${dash.recentVariances.length} line items with billing variances`,
-            path: '/rate-audit', time: new Date().toISOString() });
+      // Contract expiration alerts
+      contracts.forEach(c => {
+        if (!c.end_date || c.status === 'Terminated' || c.status === 'Expired') return;
+        const days = Math.floor((new Date(c.end_date) - now) / 86400000);
+        if (days <= 0) {
+          notifs.push({ id: `exp-${c.contracts_id}`, type: 'danger', title: 'Contract Expired',
+            message: `${c.contract_number || c.name} expired ${Math.abs(days)} days ago`,
+            path: `/contracts/${c.contracts_id}`, time: c.end_date });
+        } else if (days <= 30) {
+          notifs.push({ id: `exp30-${c.contracts_id}`, type: 'danger', title: 'Expiring in ' + days + ' days',
+            message: `${c.contract_number || c.name}`,
+            path: `/contracts/${c.contracts_id}`, time: c.end_date });
+        } else if (days <= 90) {
+          notifs.push({ id: `exp90-${c.contracts_id}`, type: 'warning', title: 'Expiring in ' + days + ' days',
+            message: `${c.contract_number || c.name}`,
+            path: `/contracts/${c.contracts_id}`, time: c.end_date });
         }
-        if (dash.openDisputes > 0) {
-          notifs.push({ id: 'disputes', type: 'info', title: 'Open Disputes',
-            message: `${dash.openDisputes} dispute${dash.openDisputes > 1 ? 's' : ''} need attention`,
-            path: '/disputes', time: new Date().toISOString() });
-        }
-      } catch {}
-      setNotifications(notifs);
-    };
+      });
+
+      // Dashboard variance alerts
+      const dash = dashRes.data;
+      if (dash.recentVariances?.length > 0) {
+        notifs.push({ id: 'variances', type: 'warning', title: 'Rate Variances Found',
+          message: `${dash.recentVariances.length} line items with billing variances`,
+          path: '/rate-audit', time: new Date().toISOString() });
+      }
+      if (dash.openDisputes > 0) {
+        notifs.push({ id: 'disputes', type: 'info', title: 'Open Disputes',
+          message: `${dash.openDisputes} dispute${dash.openDisputes > 1 ? 's' : ''} need attention`,
+          path: '/disputes', time: new Date().toISOString() });
+      }
+    } catch {}
+    setNotifications(notifs);
+  };
+
+  useEffect(() => {
     load();
-    const interval = setInterval(load, 300000); // refresh every 5min
+    const interval = setInterval(load, 60000); // refresh every 60s
     return () => clearInterval(interval);
   }, []);
 
-  const unread = notifications.filter(n => !dismissed.includes(n.id));
-  const dismissAll = () => {
-    const ids = notifications.map(n => n.id);
-    setDismissed(ids);
-    localStorage.setItem('tems-dismissed-notifs', JSON.stringify(ids));
+  // DB notifications are unread when is_read=false; computed ones when not dismissed
+  const unread = notifications.filter(n => n.dbId ? !n.isDbRead : !dismissed.includes(n.id));
+
+  const dismissAll = async () => {
+    try { await markAllNotificationsRead(); } catch {}
+    const computedIds = notifications.filter(n => !n.dbId).map(n => n.id);
+    setDismissed(computedIds);
+    localStorage.setItem('tems-dismissed-notifs', JSON.stringify(computedIds));
+    load();
   };
 
   const TYPE_ICON_COLOR = { danger: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
@@ -329,20 +378,23 @@ function NotificationCenter() {
               <div style={{ padding: '24px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                 No notifications
               </div>
-            ) : notifications.map(n => (
-              <div key={n.id}
-                className={`notification-item ${!dismissed.includes(n.id) ? 'notification-item-unread' : ''}`}
-                onClick={() => { navigate(n.path); setOpen(false); }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                  <AlertTriangle size={16} color={TYPE_ICON_COLOR[n.type]} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: TYPE_ICON_COLOR[n.type] }}>{n.title}</div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{n.message}</div>
+            ) : notifications.map(n => {
+              const isUnread = n.dbId ? !n.isDbRead : !dismissed.includes(n.id);
+              return (
+                <div key={n.id}
+                  className={`notification-item ${isUnread ? 'notification-item-unread' : ''}`}
+                  onClick={() => { navigate(n.path); setOpen(false); }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <AlertTriangle size={16} color={TYPE_ICON_COLOR[n.type]} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: TYPE_ICON_COLOR[n.type] }}>{n.title}</div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{n.message}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -352,13 +404,19 @@ function NotificationCenter() {
 
 const NAV = [
   { path: '/',             icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/accounts',     icon: Building2,       label: 'Accounts',
+  { path: '/vendors',  icon: Landmark,  label: 'Vendors',
     children: [
-      { path: '/accounts',          icon: Building2, label: 'All Accounts' },
-      { path: '/service-providers', icon: Landmark,  label: 'Service Providers' },
-      { path: '/gl-codes',          icon: BookOpen,  label: 'GL Codes' },
+      { path: '/vendors',           icon: Landmark,    label: 'All Vendors' },
+      { path: '/service-providers', icon: Building2,   label: 'Service Providers' },
+      { path: '/vendor-remit',      icon: CreditCard,  label: 'Vendor Remit' },
     ],
   },
+  { path: '/spend-categories', icon: Layers, label: 'Spend Categories',
+    children: [
+      { path: '/spend-categories', icon: Layers, label: 'All Categories' },
+    ],
+  },
+
   {
     path: '/contracts',   icon: FileText,        label: 'Contracts',
     children: [
@@ -367,13 +425,6 @@ const NAV = [
       { path: '/disputes',   icon: ShieldAlert, label: 'Disputes' },
       { path: '/rate-audit', icon: ShieldCheck, label: 'Rate Audit' },
       { path: '/audit-log',  icon: Shield,      label: 'Audit Log' },
-    ],
-  },
-  { path: '/circuits',     icon: Network,         label: 'Circuits',
-    children: [
-      { path: '/circuits',     icon: Network,       label: 'All Circuits' },
-      { path: '/cost-savings', icon: Zap,          label: 'Cost Savings' },
-      { path: '/projects',     icon: FolderKanban,  label: 'Projects' },
     ],
   },
   { path: '/orders',       icon: ShoppingCart,    label: 'Orders',
@@ -390,18 +441,40 @@ const NAV = [
       { path: '/invoice-reader',    icon: Upload,    label: 'Invoice Reader' },
     ],
   },
+  { path: '/tickets', icon: LifeBuoy, label: 'Tickets & Issues',
+    children: [
+      { path: '/tickets',              icon: LifeBuoy,     label: 'All Tickets' },
+      { path: '/tickets?my=1',         icon: UserCheck,    label: 'My Tickets' },
+      { path: '/tickets?status=Open',  icon: AlertCircle,  label: 'Open Issues' },
+    ],
+  },
+  { path: '/locations', icon: MapPin, label: 'Locations',
+    children: [
+      { path: '/locations', icon: MapPin, label: 'All Locations' },
+    ],
+  },
+  { path: '/circuits',     icon: Network,         label: 'Circuits',
+    children: [
+      { path: '/circuits',     icon: Network,       label: 'All Circuits' },
+      { path: '/cost-savings', icon: Zap,          label: 'Cost Savings' },
+      { path: '/projects',     icon: FolderKanban,  label: 'Projects' },
+    ],
+  },
   { path: '/reports', icon: BarChart2, label: 'Reports',
     children: [
       { path: '/reports',       icon: BarChart2, label: 'All Reports' },
-      { path: '/create-graph',  icon: LineChart, label: 'Create Graph' },
       { path: '/create-report', icon: FileText,  label: 'Create Report' },
+      { path: '/create-graph',  icon: LineChart, label: 'Create Graph' },
     ],
   },
   {
     path: '/administration', icon: Wrench, label: 'Administration', adminOnly: true,
     children: [
-      { path: '/batch-upload', icon: Upload, label: 'Batch Upload' },
-      { path: '/users',        icon: Users,  label: 'Users' },
+      { path: '/batch-upload',      icon: Upload,    label: 'Batch Upload' },
+      { path: '/users',             icon: Users,     label: 'Users' },
+      { path: '/role-permissions',  icon: KeyRound,  label: 'Role Permissions' },
+      { path: '/field-catalog',     icon: Database,  label: 'Field Catalog' },
+      { path: '/announcements',     icon: Megaphone, label: 'Announcements' },
     ],
   },
 
@@ -409,9 +482,9 @@ const NAV = [
 
 const PAGE_META = {
   '/':             { label: 'Dashboard',   sub: 'System overview & key metrics' },
-  '/accounts':     { label: 'Accounts',    sub: 'Manage vendor accounts' },
-  '/accounts/new': { label: 'New Account', sub: 'Add a new vendor account' },
-  '/accounts/:id': { label: 'Account Detail', sub: 'View and edit vendor account' },
+  '/vendors':      { label: 'Vendors',   sub: 'Telecom vendor companies' },
+  '/vendors/new':   { label: 'New Vendor', sub: 'Add a new vendor' },
+  '/accounts':      { label: 'Accounts',  sub: 'Billing accounts by vendor' },
   '/contracts':     { label: 'Contracts',    sub: 'Track contracts and terms' },
   '/contracts/new': { label: 'New Contract', sub: 'Create a new vendor contract' },
   '/contracts/:id': { label: 'Contract Detail', sub: 'View and edit contract information' },
@@ -444,16 +517,139 @@ const PAGE_META = {
   '/preferences':    { label: 'Preferences', sub: 'User preferences & settings' },
   '/administration': { label: 'Administration', sub: 'System administration tools' },
   '/batch-upload':   { label: 'Batch Upload', sub: 'Import data from Excel templates' },
+  '/role-permissions': { label: 'Role Permissions', sub: 'Configure access control for each user role' },
+  '/locations':      { label: 'Locations',        sub: 'Circuit installation site locations' },
+  '/locations/new':  { label: 'New Location',     sub: 'Add a new site location' },
+  '/locations/:id':  { label: 'Location Detail',  sub: 'View and edit location' },
+  '/field-catalog':            { label: 'Field Catalog',    sub: 'User-defined dropdown options' },
+  '/field-catalog/:category':  { label: 'Field Catalog',    sub: 'Manage category options' },
+  '/vendor-remit':   { label: 'Vendor Remit',     sub: 'Vendor payment remittance information' },
+  '/vendor-remit/new': { label: 'New Vendor Remit', sub: 'Add a remittance record' },
+  '/vendor-remit/:id': { label: 'Remit Detail',   sub: 'View and edit remittance record' },
+  '/announcements':  { label: 'Announcements',    sub: 'System-wide announcement banners' },
+  '/spend-categories': { label: 'Spend Categories', sub: 'Spending classification hierarchy' },
+  '/tickets':        { label: 'Tickets & Issues', sub: 'Issue tracking and resolution' },
+  '/tickets/:id':    { label: 'Ticket Detail',    sub: 'View and manage a ticket' },
   '/reports':        { label: 'Reports',      sub: 'Graphs and custom reports' },
   '/create-graph':   { label: 'Create Graph', sub: 'Build a custom chart' },
   '/create-report':  { label: 'Create Report', sub: 'Build a custom report' },
 };
 
+// ── Error Boundary ───────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null, info: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    this.setState({ info });
+    console.error('[ErrorBoundary]', error, info);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, padding: 40, gap: 16 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertTriangle size={28} color="#dc2626" />
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div className="rc-results-count" style={{ fontWeight: 800, fontSize: 18, marginBottom: 6 }}>Something went wrong</div>
+            <div style={{ fontSize: 13, color: '#64748b', maxWidth: 480, lineHeight: 1.6 }}>
+              {this.state.error?.message || 'An unexpected error occurred.'}
+            </div>
+          </div>
+          <details style={{ fontSize: 11, color: '#94a3b8', maxWidth: 600, width: '100%' }}>
+            <summary style={{ cursor: 'pointer', marginBottom: 8 }}>Stack trace</summary>
+            <pre style={{ overflowX: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, lineHeight: 1.5 }}>
+              {this.state.error?.stack}
+            </pre>
+          </details>
+          <button
+            className="btn btn-primary"
+            onClick={() => { this.setState({ error: null, info: null }); window.location.reload(); }}
+          >
+            Reload page
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => this.setState({ error: null, info: null })}
+          >
+            Try to continue
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function AppShell() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
+
+  // ── NAV path → permission resource map ─────────────────
+  // A child nav item is visible only if the user has `resource:read`.
+  // Paths not listed here (Dashboard, Reports, etc.) are always visible.
+  const NAV_RESOURCE = {
+    '/vendors':            'accounts',
+    '/service-providers':  'accounts',
+    '/contracts':          'contracts',
+    '/usoc-codes':         'usoc_codes',
+    '/disputes':           'disputes',
+    '/rate-audit':         'contracts',
+    '/audit-log':          'roles',
+    '/circuits':           'circuits',
+    '/cost-savings':       'cost_savings',
+    '/projects':           'circuits',
+    '/orders':             'orders',
+    '/milestones':         'orders',
+    '/invoices':           'invoices',
+    '/allocations':        'allocations',
+    '/invoice-approvers':  'invoices',
+    '/invoice-reader':     'invoices',
+    '/batch-upload':       'users',
+    '/users':              'users',
+    '/role-permissions':   'roles',
+    '/locations':          'accounts',
+    '/vendor-remit':       'accounts',
+    '/field-catalog':      'users',
+    '/announcements':      'roles',
+    '/spend-categories':   'accounts',
+  };
+
+  // Filter NAV: hide adminOnly groups from non-admins; hide children the
+  // current user lacks read access to; hide empty groups.
+  const filteredNav = NAV
+    .filter(n => !n.adminOnly || isAdmin)
+    .map(item => {
+      if (!item.children) return item;
+      const visible = item.children.filter(c => {
+        const res = NAV_RESOURCE[c.path];
+        return !res || hasPermission(res, 'read');
+      });
+      return { ...item, children: visible };
+    })
+    .filter(item => !item.children || item.children.length > 0);
+
   const COLLAPSE_BREAKPOINT = 1024;
-  const [collapsed, setCollapsed] = useState(() => window.innerWidth < COLLAPSE_BREAKPOINT);
+  const MOBILE_BREAKPOINT    = 768;
+  const [collapsed, setCollapsed]         = useState(() => window.innerWidth < COLLAPSE_BREAKPOINT);
+  const [isMobile, setIsMobile]           = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [manualOverride, setManualOverride] = useState(false);
+  const [virtualMobile, setVirtualMobile] = useState(() => localStorage.getItem('tems-virtual-mobile') === 'true');
+
+  // Listen for virtual mobile toggle from Preferences page
+  useEffect(() => {
+    const handler = () => setVirtualMobile(localStorage.getItem('tems-virtual-mobile') === 'true');
+    window.addEventListener('tems-virtual-mobile-change', handler);
+    return () => window.removeEventListener('tems-virtual-mobile-change', handler);
+  }, []);
   const [navHistory, setNavHistory] = useState([]);
   const [pageTitle, setPageTitle]   = useState(null);
   const [openGroups, setOpenGroups] = useState(() => new Set());
@@ -477,14 +673,27 @@ function AppShell() {
     const handleResize = () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        const narrow = window.innerWidth < COLLAPSE_BREAKPOINT;
-        setCollapsed(narrow);
+        const w = window.innerWidth;
+        setCollapsed(w < COLLAPSE_BREAKPOINT);
         setManualOverride(false);
+        setIsMobile(w < MOBILE_BREAKPOINT);
+        if (w >= MOBILE_BREAKPOINT) setMobileNavOpen(false);
       }, 100);
     };
     window.addEventListener('resize', handleResize);
     return () => { window.removeEventListener('resize', handleResize); clearTimeout(resizeTimer); };
   }, []);
+
+  // Close mobile nav drawer on navigation
+  useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
+
+  // Auto-collapse sidebar on report builder to maximise canvas space
+  useEffect(() => {
+    if (location.pathname === '/create-report') {
+      setCollapsed(true);
+      setManualOverride(true);
+    }
+  }, [location.pathname]);
 
   const toggleCollapsed = () => {
     setCollapsed(c => !c);
@@ -492,7 +701,7 @@ function AppShell() {
   };
 
   const toggleAllGroups = () => {
-    const allGroupPaths = NAV.filter(n => n.children && (!n.adminOnly || isAdmin)).map(n => n.path);
+    const allGroupPaths = filteredNav.filter(n => n.children).map(n => n.path);
     const anyOpen = allGroupPaths.some(p => openGroups.has(p));
     setOpenGroups(anyOpen ? new Set() : new Set(allGroupPaths));
   };
@@ -503,8 +712,8 @@ function AppShell() {
     ? '/circuits/:id'
     : location.pathname.startsWith('/orders/') && location.pathname !== '/orders'
     ? '/orders/:id'
-    : location.pathname.startsWith('/accounts/') && location.pathname !== '/accounts'
-    ? '/accounts/:id'
+    : location.pathname.startsWith('/vendors/') && location.pathname !== '/vendors'
+    ? '/vendors/:id'
     : location.pathname.startsWith('/contracts/') && location.pathname !== '/contracts'
     ? '/contracts/:id'
     : location.pathname.startsWith('/usoc-codes/') && location.pathname !== '/usoc-codes'
@@ -513,12 +722,20 @@ function AppShell() {
     ? '/disputes/:id'
     : location.pathname.startsWith('/invoices/') && location.pathname !== '/invoices'
     ? '/invoices/:id'
+    : location.pathname.startsWith('/locations/') && location.pathname !== '/locations'
+    ? '/locations/:id'
+    : location.pathname.startsWith('/vendor-remit/') && location.pathname !== '/vendor-remit'
+    ? '/vendor-remit/:id'
+    : location.pathname.startsWith('/tickets/') && location.pathname !== '/tickets'
+    ? '/tickets/:id'
+    : location.pathname.startsWith('/field-catalog/') && location.pathname !== '/field-catalog'
+    ? '/field-catalog/:category'
     : '/' + location.pathname.split('/')[1];
   const meta = PAGE_META[activeKey] || { label: 'TEMS', sub: '' };
 
   // Auto-open the group whose child is currently active
   useEffect(() => {
-    NAV.forEach(item => {
+    filteredNav.forEach(item => {
       if (item.children) {
         const childActive = item.children.some(c =>
           activeKey === c.path || activeKey.startsWith(c.path + '/')
@@ -570,24 +787,47 @@ function AppShell() {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
+  // ── Derived layout flags ─────────────────────────────────
+  // effectiveMobile: treat as mobile (drawer UI) even on desktop when virtualMobile is on
+  const effectiveMobile = isMobile || virtualMobile;
+  // navExpanded: show icon+text in sidebar (true when drawer is open OR desktop is expanded)
+  const navExpanded = effectiveMobile || !collapsed;
+
   return (
     <div className="app-shell" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* Mobile nav backdrop */}
+      {effectiveMobile && mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            zIndex: 2999, backdropFilter: 'blur(2px)',
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <div className="nav-sidebar" style={{
-        width: collapsed ? 64 : 240,
+        width: effectiveMobile ? 240 : (collapsed ? 64 : 240),
         display: 'flex', flexDirection: 'column',
-        flexShrink: 0, transition: 'width 0.2s ease',
+        flexShrink: 0,
+        transition: 'width 0.2s ease, left 0.25s cubic-bezier(0.4,0,0.2,1)',
         boxShadow: '4px 0 20px rgba(0,0,0,0.2)',
-        position: 'relative', overflow: 'hidden',
+        position: effectiveMobile ? 'fixed' : 'relative',
+        top: effectiveMobile ? 0 : undefined,
+        bottom: effectiveMobile ? 0 : undefined,
+        left: effectiveMobile ? (mobileNavOpen ? 0 : -240) : undefined,
+        zIndex: effectiveMobile ? 3000 : undefined,
+        overflow: 'hidden',
       }}>
         {/* Logo — click to collapse/expand sidebar */}
         <div
           onClick={toggleAllGroups}
           title="Expand / collapse all menus"
           style={{
-            padding: collapsed ? '20px 0' : '20px 16px',
+            padding: navExpanded ? '20px 16px' : '20px 0',
             borderBottom: '1px solid rgba(255,255,255,0.1)',
-            display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'flex-start',
+            display: 'flex', alignItems: 'center', gap: 10, justifyContent: navExpanded ? 'flex-start' : 'center',
             cursor: 'pointer', userSelect: 'none',
           }}
         >
@@ -599,9 +839,9 @@ function AppShell() {
           }}>
             <DollarSign size={18} color="white" />
           </div>
-          {!collapsed && (
+          {navExpanded && (
             <div>
-              <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: 16, letterSpacing: '-0.3px' }}>TEMS</div>
+              <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: 16, letterSpacing: '-0.3px' }}>TEMS <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b' }}>v0.8.2</span></div>
               <div style={{ color: '#64748b', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px' }}>Telecom Expense</div>
             </div>
           )}
@@ -609,7 +849,7 @@ function AppShell() {
 
         {/* Nav */}
         <nav style={{ flex: 1, paddingTop: 8, overflowY: 'auto' }}>
-          {NAV.filter(n => !n.adminOnly || isAdmin).map((item) => {
+          {filteredNav.map((item) => {
             const { path, icon: Icon, label, children, adminOnly } = item;
             const isGroup   = !!children;
             const groupOpen = openGroups.has(path);
@@ -652,11 +892,11 @@ function AppShell() {
                       flyoutCloseTimer.current = setTimeout(() => setFlyoutGroup(null), 120);
                     }
                   }}
-                  style={{ justifyContent: collapsed ? 'center' : 'flex-start', margin: '2px 8px', padding: collapsed ? '10px 0' : '10px 16px' }}
-                  title={collapsed ? label : undefined}
+                  style={{ justifyContent: navExpanded ? 'flex-start' : 'center', margin: '2px 8px', padding: navExpanded ? '10px 16px' : '10px 0' }}
+                  title={navExpanded ? undefined : label}
                 >
                   <Icon size={17} style={{ flexShrink: 0 }} />
-                  {!collapsed && (
+                  {navExpanded && (
                     <>
                       <span style={{ flex: 1 }}>{label}</span>
                       {isGroup && (
@@ -670,7 +910,7 @@ function AppShell() {
                 </div>
 
                 {/* Submenu */}
-                {isGroup && !collapsed && (
+                {isGroup && navExpanded && (
                   <div className={`nav-submenu${groupOpen ? ' open' : ''}`}>
                     {children.map(({ path: cp, icon: CIcon, label: clabel }) => {
                       const cActive = activeKey === cp || activeKey.startsWith(cp + '/');
@@ -695,20 +935,22 @@ function AppShell() {
 
         {/* Collapse toggle */}
         <div
-          onClick={toggleCollapsed}
+          onClick={effectiveMobile ? () => setMobileNavOpen(false) : toggleCollapsed}
           style={{
             padding: '14px', borderTop: '1px solid rgba(255,255,255,0.1)',
-            display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end',
+            display: 'flex', justifyContent: navExpanded ? 'flex-end' : 'center',
             cursor: 'pointer', color: '#475569',
           }}
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {effectiveMobile
+            ? <ChevronLeft size={16} />
+            : collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </div>
       </div>
 
-      {/* Collapsed sidebar flyout submenu */}
-      {collapsed && flyoutGroup && (() => {
-        const groupItem = NAV.find(n => n.path === flyoutGroup);
+      {/* Collapsed sidebar flyout submenu — only on desktop non-mobile */}
+      {!effectiveMobile && collapsed && flyoutGroup && (() => {
+        const groupItem = filteredNav.find(n => n.path === flyoutGroup);
         if (!groupItem?.children) return null;
         return (
           <div
@@ -752,34 +994,33 @@ function AppShell() {
         {/* Header */}
         <div className="app-header" style={{
           height: 60,
-          display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center',
-          padding: '0 28px', flexShrink: 0,
+          display: 'grid',
+          gridTemplateColumns: effectiveMobile ? '1fr auto' : '1fr auto 1fr',
+          alignItems: 'center',
+          padding: effectiveMobile ? '0 14px' : '0 28px',
+          flexShrink: 0,
         }}>
-          <div>
-            <div className="app-header-title" style={{ fontWeight: 800, fontSize: 17 }}>{meta.label}</div>
-            <div className="app-header-sub" style={{ fontSize: 12 }}>{meta.sub}</div>
-          </div>
-          <GlobalSearch />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'flex-end' }}>
-            <RecentItems />
-            <NotificationCenter />
-            {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} title={`${user.display_name}\n${user.email}\nRole: ${user.role_name}\nClick for preferences`} onClick={() => navigate('/preferences')}>
-                <div style={{ textAlign: 'right' }}>
-                  <div className="app-header-title" style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2 }}>{user.display_name}</div>
-                  <div className="app-header-sub" style={{ fontSize: 10 }}>{user.role_name}</div>
-                </div>
-                <div style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 700, fontSize: 14,
-                  boxShadow: '0 2px 8px rgba(59,130,246,0.4)',
-                }}>
-                  {user.display_name ? user.display_name.charAt(0).toUpperCase() : <User size={16} color="white" />}
-                </div>
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: effectiveMobile ? 10 : 0, minWidth: 0 }}>
+            {effectiveMobile && (
+              <button
+                onClick={() => setMobileNavOpen(o => !o)}
+                className="btn btn-ghost btn-icon"
+                style={{ flexShrink: 0 }}
+              >
+                <Menu size={20} color="#64748b" />
+              </button>
             )}
+            <div style={{ minWidth: 0 }}>
+              <div className="app-header-title" style={{ fontWeight: 800, fontSize: effectiveMobile ? 14 : 17, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.label}</div>
+              {!effectiveMobile && <div className="app-header-sub" style={{ fontSize: 12 }}>{meta.sub}</div>}
+            </div>
+          </div>
+          {!effectiveMobile && <GlobalSearch />}
+          <div style={{ display: 'flex', alignItems: 'center', gap: effectiveMobile ? 8 : 16, justifyContent: 'flex-end' }}>
+            {!effectiveMobile && <FavoritesPanel />}
+            {!effectiveMobile && <RecentItems />}
+            <NotificationCenter />
+            <UserSwitcher />
           </div>
         </div>
 
@@ -824,9 +1065,14 @@ function AppShell() {
 
         {/* Content */}
         <PageTitleContext.Provider value={{ setPageTitle }}>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-          <Routes>
+        <div className="app-content" style={{ flex: 1, overflowY: 'auto', padding: effectiveMobile ? '14px' : '24px' }}>
+          <AnnouncementBanner />
+          <ErrorBoundary>
+            <Routes>
             <Route path="/"             element={<Dashboard />} />
+            <Route path="/vendors"      element={<Vendors />} />
+            <Route path="/vendors/new"  element={<VendorAdd />} />
+            <Route path="/vendors/:id"  element={<VendorDetail />} />
             <Route path="/accounts"     element={<Accounts />} />
             <Route path="/accounts/new" element={<AccountAdd />} />
             <Route path="/accounts/:id" element={<AccountDetail />} />
@@ -858,13 +1104,30 @@ function AppShell() {
             <Route path="/milestones"         element={<Milestones />} />
             <Route path="/invoice-approvers" element={<InvoiceApprovers />} />
             <Route path="/gl-codes"          element={<GLCodes />} />
-            <Route path="/users"       element={<UserManagement />} />
+            <Route path="/users"       element={<UsersPage />} />
+            <Route path="/users/new"   element={<UserAdd />} />
+            <Route path="/users/:id"   element={<UserDetail />} />
             <Route path="/audit-log"   element={<AuditLog />} />
             <Route path="/preferences" element={<Preferences />} />
             <Route path="/batch-upload" element={<BatchUpload />} />
+            <Route path="/role-permissions" element={<RolePermissions />} />
             <Route path="/create-graph"  element={<CreateGraph />} />
+            <Route path="/reports"       element={<Reports />} />
             <Route path="/create-report" element={<CreateReport />} />
+            <Route path="/locations"       element={<Locations />} />
+            <Route path="/locations/new"   element={<LocationAdd />} />
+            <Route path="/locations/:id"   element={<LocationDetail />} />
+            <Route path="/field-catalog"           element={<FieldCatalog />} />
+            <Route path="/field-catalog/:category" element={<FieldCatalogDetail />} />
+            <Route path="/vendor-remit"    element={<VendorRemit />} />
+            <Route path="/vendor-remit/new" element={<VendorRemitAdd />} />
+            <Route path="/vendor-remit/:id" element={<VendorRemitDetail />} />
+            <Route path="/announcements"   element={<Announcements />} />
+            <Route path="/spend-categories" element={<SpendCategories />} />
+            <Route path="/tickets"      element={<Tickets />} />
+            <Route path="/tickets/:id" element={<TicketDetail />} />
           </Routes>
+          </ErrorBoundary>
         </div>
         </PageTitleContext.Provider>
       </div>
@@ -876,7 +1139,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppShell />
+        <FavoritesProvider>
+          <ConfirmProvider>
+            <AppShell />
+          </ConfirmProvider>
+        </FavoritesProvider>
       </AuthProvider>
     </BrowserRouter>
   );

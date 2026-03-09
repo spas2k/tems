@@ -1,10 +1,12 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, Save, Network, DollarSign } from 'lucide-react';
+import { ArrowLeft, Building2, Save, Network, ExternalLink, SlidersHorizontal, MessageSquare } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { getAccount, updateAccount, getAccountCircuits } from '../api';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
+import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
 
 const VENDOR_TYPES = ['AT&T', 'Comcast', 'Verizon', 'Lumen', 'Spectrum', 'Other'];
@@ -15,6 +17,27 @@ const CIRC_STATUS_BADGE = {
   Disconnected: 'badge badge-gray',
   Suspended:    'badge badge-orange',
 };
+
+const NAV_SECTIONS = [
+  { key: 'details',  label: 'Account Details', Icon: SlidersHorizontal },
+  { key: 'circuits', label: 'Circuits',         Icon: Network           },
+  { key: 'notes',    label: 'Notes & History',  Icon: MessageSquare     },
+];
+const NAV_BTN = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: 30, height: 30, borderRadius: 6, border: 'none',
+  background: 'transparent', cursor: 'pointer', color: '#cbd5e1',
+  transition: 'background 0.15s, color 0.15s',
+};
+function NavIcon({ label, Icon, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button title={label} onClick={onClick}
+      style={{ ...NAV_BTN, background: hover ? 'rgba(255,255,255,0.15)' : 'transparent', color: hover ? '#f8fafc' : '#cbd5e1' }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    ><Icon size={15} /></button>
+  );
+}
 
 function Field({ label, children }) {
   return (
@@ -28,13 +51,18 @@ function Field({ label, children }) {
 export default function AccountDetail() {
   const { id }   = useParams();
   const navigate = useNavigate();  const { setPageTitle } = useContext(PageTitleContext);
+  const { hasPermission } = useAuth();
+  const canUpdate = hasPermission('accounts', 'update');
   const [account,  setAccount]  = useState(null);
   const [circuits, setCircuits] = useState([]);
   const [form,     setForm]     = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
   const [dirty,    setDirty]    = useState(false);
   const [toast,    setToast]    = useState(null);
+  const refs = { details: useRef(null), circuits: useRef(null), notes: useRef(null) };
+  const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -76,6 +104,7 @@ export default function AccountDetail() {
       const updated = await updateAccount(id, form);
       setAccount(updated.data);
       setDirty(false);
+      setHistoryKey(k => k + 1);
       showToast('Account saved successfully.');
     } catch {
       showToast('Save failed.', false);
@@ -132,14 +161,24 @@ export default function AccountDetail() {
             {account.status}
           </span>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={!dirty || saving}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}
-        >
-          <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 6px' }}>
+            {NAV_SECTIONS.map(({ key, label, Icon }) => (
+              <NavIcon key={key} label={label} Icon={Icon} onClick={() => scrollTo(key)} />
+            ))}
+          </div>
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {canUpdate && (
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}
+            >
+              <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          )}
+        </div>
       </DetailHeader>
 
       {/* KPI cards */}
@@ -167,9 +206,9 @@ export default function AccountDetail() {
       </div>
 
       {/* Editable Account Details */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Account Details</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Account Details</span>
           {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -207,10 +246,16 @@ export default function AccountDetail() {
       </div>
 
       {/* Circuits Table */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.circuits} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            className="rc-results-count"
+            style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            onClick={() => navigate('/circuits', { state: { filters: { account_name: account.name }, showFilters: true } })}
+            title="View all circuits for this account"
+          >
             <Network size={16} color="#7c3aed" /> Circuits on This Account
+            <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>
             {circuits.length} circuit{circuits.length !== 1 ? 's' : ''}
@@ -265,7 +310,10 @@ export default function AccountDetail() {
         )}
       </div>
 
-      <NoteTimeline entityType="account" entityId={id} />
+      <div ref={refs.notes} style={{ scrollMarginTop: 80 }}>
+        <NoteTimeline entityType="account" entityId={id} />
+        <ChangeHistory resource="accounts" resourceId={id} refreshKey={historyKey} />
+      </div>
     </div>
   );
 }

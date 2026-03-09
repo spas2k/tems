@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Download } from 'lucide-react';
+import { Plus, Eye, Download, ShieldAlert } from 'lucide-react';
 import { getDisputes, createDispute, updateDispute, deleteDispute, getAccounts, getInvoices } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import { useAuth } from '../context/AuthContext';
 
 const STATUSES = ['Open', 'Under Review', 'Credited', 'Denied', 'Closed'];
 const TYPES = ['Overcharge', 'Duplicate Charge', 'Wrong Rate', 'Missing Credit', 'Service Not Delivered', 'Other'];
@@ -26,6 +27,8 @@ const FILTER_CONFIG = {
 
 export default function Disputes() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('disputes', 'create');
   const table = useCrudTable({
     api: { list: getDisputes, create: createDispute, update: updateDispute, delete: deleteDispute },
     idKey: 'disputes_id',
@@ -126,10 +129,11 @@ export default function Disputes() {
         columns={columns}
         {...table.tableProps}
         title="Disputes"
+        titleIcon={<ShieldAlert size={15} color="#dc2626" />}
         extraActions={[{ icon: Eye, title: 'View', onClick: row => navigate(`/disputes/${row.disputes_id}`) }]}
         headerRight={<>
           <button className="btn btn-ghost btn-sm" onClick={exportCsv} title="Export CSV"><Download size={14} /> CSV</button>
-          <button className="btn btn-primary btn-sm" onClick={() => navigate('/disputes/new')}><Plus size={14} /> New Dispute</button>
+          {canCreate && <button className="btn btn-primary btn-sm" onClick={() => navigate('/disputes/new')}><Plus size={14} /> New Dispute</button>}
         </>}
       />
 

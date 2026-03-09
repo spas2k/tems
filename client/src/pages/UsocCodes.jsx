@@ -5,6 +5,7 @@ import { getUsocCodes, createUsocCode, updateUsocCode, deleteUsocCode } from '..
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Access', 'Transport', 'Wireless', 'Feature', 'Surcharge'];
 const STATUSES = ['Active', 'Inactive'];
@@ -19,6 +20,8 @@ const FILTER_CONFIG = {
 
 export default function UsocCodes() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('usoc_codes', 'create');
   const table = useCrudTable({
     api: { list: getUsocCodes, create: createUsocCode, update: updateUsocCode, delete: deleteUsocCode },
     idKey: 'usoc_codes_id',
@@ -65,7 +68,7 @@ export default function UsocCodes() {
         columns={columns}
         {...table.tableProps}
         title="USOC Code Catalog"
-        headerRight={<button className="btn btn-primary" onClick={() => navigate('/usoc-codes/new')}><Plus size={15} /> New USOC Code</button>}
+        headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/usoc-codes/new')}><Plus size={15} /> New USOC Code</button> : null}
       />
 
       <CrudModal

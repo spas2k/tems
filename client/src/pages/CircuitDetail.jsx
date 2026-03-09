@@ -1,9 +1,11 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Network, Save, Receipt, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Network, Save, Receipt, ShoppingCart, AlertTriangle, ExternalLink, SlidersHorizontal, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
+import ChangeHistory from '../components/ChangeHistory';
 import {
   getCircuit, updateCircuit,
   getCircuitInvoices,
@@ -36,6 +38,50 @@ const ORD_STATUS_BADGE = {
   Pending: 'badge badge-orange',
 };
 
+const NAV_SECTIONS = [
+  { key: 'details',  label: 'Circuit Details', Icon: SlidersHorizontal },
+  { key: 'order',    label: 'Related Order',   Icon: ShoppingCart      },
+  { key: 'invoices', label: 'Invoices',        Icon: Receipt           },
+  { key: 'notes',    label: 'Notes & History', Icon: MessageSquare     },
+];
+const NAV_BTN = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: 30, height: 30, borderRadius: 6, border: 'none',
+  background: 'transparent', cursor: 'pointer', color: '#cbd5e1',
+  transition: 'background 0.15s, color 0.15s',
+};
+function NavIcon({ label, Icon, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button title={label} onClick={onClick}
+      style={{ ...NAV_BTN, background: hover ? 'rgba(255,255,255,0.15)' : 'transparent', color: hover ? '#f8fafc' : '#cbd5e1' }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    ><Icon size={15} /></button>
+  );
+}
+
+function MenuDivider() {
+  return <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />;
+}
+function MenuItem({ label, onClick, stub = false }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'block', width: '100%', textAlign: 'left',
+        padding: '9px 16px', border: 'none',
+        background: hover ? 'rgba(255,255,255,0.08)' : 'transparent',
+        cursor: stub ? 'default' : 'pointer',
+        color: stub ? '#64748b' : '#e2e8f0',
+        fontSize: 13, fontWeight: 500,
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >{label}</button>
+  );
+}
+
 function Field({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -49,6 +95,8 @@ export default function CircuitDetail() {
   const { id }   = useParams();
   const navigate = useNavigate();
   const { setPageTitle } = useContext(PageTitleContext);
+  const { hasPermission } = useAuth();
+  const canUpdate = hasPermission('circuits', 'update');
 
   const [circuit,  setCircuit]  = useState(null);
   const [invoices, setInvoices] = useState([]);
@@ -60,8 +108,14 @@ export default function CircuitDetail() {
   const [form,    setForm]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
   const [dirty,   setDirty]   = useState(false);
   const [toast,   setToast]   = useState(null);
+  const refs = { details: useRef(null), order: useRef(null), invoices: useRef(null), notes: useRef(null) };
+  const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const menuRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -69,7 +123,23 @@ export default function CircuitDetail() {
   };
 
   useEffect(() => {
-    setLoading(true);
+    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleToggleActive = async () => {
+    setMenuOpen(false);
+    const newStatus = circuit.status === 'Disconnected' ? 'Active' : 'Disconnected';
+    try {
+      const updated = await updateCircuit(id, { ...form, status: newStatus });
+      setCircuit(updated.data);
+      setForm(f => ({ ...f, status: newStatus }));
+      showToast(`Circuit ${newStatus === 'Active' ? 'activated' : 'disconnected'}.`);
+    } catch { showToast('Status update failed.', false); }
+  };
+
+  useEffect(() => {
     Promise.all([
       getCircuit(id),
       getCircuitInvoices(id),
@@ -123,6 +193,7 @@ export default function CircuitDetail() {
       const updated = await updateCircuit(id, form);
       setCircuit(updated.data);
       setDirty(false);
+      setHistoryKey(k => k + 1);
       showToast('Circuit saved successfully.');
       // Reload order if order_id changed
       if (form.orders_id) {
@@ -187,14 +258,44 @@ export default function CircuitDetail() {
           <span className={STATUS_BADGE[circuit.status] || 'badge badge-gray'}>{circuit.status}</span>
         </div>
 
-        <button
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={!dirty || saving}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}
-        >
-          <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 6px' }}>
+            {NAV_SECTIONS.map(({ key, label, Icon }) => (
+              <NavIcon key={key} label={label} Icon={Icon} onClick={() => scrollTo(key)} />
+            ))}
+          </div>
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {canUpdate && (
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}
+            >
+              <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          )}
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button
+              title="Circuit options"
+              onClick={() => setMenuOpen(v => !v)}
+              style={{ ...NAV_BTN, background: menuOpen ? 'rgba(255,255,255,0.15)' : 'transparent', color: menuOpen ? '#f8fafc' : '#cbd5e1' }}
+            >
+              <MoreHorizontal size={15} />
+            </button>
+            {menuOpen && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 220, zIndex: 9000, padding: '6px 0' }}>
+                <MenuItem label={circuit.status === 'Disconnected' ? 'Activate Circuit' : 'Disconnect Circuit'} onClick={handleToggleActive} />
+                <MenuDivider />
+                <MenuItem label="Non-PO Edit" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Create Contract Mapping" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="TRR Field Updates" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Validate Asset" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Validate MRC" onClick={() => setMenuOpen(false)} stub />
+              </div>
+            )}
+          </div>
+        </div>
       </DetailHeader>
 
       {/* KPI row */}
@@ -219,9 +320,9 @@ export default function CircuitDetail() {
       </div>
 
       {/* Editable Circuit Details */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Circuit Details</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Circuit Details</span>
           {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -287,9 +388,9 @@ export default function CircuitDetail() {
       </div>
 
       {/* Related Order */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.order} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
             <ShoppingCart size={16} color="#f59e0b" /> Related Order
           </span>
         </div>
@@ -334,10 +435,16 @@ export default function CircuitDetail() {
       </div>
 
       {/* Related Invoices */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.invoices} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            className="rc-results-count"
+            style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            onClick={() => navigate('/invoices', { state: { filters: { account_name: circuit.account_name }, showFilters: true } })}
+            title="View all invoices for this vendor"
+          >
             <Receipt size={16} color="#2563eb" /> Invoices Containing This Circuit
+            <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>{invoices.length} invoice{invoices.length !== 1 ? 's' : ''}</span>
         </div>
@@ -390,7 +497,10 @@ export default function CircuitDetail() {
         )}
       </div>
 
-      <NoteTimeline entityType="circuit" entityId={id} />
+      <div ref={refs.notes} style={{ scrollMarginTop: 80 }}>
+        <NoteTimeline entityType="circuit" entityId={id} />
+        <ChangeHistory resource="circuits" resourceId={id} refreshKey={historyKey} />
+      </div>
     </div>
   );
 }

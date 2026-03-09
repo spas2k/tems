@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Monitor as MonitorIcon, Bell, Palette, Globe, Monitor, Clock } from 'lucide-react';
+import { Sun, Moon, Monitor as MonitorIcon, Bell, Palette, Globe, Monitor, Clock, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 /* ── Theme helper ────────────────────────── */
@@ -51,6 +51,16 @@ const SECTIONS = [
 export default function Preferences() {
   const { user } = useAuth();
   const [mode, setMode] = useState(() => localStorage.getItem(THEME_KEY) || 'light');
+  const [virtualMobile, setVirtualMobileState] = useState(
+    () => localStorage.getItem('tems-virtual-mobile') === 'true'
+  );
+
+  const toggleVirtualMobile = () => {
+    const next = !virtualMobile;
+    setVirtualMobileState(next);
+    localStorage.setItem('tems-virtual-mobile', String(next));
+    window.dispatchEvent(new CustomEvent('tems-virtual-mobile-change'));
+  };
 
   /* apply on mount + whenever mode changes */
   useEffect(() => {
@@ -112,6 +122,38 @@ export default function Preferences() {
             );
           })}
         </div>
+      </div>
+
+      {/* ── Virtual Mobile Mode ── */}
+      <div className="card" style={{ padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 18 }}>
+        <div className="pref-icon-box" style={{
+          width: 42, height: 42, borderRadius: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          background: virtualMobile ? '#dbeafe' : undefined,
+        }}>
+          <Smartphone size={20} color={virtualMobile ? '#2563eb' : undefined} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }} className="pref-title">Virtual Mobile Mode</div>
+          <div style={{ fontSize: 12, marginTop: 2 }} className="pref-sub">
+            Simulate the mobile layout on desktop — hamburger menu, drawer nav, compact header
+          </div>
+        </div>
+        <button
+          onClick={toggleVirtualMobile}
+          style={{
+            width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0,
+            background: virtualMobile ? '#2563eb' : '#cbd5e1',
+            position: 'relative', transition: 'background 0.2s',
+          }}
+          title={virtualMobile ? 'Disable virtual mobile mode' : 'Enable virtual mobile mode'}
+        >
+          <span className="toggle-knob" style={{
+            position: 'absolute', top: 3, left: virtualMobile ? 23 : 3,
+            width: 18, height: 18, borderRadius: '50%',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s',
+          }} />
+        </button>
       </div>
 
       {/* Coming-soon sections */}

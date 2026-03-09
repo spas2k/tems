@@ -7,7 +7,7 @@ export default function ServiceProviders() {
       <div className="page-card" style={{ borderRadius: 14, overflow: 'hidden' }}>
         <div className="page-card-header" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <Landmark size={22} />
-          <span style={{ fontWeight: 700, fontSize: 17, color: '#0f172a' }}>Service Providers</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 17 }}>Service Providers</span>
         </div>
         <div style={{ padding: 40, textAlign: 'center' }}>
           <Landmark size={48} color="#94a3b8" style={{ marginBottom: 16 }} />

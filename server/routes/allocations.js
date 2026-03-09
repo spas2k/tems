@@ -1,67 +1,74 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const safeError = require('./_safeError');
+const { validate, idParam, allocationRules } = require('./_validators');
+const cascadeGuard = require('./_cascadeGuard');
+const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
-const BASE_SQL = `
-  SELECT al.*, li.description AS line_item_description, li.amount AS line_item_amount,
-         i.id AS invoice_id, i.invoice_number, a.name AS account_name
-  FROM allocations al
-  LEFT JOIN line_items li ON al.line_item_id = li.id
-  LEFT JOIN invoices i    ON li.invoice_id   = i.id
-  LEFT JOIN accounts a    ON i.account_id    = a.id
-`;
+// Reusable base query for allocations with joined context
+function baseQuery() {
+  return db('allocations as al')
+    .leftJoin('line_items as li', 'al.line_items_id', 'li.line_items_id')
+    .leftJoin('invoices as i', 'li.invoices_id', 'i.invoices_id')
+    .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
+    .select(
+      'al.*',
+      'li.description as line_item_description',
+      'li.amount as line_item_amount',
+      'i.invoices_id as invoice_id',
+      'i.invoice_number',
+      'a.name as account_name',
+    );
+}
 
 router.get('/', async (req, res) => {
   try {
-    const { line_item_id, invoice_id } = req.query;
-    let sql = BASE_SQL;
-    const params = [];
-    const wheres = [];
-    if (line_item_id) { wheres.push('al.line_item_id=?'); params.push(line_item_id); }
-    if (invoice_id)   { wheres.push('li.invoice_id=?');   params.push(invoice_id); }
-    if (wheres.length) sql += ' WHERE ' + wheres.join(' AND ');
-    const [rows] = await db.query(sql, params);
+    let query = baseQuery();
+    if (req.query.line_items_id) query = query.where('al.line_items_id', req.query.line_items_id);
+    if (req.query.invoices_id)   query = query.where('li.invoices_id', req.query.invoices_id);
+    const rows = await query;
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'allocations'); }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', idParam, validate, async (req, res) => {
   try {
-    const [rows] = await db.query(BASE_SQL + ' WHERE al.id=?', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const row = await baseQuery().where('al.allocations_id', req.params.id).first();
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  } catch (err) { safeError(res, err, 'allocations'); }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', allocationRules, validate, auditCreate('allocations', 'allocations_id'), async (req, res) => {
   try {
-    const { line_item_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
-    const [result] = await db.query(
-      'INSERT INTO allocations (line_item_id, cost_center, department, percentage, allocated_amount, notes) VALUES (?,?,?,?,?,?)',
-      [line_item_id, cost_center, department, percentage, allocated_amount, notes || '']
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE al.id=?', [result.insertId]);
-    res.status(201).json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { line_items_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
+    const id = await db.insertReturningId('allocations', {
+      line_items_id, cost_center, department, percentage,
+      allocated_amount, notes: notes || '',
+    });
+    const row = await baseQuery().where('al.allocations_id', id).first();
+    res.status(201).json(row);
+  } catch (err) { safeError(res, err, 'allocations'); }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', idParam, ...allocationRules, validate, auditUpdate('allocations', 'allocations_id'), async (req, res) => {
   try {
-    const { line_item_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
-    await db.query(
-      'UPDATE allocations SET line_item_id=?, cost_center=?, department=?, percentage=?, allocated_amount=?, notes=? WHERE id=?',
-      [line_item_id, cost_center, department, percentage, allocated_amount, notes || '', req.params.id]
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE al.id=?', [req.params.id]);
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { line_items_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
+    await db('allocations').where('allocations_id', req.params.id).update({
+      line_items_id, cost_center, department, percentage,
+      allocated_amount, notes: notes || '',
+    });
+    const row = await baseQuery().where('al.allocations_id', req.params.id).first();
+    res.json(row);
+  } catch (err) { safeError(res, err, 'allocations'); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', idParam, validate, cascadeGuard('allocations', 'allocations_id'), auditDelete('allocations', 'allocations_id'), async (req, res) => {
   try {
-    await db.query('DELETE FROM allocations WHERE id=?', [req.params.id]);
+    await db('allocations').where('allocations_id', req.params.id).del();
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'allocations'); }
 });
 
 module.exports = router;

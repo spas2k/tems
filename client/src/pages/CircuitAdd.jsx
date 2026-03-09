@@ -4,7 +4,7 @@ import { createCircuit, getAccounts, getContracts } from '../api';
 import FormPage from '../components/FormPage';
 
 const TYPES = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', 'Other'];
-const STATUSES = ['Active', 'Pending', 'Disconnected'];
+const STATUSES = ['Active', 'Pending', 'Disconnected', 'Suspended'];
 
 const EMPTY = {
   accounts_id: '', contracts_id: '', circuit_number: '',

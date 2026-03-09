@@ -71,10 +71,9 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Hero */}
-      <div style={{
+      <div className="dash-hero" style={{
         background: '#1e293b',
         borderRadius: 12, padding: '24px 28px', position: 'relative', overflow: 'hidden',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         border: '1px solid #334155',
       }}>
         <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
@@ -100,7 +99,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'right' }}>
+        <div className="dash-hero-right" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>Savings Pipeline</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#4ade80' }}>${fmt(savings)}</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{data.savingsOpportunities?.length || 0} opportunities</div>
@@ -121,10 +120,10 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="dash-grid-2">
         {/* Audit Status Pie */}
         {auditTotal > 0 && (
-          <div className="page-card" style={{ padding: '16px 20px', background: '#fff', borderColor: '#e2e8f0' }}>
+          <div className="page-card" style={{ padding: '16px 20px' }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 8 }}>
               <CheckCircle2 size={16} color="#3b82f6" /> Audit Status Breakdown
             </div>
@@ -139,8 +138,8 @@ export default function Dashboard() {
                   <Cell fill="#ef4444" />
                   <Cell fill="#f59e0b" />
                 </Pie>
-                <Tooltip formatter={(v) => v.toLocaleString()} contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', color: '#0f172a' }} />
-                <Legend wrapperStyle={{ color: '#0f172a' }} />
+                <Tooltip formatter={(v) => v.toLocaleString()} />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -148,7 +147,7 @@ export default function Dashboard() {
 
         {/* Invoice Amounts Bar */}
         {(data.recentInvoices || []).length > 0 && (
-          <div className="page-card" style={{ padding: '16px 20px', background: '#fff', borderColor: '#e2e8f0' }}>
+          <div className="page-card" style={{ padding: '16px 20px' }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Receipt size={16} color="#3b82f6" /> Recent Invoice Amounts
             </div>
@@ -160,7 +159,7 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={v => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}`} contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', color: '#0f172a' }} />
+                <Tooltip formatter={v => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}`} />
                 <Bar dataKey="Amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -170,7 +169,7 @@ export default function Dashboard() {
 
       {/* Savings Opportunities Bar */}
       {(data.savingsOpportunities || []).length > 0 && (
-        <div className="page-card" style={{ padding: '16px 20px', background: '#fff', borderColor: '#e2e8f0' }}>
+        <div className="page-card" style={{ padding: '16px 20px' }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Zap size={16} color="#16a34a" /> Savings Pipeline by Vendor
           </div>
@@ -182,7 +181,7 @@ export default function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
               <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={v => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', color: '#0f172a' }} />
+              <Tooltip formatter={v => `$${Number(v).toLocaleString()}`} />
               <Bar dataKey="Savings" fill="#22c55e" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -193,10 +192,10 @@ export default function Dashboard() {
       {auditTotal > 0 && (        <div className="page-card" style={{ padding: '16px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <CheckCircle2 size={16} color="#3b82f6" />
-            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Line Item Audit Status</span>
+            <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 14 }}>Line Item Audit Status</span>
             <span style={{ fontSize: 12, color: '#64748b', marginLeft: 'auto' }}>{auditTotal} total line items</span>
           </div>
-          <div style={{ display: 'flex', height: 8, borderRadius: 8, overflow: 'hidden', background: '#e2e8f0', marginBottom: 10 }}>
+          <div className="dash-progress-track" style={{ display: 'flex', height: 8, borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}>
             {audit.validated > 0 && <div style={{ width: `${(audit.validated / auditTotal) * 100}%`, background: '#22c55e' }} />}
             {audit.variance > 0 && <div style={{ width: `${(audit.variance / auditTotal) * 100}%`, background: '#ef4444' }} />}
             {audit.pending > 0 && <div style={{ width: `${(audit.pending / auditTotal) * 100}%`, background: '#f59e0b' }} />}
@@ -205,30 +204,30 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
               <span style={{ color: '#64748b' }}>Validated</span>
-              <span style={{ fontWeight: 700, color: '#0f172a' }}>{audit.validated}</span>
+              <span className="rc-results-count" style={{ fontWeight: 700 }}>{audit.validated}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
               <span style={{ color: '#64748b' }}>Variance</span>
-              <span style={{ fontWeight: 700, color: '#0f172a' }}>{audit.variance}</span>
+              <span className="rc-results-count" style={{ fontWeight: 700 }}>{audit.variance}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
               <span style={{ color: '#64748b' }}>Pending</span>
-              <span style={{ fontWeight: 700, color: '#0f172a' }}>{audit.pending}</span>
+              <span className="rc-results-count" style={{ fontWeight: 700 }}>{audit.pending}</span>
             </div>
           </div>
         </div>
       )}
 
       {/* Tables Row 1 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="dash-grid-2">
         {/* Recent Invoices */}
         <div className="page-card">
           <div className="page-card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <DollarSign size={16} color="#3b82f6" />
-              <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Recent Invoices</span>
+              <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 14 }}>Recent Invoices</span>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/invoices')} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               View all <ArrowRight size={12} />
@@ -260,7 +259,7 @@ export default function Dashboard() {
           <div className="page-card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Zap size={16} color="#16a34a" />
-              <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Savings Opportunities</span>
+              <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 14 }}>Savings Opportunities</span>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/cost-savings')} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               View all <ArrowRight size={12} />
@@ -290,7 +289,7 @@ export default function Dashboard() {
           <div className="page-card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <AlertTriangle size={16} color="#ef4444" />
-              <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Recent Billing Variances</span>
+              <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 14 }}>Recent Billing Variances</span>
               <span className="badge badge-red" style={{ marginLeft: 4 }}>{data.recentVariances.length}</span>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/invoices')} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

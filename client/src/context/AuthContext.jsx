@@ -1,27 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getCurrentUser } from '../api';
-
-/**
- * Auth context — provides current user info and permission checks
- * throughout the React app.
- *
- * In dev mode, the backend returns the admin dev user automatically.
- * When SSO is enabled, the backend validates the token and returns
- * the real authenticated user.
- */
+import { getCurrentUser, getDemoUsers } from '../api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]     = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [demoUsers, setDemoUsers] = useState([]);
+  // Track which user ID is being impersonated (null = default admin)
+  const [impersonatedId, setImpersonatedId] = useState(
+    () => localStorage.getItem('tems-demo-user-id') || null
+  );
 
   const loadUser = useCallback(async () => {
     try {
       const res = await getCurrentUser();
       setUser(res.data);
     } catch {
-      // If auth tables don't exist yet (pre-migration), use fallback
       setUser({
         users_id: null,
         email: 'anonymous@dev',
@@ -35,13 +30,44 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => { loadUser(); }, [loadUser]);
+  const loadDemoUsers = useCallback(async () => {
+    try {
+      const res = await getDemoUsers();
+      setDemoUsers(res.data || []);
+    } catch {
+      // Not in dev mode or demo users not seeded yet
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUser();
+    loadDemoUsers();
+  }, [loadUser, loadDemoUsers]);
+
+  /**
+   * Switch the active demo persona.
+   * Passing null or the admin user’s ID reverts to the default admin.
+   * @param {number|null} userId
+   */
+  const switchDemoUser = useCallback((userId) => {
+    if (userId) {
+      localStorage.setItem('tems-demo-user-id', String(userId));
+      setImpersonatedId(String(userId));
+    } else {
+      localStorage.removeItem('tems-demo-user-id');
+      setImpersonatedId(null);
+    }
+    setLoading(true);
+    loadUser();
+  }, [loadUser]);
+
+  /** Revert to the default admin persona. */
+  const endImpersonation = useCallback(() => switchDemoUser(null), [switchDemoUser]);
 
   /**
    * Check if the current user has a specific permission.
    * @param {string} resource - e.g. 'accounts'
    * @param {string} action   - e.g. 'delete'
-   * @returns {boolean}
    */
   const hasPermission = useCallback((resource, action) => {
     if (!user) return false;
@@ -49,19 +75,11 @@ export function AuthProvider({ children }) {
     return perms.includes('*') || perms.includes(`${resource}:${action}`);
   }, [user]);
 
-  /**
-   * Check if current user has one of the given roles.
-   * @param  {...string} roles
-   * @returns {boolean}
-   */
   const hasRole = useCallback((...roles) => {
     if (!user) return false;
     return roles.includes(user.role_name);
   }, [user]);
 
-  /**
-   * Check if user can perform any write operation on a resource.
-   */
   const canWrite = useCallback((resource) => {
     return hasPermission(resource, 'create') ||
            hasPermission(resource, 'update') ||
@@ -71,11 +89,15 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     loading,
+    demoUsers,
+    isImpersonating: !!impersonatedId,
     refreshUser: loadUser,
     hasPermission,
     hasRole,
     canWrite,
     isAdmin: user?.role_name === 'Admin',
+    switchDemoUser,
+    endImpersonation,
   };
 
   return (

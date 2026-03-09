@@ -98,7 +98,7 @@ export default function FormPage({
             style={{ width: 18, height: 18, accentColor: '#2563eb' }}
             disabled={disabled}
           />
-          <label htmlFor={`fp-${key}`} style={{ fontSize: 14, color: '#334155', fontWeight: 600, cursor: 'pointer' }}>
+          <label htmlFor={`fp-${key}`} className="rc-results-count" style={{ fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             {label}
           </label>
         </div>
@@ -237,7 +237,7 @@ export default function FormPage({
         return (
           <div key={idx} className="form-page-section">
             <div className="form-page-section-header">
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{section.title}</div>
+              <div className="rc-results-count" style={{ fontWeight: 700, fontSize: 14 }}>{section.title}</div>
               {section.description && (
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{section.description}</div>
               )}
@@ -251,8 +251,7 @@ export default function FormPage({
 
       {/* Bottom actions */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingBottom: 20 }}>
-        <button className="btn" onClick={() => navigate(backPath)}
-          style={{ background: 'white', color: '#475569', border: '1.5px solid #cbd5e1' }}>
+        <button className="btn btn-cancel" onClick={() => navigate(backPath)}>
           Cancel
         </button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}

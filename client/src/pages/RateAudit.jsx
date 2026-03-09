@@ -132,7 +132,7 @@ export default function RateAudit() {
         <div className="page-card" style={{ padding: '14px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <ShieldCheck size={16} color="#3b82f6" />
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Rate Compliance</span>
+            <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 14 }}>Rate Compliance</span>
             <span style={{ fontSize: 12, color: '#64748b', marginLeft: 'auto' }}>
               {s.total > 0 ? Math.round((s.matched / s.total) * 100) : 0}% compliant
             </span>
@@ -224,7 +224,7 @@ export default function RateAudit() {
                         </span>
                       ) : '—'}
                     </td>
-                    <td><code style={{ fontSize: 12, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{r.usoc_code}</code></td>
+                    <td><code className="rp-code" style={{ fontSize: 12, padding: '2px 6px', borderRadius: 4 }}>{r.usoc_code}</code></td>
                     <td style={{ fontWeight: 600 }}>${fmt(r.mrc_amount)}</td>
                     <td>{r.rate_mrc != null ? `$${fmt(r.rate_mrc)}` : <span style={{ color: '#94a3b8' }}>—</span>}</td>
                     <td style={{ fontWeight: 700, color: r.mrc_delta > 0.01 ? '#ef4444' : r.mrc_delta < -0.01 ? '#16a34a' : '#64748b' }}>

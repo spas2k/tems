@@ -5,6 +5,8 @@ import { getCircuits, createCircuit, updateCircuit, deleteCircuit, getAccounts, 
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const TYPES = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', 'Other'];
 const STATUSES = ['Active', 'Pending', 'Disconnected', 'Suspended'];
@@ -19,6 +21,10 @@ const FILTER_CONFIG = {
 
 export default function Circuits() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const confirm = useConfirm();
+  const canCreate = hasPermission('circuits', 'create');
+  const canDelete = hasPermission('circuits', 'delete');
   const table = useCrudTable({
     api: { list: getCircuits, create: createCircuit, update: updateCircuit, delete: deleteCircuit },
     idKey: 'circuits_id',
@@ -70,11 +76,12 @@ export default function Circuits() {
         columns={columns}
         {...table.tableProps}
         title="Circuit Inventory"
+        titleIcon={<Network size={15} color="#7c3aed" />}
         exportFilename="Circuits"
-        bulkActions={[
-          { label: 'Delete', icon: Trash2, danger: true, onClick: rows => { if (window.confirm(`Delete ${rows.length} records?`)) rows.forEach(r => table.handleDelete(r.circuits_id)); } }
-        ]}
-        headerRight={<button className="btn btn-primary" onClick={() => navigate('/circuits/new')}><Plus size={15} /> New Circuit</button>}
+        bulkActions={canDelete ? [
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.circuits_id, { skipConfirm: true })); } }
+        ] : []}
+        headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/circuits/new')}><Plus size={15} /> New Circuit</button> : null}
       />
 
       <CrudModal

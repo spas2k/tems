@@ -1,9 +1,10 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShieldAlert, Save, Receipt, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Save, SlidersHorizontal, ClipboardList } from 'lucide-react';
 import { getDispute, updateDispute, getAccounts, getInvoices } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
 
 const STATUSES = ['Open', 'Under Review', 'Credited', 'Denied', 'Closed'];
@@ -16,6 +17,26 @@ const STATUS_BADGE = {
   Denied:         'badge badge-red',
   Closed:         'badge badge-gray',
 };
+
+const NAV_SECTIONS = [
+  { key: 'details', label: 'Dispute Details', Icon: SlidersHorizontal },
+  { key: 'history', label: 'Change History',  Icon: ClipboardList     },
+];
+const NAV_BTN = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: 30, height: 30, borderRadius: 6, border: 'none',
+  background: 'transparent', cursor: 'pointer', color: '#cbd5e1',
+  transition: 'background 0.15s, color 0.15s',
+};
+function NavIcon({ label, Icon, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button title={label} onClick={onClick}
+      style={{ ...NAV_BTN, background: hover ? 'rgba(255,255,255,0.15)' : 'transparent', color: hover ? '#f8fafc' : '#cbd5e1' }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    ><Icon size={15} /></button>
+  );
+}
 
 function Field({ label, children }) {
   return (
@@ -37,8 +58,11 @@ export default function DisputeDetail() {
   const [form,     setForm]     = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
   const [dirty,    setDirty]    = useState(false);
   const [toast,    setToast]    = useState(null);
+  const refs = { details: useRef(null), history: useRef(null) };
+  const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const showToast = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 2500); };
 
@@ -73,6 +97,7 @@ export default function DisputeDetail() {
       const { data } = await updateDispute(id, payload);
       setDispute(data);
       setDirty(false);
+      setHistoryKey(k => k + 1);
       showToast('Dispute saved.');
     } catch { showToast('Save failed.', false); }
     finally { setSaving(false); }
@@ -119,9 +144,17 @@ export default function DisputeDetail() {
           </div>
           <span className={STATUS_BADGE[dispute.status] || 'badge badge-gray'}>{dispute.status}</span>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={!dirty || saving} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Save size={14} /> {saving ? 'Saving…' : 'Save'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 6px' }}>
+            {NAV_SECTIONS.map(({ key, label, Icon }) => (
+              <NavIcon key={key} label={label} Icon={Icon} onClick={() => scrollTo(key)} />
+            ))}
+          </div>
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={!dirty || saving} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Save size={14} /> {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </DetailHeader>
 
       {/* Summary banner */}
@@ -151,8 +184,8 @@ export default function DisputeDetail() {
       </div>
 
       {/* Form */}
-      <div className="page-card" style={{ padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 16 }}>Dispute Details</div>
+      <div className="page-card" ref={refs.details} style={{ padding: 20, scrollMarginTop: 80 }}>
+        <div className="rc-results-count" style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Dispute Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <Field label="Account">
             <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
@@ -201,6 +234,9 @@ export default function DisputeDetail() {
             <textarea className="form-input" rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
           </Field>
         </div>
+      </div>
+      <div ref={refs.history} style={{ scrollMarginTop: 80 }}>
+        <ChangeHistory resource="disputes" resourceId={id} refreshKey={historyKey} />
       </div>
     </>
   );

@@ -1,68 +1,99 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const safeError = require('./_safeError');
+const { validate, idParam, lineItemRules } = require('./_validators');
+const cascadeGuard = require('./_cascadeGuard');
+const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
-const BASE_SQL = `
-  SELECT li.*, ci.circuit_id AS circuit_identifier, ci.location AS circuit_location,
-         i.invoice_number
-  FROM line_items li
-  LEFT JOIN circuits ci ON li.circuit_id = ci.id
-  LEFT JOIN invoices i  ON li.invoice_id = i.id
-`;
+// Reusable base query for line items with joined circuit/invoice/usoc info
+function baseQuery() {
+  return db('line_items as li')
+    .leftJoin('circuits as ci', 'li.circuits_id', 'ci.circuits_id')
+    .leftJoin('invoices as i', 'li.invoices_id', 'i.invoices_id')
+    .leftJoin('usoc_codes as u', 'li.usoc_codes_id', 'u.usoc_codes_id')
+    .select(
+      'li.*',
+      'ci.circuit_number as circuit_identifier', 'ci.location as circuit_location',
+      'i.invoice_number',
+      'u.usoc_code', 'u.description as usoc_description', 'u.category as usoc_category'
+    );
+}
 
 router.get('/', async (req, res) => {
   try {
-    const { invoice_id, circuit_id } = req.query;
-    let sql = BASE_SQL;
-    const params = [];
-    const wheres = [];
-    if (invoice_id) { wheres.push('li.invoice_id=?'); params.push(invoice_id); }
-    if (circuit_id) { wheres.push('li.circuit_id=?'); params.push(circuit_id); }
-    if (wheres.length) sql += ' WHERE ' + wheres.join(' AND ');
-    const [rows] = await db.query(sql, params);
+    let query = baseQuery();
+    if (req.query.invoices_id) query = query.where('li.invoices_id', req.query.invoices_id);
+    if (req.query.circuits_id) query = query.where('li.circuits_id', req.query.circuits_id);
+    const rows = await query;
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', idParam, validate, async (req, res) => {
   try {
-    const [rows] = await db.query(BASE_SQL + ' WHERE li.id=?', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const row = await baseQuery().where('li.line_items_id', req.params.id).first();
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', lineItemRules, validate, auditCreate('line_items', 'line_items_id'), async (req, res) => {
   try {
-    const { invoice_id, circuit_id, description, charge_type, amount, contracted_rate, period_start, period_end } = req.body;
-    const variance = (contracted_rate != null && amount != null) ? (parseFloat(amount) - parseFloat(contracted_rate)) : null;
-    const [result] = await db.query(
-      'INSERT INTO line_items (invoice_id, circuit_id, description, charge_type, amount, contracted_rate, variance, period_start, period_end) VALUES (?,?,?,?,?,?,?,?,?)',
-      [invoice_id, circuit_id || null, description, charge_type, amount, contracted_rate || null, variance, period_start, period_end]
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE li.id=?', [result.insertId]);
-    res.status(201).json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { invoices_id, circuits_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
+    const variance = (contracted_rate != null && amount != null)
+      ? parseFloat(amount) - parseFloat(contracted_rate)
+      : null;
+    // Determine audit_status based on variance
+    let audit_status = null;
+    if (charge_type === 'MRC' || charge_type === 'NRC') {
+      if (variance !== null) audit_status = Math.abs(variance) > 0.005 ? 'Variance' : 'Validated';
+      else audit_status = 'Pending';
+    }
+    const id = await db.insertReturningId('line_items', {
+      invoices_id, circuits_id: circuits_id || null,
+      usoc_codes_id: usoc_codes_id || null,
+      description, charge_type, amount,
+      mrc_amount: mrc_amount != null ? mrc_amount : (charge_type === 'MRC' ? amount : null),
+      nrc_amount: nrc_amount != null ? nrc_amount : (charge_type === 'NRC' ? amount : null),
+      contracted_rate: contracted_rate || null,
+      variance, audit_status, period_start, period_end,
+    });
+    const row = await baseQuery().where('li.line_items_id', id).first();
+    res.status(201).json(row);
+  } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', idParam, ...lineItemRules, validate, auditUpdate('line_items', 'line_items_id'), async (req, res) => {
   try {
-    const { invoice_id, circuit_id, description, charge_type, amount, contracted_rate, period_start, period_end } = req.body;
-    const variance = (contracted_rate != null && amount != null) ? (parseFloat(amount) - parseFloat(contracted_rate)) : null;
-    await db.query(
-      'UPDATE line_items SET invoice_id=?, circuit_id=?, description=?, charge_type=?, amount=?, contracted_rate=?, variance=?, period_start=?, period_end=? WHERE id=?',
-      [invoice_id, circuit_id || null, description, charge_type, amount, contracted_rate || null, variance, period_start, period_end, req.params.id]
-    );
-    const [rows] = await db.query(BASE_SQL + ' WHERE li.id=?', [req.params.id]);
-    res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { invoices_id, circuits_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
+    const variance = (contracted_rate != null && amount != null)
+      ? parseFloat(amount) - parseFloat(contracted_rate)
+      : null;
+    let audit_status = null;
+    if (charge_type === 'MRC' || charge_type === 'NRC') {
+      if (variance !== null) audit_status = Math.abs(variance) > 0.005 ? 'Variance' : 'Validated';
+      else audit_status = 'Pending';
+    }
+    await db('line_items').where('line_items_id', req.params.id).update({
+      invoices_id, circuits_id: circuits_id || null,
+      usoc_codes_id: usoc_codes_id || null,
+      description, charge_type, amount,
+      mrc_amount: mrc_amount != null ? mrc_amount : (charge_type === 'MRC' ? amount : null),
+      nrc_amount: nrc_amount != null ? nrc_amount : (charge_type === 'NRC' ? amount : null),
+      contracted_rate: contracted_rate || null,
+      variance, audit_status, period_start, period_end,
+    });
+    const row = await baseQuery().where('li.line_items_id', req.params.id).first();
+    res.json(row);
+  } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', idParam, validate, cascadeGuard('line_items', 'line_items_id'), auditDelete('line_items', 'line_items_id'), async (req, res) => {
   try {
-    await db.query('DELETE FROM line_items WHERE id=?', [req.params.id]);
+    await db('line_items').where('line_items_id', req.params.id).del();
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
 module.exports = router;

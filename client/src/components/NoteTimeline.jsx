@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Send, Trash2, MessageSquare, Activity, Settings } from 'lucide-react';
 import { getNotes, createNote, deleteNote } from '../api';
+import { useConfirm } from '../context/ConfirmContext';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
@@ -12,6 +13,7 @@ const TYPE_CONFIG = {
 };
 
 export default function NoteTimeline({ entityType, entityId, author = 'User' }) {
+  const confirm = useConfirm();
   const [notes, setNotes] = useState([]);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function NoteTimeline({ entityType, entityId, author = 'User' }) 
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this note?')) return;
+    if (!(await confirm('Delete this note?'))) return;
     try {
       await deleteNote(id);
       load();
@@ -55,7 +57,7 @@ export default function NoteTimeline({ entityType, entityId, author = 'User' }) 
   return (
     <div className="page-card" style={{ marginTop: 16 }}>
       <div className="page-card-header">
-        <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Notes & Activity</span>
+        <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Notes & Activity</span>
         <span className="filter-count">{notes.length} note{notes.length !== 1 ? 's' : ''}</span>
       </div>
       <div style={{ padding: 16 }}>

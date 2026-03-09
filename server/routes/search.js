@@ -1,55 +1,59 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
+const safeError = require('./_safeError');
 
 router.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
-  if (!q || q.length < 2) return res.json({ accounts: [], contracts: [], circuits: [], orders: [], invoices: [] });
+  if (!q || q.length < 2) return res.json({ vendors: [], contracts: [], circuits: [], orders: [], invoices: [], usoc_codes: [] });
 
-  const like = `%${q}%`;
+  const escaped = q.replace(/[%_\\]/g, '\\$&');
+  const like = `%${escaped}%`;
+  const matchOperator = db.client.config.client === 'pg' ? 'ilike' : 'like';
   try {
-    const [[accounts], [contracts], [circuits], [orders], [invoices]] = await Promise.all([
-      db.query(
-        `SELECT a.id, a.name, a.account_number AS sub
-         FROM accounts a
-         WHERE a.name LIKE ? OR a.account_number LIKE ?
-         LIMIT 6`,
-        [like, like]
-      ),
-      db.query(
-        `SELECT c.id, COALESCE(c.contract_number, c.name) AS contract_number, c.name,
-                a.name AS sub
-         FROM contracts c LEFT JOIN accounts a ON c.account_id = a.id
-         WHERE c.contract_number LIKE ? OR c.name LIKE ?
-         LIMIT 6`,
-        [like, like]
-      ),
-      db.query(
-        `SELECT ci.id, ci.circuit_id, ci.location AS sub
-         FROM circuits ci
-         WHERE ci.circuit_id LIKE ? OR ci.location LIKE ? OR ci.type LIKE ?
-         LIMIT 6`,
-        [like, like, like]
-      ),
-      db.query(
-        `SELECT o.id, o.order_number, LEFT(o.description, 60) AS sub
-         FROM orders o
-         WHERE o.order_number LIKE ? OR o.description LIKE ?
-         LIMIT 6`,
-        [like, like]
-      ),
-      db.query(
-        `SELECT i.id, i.invoice_number, a.name AS sub
-         FROM invoices i LEFT JOIN accounts a ON i.account_id = a.id
-         WHERE i.invoice_number LIKE ?
-         LIMIT 6`,
-        [like]
-      ),
+    const [vendors, contracts, circuits, orders, invoices, usoc_codes] = await Promise.all([
+      db('accounts as a')
+        .select('a.accounts_id', 'a.name', 'a.account_number as sub')
+        .where('a.name', matchOperator, like)
+        .orWhere('a.account_number', matchOperator, like)
+        .limit(6),
+
+      db('contracts as c')
+        .leftJoin('accounts as a', 'c.accounts_id', 'a.accounts_id')
+        .select('c.contracts_id', db.raw('COALESCE(c.contract_number, c.name) as contract_number'), 'c.name', 'a.name as sub')
+        .where('c.contract_number', matchOperator, like)
+        .orWhere('c.name', matchOperator, like)
+        .limit(6),
+
+      db('circuits as ci')
+        .select('ci.circuits_id', 'ci.circuit_number', 'ci.location as sub')
+        .where('ci.circuit_number', matchOperator, like)
+        .orWhere('ci.location', matchOperator, like)
+        .orWhere('ci.type', matchOperator, like)
+        .limit(6),
+
+      db('orders as o')
+        .select('o.orders_id', 'o.order_number', db.raw('SUBSTRING(o.description, 1, 60) as sub'))
+        .where('o.order_number', matchOperator, like)
+        .orWhere('o.description', matchOperator, like)
+        .limit(6),
+
+      db('invoices as i')
+        .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
+        .select('i.invoices_id', 'i.invoice_number', 'a.name as sub')
+        .where('i.invoice_number', matchOperator, like)
+        .limit(6),
+
+      db('usoc_codes as u')
+        .select('u.usoc_codes_id', 'u.usoc_code', 'u.description as sub')
+        .where('u.usoc_code', matchOperator, like)
+        .orWhere('u.description', matchOperator, like)
+        .limit(6),
     ]);
 
-    res.json({ accounts, contracts, circuits, orders, invoices });
+    res.json({ vendors, contracts, circuits, orders, invoices, usoc_codes });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    safeError(res, err, 'search');
   }
 });
 

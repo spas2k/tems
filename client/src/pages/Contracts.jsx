@@ -5,6 +5,8 @@ import { getContracts, createContract, updateContract, deleteContract, getAccoun
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const STATUSES = ['Active', 'Pending', 'Expired', 'Terminated'];
 const STATUS_BADGE = { Active: 'badge badge-green', Pending: 'badge badge-blue', Expired: 'badge badge-gray', Terminated: 'badge badge-red' };
@@ -12,13 +14,18 @@ const STATUS_BADGE = { Active: 'badge badge-green', Pending: 'badge badge-blue',
 const EMPTY = { accounts_id: '', name: '', contract_number: '', start_date: '', end_date: '', contracted_rate: '', rate_unit: '', term_months: '', status: 'Active', auto_renew: false };
 
 const FILTER_CONFIG = {
-  account_name: 'select', contract_number: 'text', name: 'text',
+  account_name: 'select',
+  contract_number: 'text', name: 'text',
   start_date: 'date', end_date: 'date', contracted_rate: 'text',
   term_months: 'text', auto_renew: 'boolean', status: 'select',
 };
 
 export default function Contracts() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const confirm = useConfirm();
+  const canCreate = hasPermission('contracts', 'create');
+  const canDelete = hasPermission('contracts', 'delete');
   const table = useCrudTable({
     api: { list: getContracts, create: createContract, update: updateContract, delete: deleteContract },
     idKey: 'contracts_id',
@@ -32,7 +39,7 @@ export default function Contracts() {
 
   const columns = [
     { key: 'account_name', label: 'Vendor', filterType: 'select',
-      filterOptions: accounts.map(a => a.name), style: { fontWeight: 600 } },
+      filterOptions: accounts.map(a => a.name) },
     { key: 'contract_number', label: 'Contract #', copyable: true,
       render: (v, row) => (
         <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }}
@@ -101,11 +108,12 @@ export default function Contracts() {
         columns={columns}
         {...table.tableProps}
         title="All Contracts"
+        titleIcon={<FileText size={15} color="#0d9488" />}
         exportFilename="Contracts"
-        bulkActions={[
-          { label: 'Delete', icon: Trash2, danger: true, onClick: rows => { if (window.confirm(`Delete ${rows.length} records?`)) rows.forEach(r => table.handleDelete(r.contracts_id)); } }
-        ]}
-        headerRight={<button className="btn btn-primary" onClick={() => navigate('/contracts/new')}><Plus size={15} /> New Contract</button>}
+        bulkActions={canDelete ? [
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.contracts_id, { skipConfirm: true })); } }
+        ] : []}
+        headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/contracts/new')}><Plus size={15} /> New Contract</button> : null}
       />
 
       <CrudModal

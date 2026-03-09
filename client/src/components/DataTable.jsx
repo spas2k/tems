@@ -1,8 +1,175 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Pencil, Trash2, Filter, X, Download, Copy, Check, Square, CheckSquare, Bookmark } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Pencil, Trash2, Filter, X, Download, Copy, Check, Square, CheckSquare, Bookmark, Star } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import Pagination from './Pagination';
+import { useFavorites } from '../context/FavoritesContext';
+
+// ── Filter operator definitions ───────────────────────────────────────────────
+
+const TEXT_OPS = [
+  { op: 'contains',     label: 'Contains'       },
+  { op: 'not_contains', label: 'Not contains'    },
+  { op: 'starts_with',  label: 'Starts with'     },
+  { op: 'ends_with',    label: 'Ends with'       },
+  { op: 'equals',       label: 'Equals'          },
+  { op: 'not_equals',   label: 'Not equals'      },
+  { op: 'in_set',       label: 'In set (one per line)'  },
+  { op: 'not_in_set',   label: 'Not in set'             },
+  { op: 'is_empty',     label: 'Is empty'        },
+  { op: 'not_empty',    label: 'Not empty'       },
+];
+const SELECT_OPS = [
+  { op: 'equals',     label: 'Is'          },
+  { op: 'not_equals', label: 'Is not'      },
+  { op: 'in_set',     label: 'In set'      },
+  { op: 'not_in_set', label: 'Not in set'  },
+  { op: 'is_empty',   label: 'Is empty'    },
+  { op: 'not_empty',  label: 'Not empty'   },
+];
+const DATE_OPS = [
+  { op: 'on',           label: 'On'            },
+  { op: 'not_on',       label: 'Not on'        },
+  { op: 'before',       label: 'Before'        },
+  { op: 'after',        label: 'After'         },
+  { op: 'between',      label: 'Between'       },
+  { op: 'this_week',    label: 'This week'     },
+  { op: 'this_month',   label: 'This month'    },
+  { op: 'this_quarter', label: 'This quarter'  },
+  { op: 'this_year',    label: 'This year'     },
+  { op: 'is_empty',     label: 'Is empty'      },
+  { op: 'not_empty',    label: 'Not empty'     },
+];
+const NUMBER_OPS = [
+  { op: 'equals',     label: '= Equals'      },
+  { op: 'not_equals', label: '≠ Not equals'  },
+  { op: 'gt',         label: '> Greater than' },
+  { op: 'gte',        label: '≥ At least'    },
+  { op: 'lt',         label: '< Less than'   },
+  { op: 'lte',        label: '≤ At most'     },
+  { op: 'between',    label: 'Between'       },
+  { op: 'is_empty',   label: 'Is empty'      },
+  { op: 'not_empty',  label: 'Not empty'     },
+];
+const OPS_BY_TYPE = { text: TEXT_OPS, select: SELECT_OPS, date: DATE_OPS, number: NUMBER_OPS };
+const NO_VALUE_OPS = new Set(['is_empty', 'not_empty', 'this_week', 'this_month', 'this_quarter', 'this_year']);
+
+function FilterCell({ col, value: filterValue, onChange }) {
+  const type = col.filterType || 'text';
+  const ops  = OPS_BY_TYPE[type] || TEXT_OPS;
+  const { op = ops[0].op, value = '' } = filterValue || {};
+  const noValue   = NO_VALUE_OPS.has(op);
+  const isBetween = op === 'between';
+  const [p1, p2]  = value.split('|');
+
+  const setOp  = newOp  => onChange({ op: newOp, value: NO_VALUE_OPS.has(newOp) ? '' : value });
+  const setVal = newVal => onChange({ op, value: newVal });
+
+  const isInSet = op === 'in_set' || op === 'not_in_set';
+
+  // Convert internal comma-separated storage ↔ one-per-line display
+  const toLines   = v => (v || '').split(',').map(s => s.trim()).filter(Boolean).join('\n');
+  const fromLines = v => v.split('\n').map(s => s.trim()).filter(Boolean).join(',');
+
+  // Local state for the textarea so a trailing newline (from pressing Enter)
+  // isn't immediately stripped by fromLines → toLines round-trip.
+  const [setLines, setSetLines] = useState(() => toLines(value));
+  const prevSetRef = useRef({ value, op });
+  useEffect(() => {
+    const prev = prevSetRef.current;
+    // Re-sync only when the filter value changes externally (e.g. clear, load saved)
+    // or when the operator switches to/from in_set.
+    if (value !== prev.value || op !== prev.op) {
+      prevSetRef.current = { value, op };
+      setSetLines(toLines(value));
+    }
+  }, [value, op]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Operator chooser */}
+      <select className="col-filter col-filter-op" value={op} onChange={e => setOp(e.target.value)}>
+        {ops.map(o => <option key={o.op} value={o.op}>{o.label}</option>)}
+      </select>
+
+      {/* Value input(s) */}
+      {!noValue && !isBetween && (
+        type === 'select' && !isInSet ? (
+          <select className="col-filter" value={value} onChange={e => setVal(e.target.value)}>
+            <option value="">All</option>
+            {(col.filterOptions || []).map(opt => {
+              const v = typeof opt === 'object' ? opt.value : opt;
+              const l = typeof opt === 'object' ? opt.label : opt;
+              return <option key={v} value={v}>{l}</option>;
+            })}
+          </select>
+        ) : type === 'date' ? (
+          <input className="col-filter" type="date" value={value} onChange={e => setVal(e.target.value)} />
+        ) : type === 'number' ? (
+          <input className="col-filter" type="number" placeholder="Value" value={value} onChange={e => setVal(e.target.value)} />
+        ) : type === 'boolean' ? (
+          <select className="col-filter" value={value} onChange={e => setVal(e.target.value)}>
+            <option value="">—</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        ) : isInSet ? (
+          <textarea
+            className="col-filter col-filter-set"
+            placeholder={`one item\nper line`}
+            value={setLines}
+            onChange={e => {
+              setSetLines(e.target.value);
+              setVal(fromLines(e.target.value));
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') e.stopPropagation(); }}
+          />
+        ) : (
+          <input
+            className="col-filter"
+            placeholder="Filter…"
+            value={value}
+            onChange={e => setVal(e.target.value)}
+          />
+        )
+      )}
+
+      {/* Between: two inputs */}
+      {isBetween && type === 'date' && (
+        <>
+          <input className="col-filter" type="date" value={p1 || ''} placeholder="From"
+            onChange={e => setVal(`${e.target.value}|${p2 || ''}`)} />
+          <input className="col-filter" type="date" value={p2 || ''} placeholder="To"
+            onChange={e => setVal(`${p1 || ''}|${e.target.value}`)} />
+        </>
+      )}
+      {isBetween && type === 'number' && (
+        <>
+          <input className="col-filter" type="number" value={p1 || ''} placeholder="Min"
+            onChange={e => setVal(`${e.target.value}|${p2 || ''}`)} />
+          <input className="col-filter" type="number" value={p2 || ''} placeholder="Max"
+            onChange={e => setVal(`${p1 || ''}|${e.target.value}`)} />
+        </>
+      )}
+      {isBetween && type !== 'date' && type !== 'number' && (
+        <>
+          <input className="col-filter" value={p1 || ''} placeholder="From"
+            onChange={e => setVal(`${e.target.value}|${p2 || ''}`)} />
+          <input className="col-filter" value={p2 || ''} placeholder="To"
+            onChange={e => setVal(`${p1 || ''}|${e.target.value}`)} />
+        </>
+      )}
+
+      {/* No-value hint */}
+      {noValue && (
+        <div className="col-filter-hint">
+          {op === 'is_empty' ? 'is blank' : op === 'not_empty' ? 'has a value' : 'current period'}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Shared data-table with column filters, sort, pagination, and actions.
@@ -43,6 +210,7 @@ export default function DataTable({
   extraActions,
   // customisation
   title,
+  titleIcon,       // optional lucide icon element rendered before title
   headerRight,     // JSX for extra buttons in page-card-header
   emptyMessage,
   rowStyle,
@@ -63,7 +231,58 @@ export default function DataTable({
   const [showSavedFilters, setShowSavedFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [filterName, setFilterName] = useState('');
+  const [showFavModal, setShowFavModal] = useState(false);
+  const [favName, setFavName] = useState('');
   const toolbarRef = useRef(null);
+  const favModalRef = useRef(null);
+  const location = useLocation();
+  const { addFavorite, isFavorited } = useFavorites();
+
+  const activeFilters = filters && Object.entries(filters).some(([, f]) =>
+    typeof f === 'object' ? (f.value !== '' || ['is_empty','not_empty','this_week','this_month','this_quarter','this_year'].includes(f.op)) : !!f
+  );
+  const alreadyFaved = isFavorited(location.pathname, filters);
+
+  // Build a human-readable filter summary for the favorites item
+  const buildFilterSummary = () => {
+    if (!filters) return '';
+    const parts = [];
+    Object.entries(filters).forEach(([key, f]) => {
+      const v = typeof f === 'object' ? f.value : f;
+      const op = typeof f === 'object' ? f.op : 'contains';
+      const col = columns.find(c => c.key === key);
+      const label = col?.label || key;
+      if (['is_empty','not_empty','this_week','this_month','this_quarter','this_year'].includes(op)) {
+        parts.push(`${label}: ${op.replace('_', ' ')}`);
+      } else if (v) {
+        parts.push(`${label}: ${v}`);
+      }
+    });
+    return parts.join(' · ');
+  };
+
+  const handleSaveFavorite = () => {
+    addFavorite({
+      name: favName.trim() || title || 'Favorite',
+      path: location.pathname,
+      filters,
+      filterSummary: buildFilterSummary(),
+    });
+    setShowFavModal(false);
+    setFavName('');
+  };
+
+  // Close fav modal on outside click
+  useEffect(() => {
+    if (!showFavModal) return;
+    const handler = e => {
+      if (favModalRef.current && !favModalRef.current.contains(e.target)) {
+        setShowFavModal(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showFavModal]);
 
   /* ── close dropdowns on outside click ───────────────── */
   useEffect(() => {
@@ -181,7 +400,7 @@ export default function DataTable({
       {/* ── header bar ──────────────────────────────────── */}
       <div className="page-card-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>{title}</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 7 }}>{titleIcon}{title}</span>
           {hasActiveFilters && rawTotal != null && (
             <span className="filter-count">
               Showing {totalItems} of {rawTotal}
@@ -244,6 +463,48 @@ export default function DataTable({
               )}
             </div>
           )}
+          {/* ── Favorite this view ── */}
+          <div style={{ position: 'relative' }}>
+            <button
+              className={`btn btn-sm ${alreadyFaved ? 'btn-fav-active' : 'btn-outline'}`}
+              title={alreadyFaved ? 'Already in favorites' : 'Save this view to favorites'}
+              onClick={() => {
+                if (alreadyFaved) return;
+                setFavName(title || '');
+                setShowFavModal(p => !p);
+                setShowSavedFilters(false);
+                setShowExport(false);
+              }}
+            >
+              <Star size={13} fill={alreadyFaved ? 'currentColor' : 'none'} />
+            </button>
+            {showFavModal && (
+              <div ref={favModalRef} className="fav-save-popover">
+                <div className="fav-save-popover-title">Save to Favorites</div>
+                <input
+                  className="form-input"
+                  style={{ fontSize: 12, padding: '5px 8px', marginBottom: 8 }}
+                  placeholder="Name this view…"
+                  autoFocus
+                  value={favName}
+                  onChange={e => setFavName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSaveFavorite();
+                    if (e.key === 'Escape') setShowFavModal(false);
+                  }}
+                />
+                {buildFilterSummary() && (
+                  <div className="fav-save-popover-sub">{buildFilterSummary()}</div>
+                )}
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 4 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setShowFavModal(false)}>Cancel</button>
+                  <button className="btn btn-primary btn-sm" onClick={handleSaveFavorite} disabled={!favName.trim() && !title}>
+                    <Star size={12} /> Save
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           {headerRight}
         </div>
       </div>
@@ -270,6 +531,7 @@ export default function DataTable({
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Loading…</div>
       ) : (<>
+        <div style={{ overflowX: 'auto' }}>
         <table className="data-table">
           <thead>
             <tr>
@@ -300,38 +562,13 @@ export default function DataTable({
                 {hasBulk && <th />}
                 {columns.map(col => (
                   <th key={col.key}>
-                    {col.filterable === false ? null
-                      : col.filterType === 'select' ? (
-                        <select
-                          className="col-filter"
-                          value={filters[col.key] || ''}
-                          onChange={e => setFilter(col.key, e.target.value)}
-                        >
-                          <option value="">All</option>
-                          {(col.filterOptions || []).map(opt => {
-                            const v = typeof opt === 'object' ? opt.value : opt;
-                            const l = typeof opt === 'object' ? opt.label : opt;
-                            return <option key={v} value={v}>{l}</option>;
-                          })}
-                        </select>
-                      )
-                      : col.filterType === 'date' ? (
-                        <input
-                          className="col-filter"
-                          type="date"
-                          value={filters[col.key] || ''}
-                          onChange={e => setFilter(col.key, e.target.value)}
-                        />
-                      )
-                      : (
-                        <input
-                          className="col-filter"
-                          placeholder="Filter…"
-                          value={filters[col.key] || ''}
-                          onChange={e => setFilter(col.key, e.target.value)}
-                        />
-                      )
-                    }
+                    {col.filterable !== false && (
+                      <FilterCell
+                        col={col}
+                        value={filters[col.key]}
+                        onChange={v => setFilter(col.key, v)}
+                      />
+                    )}
                   </th>
                 ))}
                 {hasActions && (
@@ -413,6 +650,7 @@ export default function DataTable({
             </tfoot>
           )}
         </table>
+        </div>{/* end overflowX wrapper */}
         <Pagination
           currentPage={page}
           totalItems={totalItems}

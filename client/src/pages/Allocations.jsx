@@ -43,7 +43,7 @@ export default function Allocations() {
 
       <div className="page-card">
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Allocations</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Allocations</span>
           <select className="form-input" style={{ width: 300 }} value={filterInv} onChange={e => setFilterInv(e.target.value)}>
             <option value="">All Invoices</option>
             {invoices.map(i => <option key={i.invoices_id} value={i.invoices_id}>{i.invoice_number} — {i.account_name}</option>)}
@@ -64,7 +64,7 @@ export default function Allocations() {
                     <td><span className="badge badge-purple">{row.cost_center}</span></td>
                     <td>{row.department}</td>
                     <td style={{ fontWeight: 700 }}>{row.percentage}%</td>
-                    <td style={{ fontWeight: 700, color: '#0f172a' }}>${Number(row.allocated_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style={{ fontWeight: 700 }}>${Number(row.allocated_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td style={{ color: '#94a3b8', fontSize: 12 }}>{row.notes || '—'}</td>
                     <td>
                       <button className="btn btn-ghost btn-sm btn-icon" onClick={() => navigate(`/invoices/${row.invoice_id}`)} title="View Invoice">

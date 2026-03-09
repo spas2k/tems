@@ -5,6 +5,8 @@ import { getInvoices, createInvoice, updateInvoice, deleteInvoice, getAccounts }
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const STATUSES = ['Open', 'Paid', 'Disputed', 'Void'];
 const STATUS_BADGE = { Open: 'badge badge-blue', Paid: 'badge badge-green', Disputed: 'badge badge-orange', Void: 'badge badge-gray' };
@@ -18,6 +20,10 @@ const FILTER_CONFIG = {
 
 export default function Invoices() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const confirm = useConfirm();
+  const canCreate = hasPermission('invoices', 'create');
+  const canDelete = hasPermission('invoices', 'delete');
   const table = useCrudTable({
     api: { list: getInvoices, create: createInvoice, update: updateInvoice, delete: deleteInvoice },
     idKey: 'invoices_id',
@@ -77,9 +83,10 @@ export default function Invoices() {
         columns={columns}
         {...table.tableProps}
         title="All Invoices"
+        titleIcon={<Receipt size={15} color="#d97706" />}
         exportFilename="Invoices"
         bulkActions={[
-          { label: 'Delete', icon: Trash2, danger: true, onClick: rows => { if (window.confirm(`Delete ${rows.length} records?`)) rows.forEach(r => table.handleDelete(r.invoices_id)); } }
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.invoices_id, { skipConfirm: true })); } }
         ]}
         extraActions={[{ icon: Eye, title: 'View', onClick: row => navigate(`/invoices/${row.invoices_id}`) }]}
         headerRight={<button className="btn btn-primary" onClick={() => navigate('/invoices/new')}><Plus size={15} /> New Invoice</button>}

@@ -1,7 +1,9 @@
 -- ============================================================
--- TEMS - Additional Demo Data
--- Run AFTER seed.sql (additive — does not drop tables)
--- mysql -u root -p doctore < seed_extra.sql
+-- TEMS - Additional Demo Data (DEPRECATED)
+-- 
+-- *** DEPRECATED: This file uses the OLD column naming scheme. ***
+-- *** Use Knex seeds instead: npx knex seed:run               ***
+-- *** See server/seeds/01_seed_data.js for current data.       ***
 -- ============================================================
 
 USE doctore;

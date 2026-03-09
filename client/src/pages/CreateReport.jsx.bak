@@ -1,0 +1,1178 @@
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import {
+  FileText, Play, Save, Download, Plus, Trash2, ChevronUp, ChevronDown,
+  X, Check, Filter, SortAsc, SortDesc, Layers, Database, AlertCircle,
+  RefreshCw, BookOpen, FolderOpen, Eye, Settings, Grip, Copy,
+  ChevronRight, ChevronLeft, BarChart2, Info, Search,
+  Network, Receipt, Building2, ShoppingCart, DollarSign, ShieldAlert,
+  PieChart, ChevronsUpDown, List,
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import {
+  getReportCatalog, runReport,
+  getSavedReports, getSavedReport, saveReport, updateSavedReport, deleteSavedReport,
+} from '../api';
+
+// ── Operator sets ─────────────────────────────────────────────────────────────
+const TEXT_OPS = [
+  { op: 'contains',      label: 'Contains'        },
+  { op: 'not_contains',  label: 'Not contains'     },
+  { op: 'starts_with',   label: 'Starts with'      },
+  { op: 'ends_with',     label: 'Ends with'        },
+  { op: 'equals',        label: 'Equals'           },
+  { op: 'not_equals',    label: 'Not equals'       },
+  { op: 'in_set',        label: 'In set'           },
+  { op: 'not_in_set',    label: 'Not in set'       },
+  { op: 'is_empty',      label: 'Is empty'         },
+  { op: 'not_empty',     label: 'Not empty'        },
+];
+const SELECT_OPS = [
+  { op: 'equals',     label: 'Is'          },
+  { op: 'not_equals', label: 'Is not'      },
+  { op: 'in_set',     label: 'In set'      },
+  { op: 'not_in_set', label: 'Not in set'  },
+  { op: 'is_empty',   label: 'Is empty'    },
+  { op: 'not_empty',  label: 'Not empty'   },
+];
+const DATE_OPS = [
+  { op: 'on',           label: 'On'           },
+  { op: 'not_on',       label: 'Not on'       },
+  { op: 'before',       label: 'Before'       },
+  { op: 'after',        label: 'After'        },
+  { op: 'between',      label: 'Between'      },
+  { op: 'this_week',    label: 'This week'    },
+  { op: 'this_month',   label: 'This month'   },
+  { op: 'this_quarter', label: 'This quarter' },
+  { op: 'this_year',    label: 'This year'    },
+  { op: 'is_empty',     label: 'Is empty'     },
+  { op: 'not_empty',    label: 'Not empty'    },
+];
+const NUMBER_OPS = [
+  { op: 'equals',     label: '= Equals'       },
+  { op: 'not_equals', label: '≠ Not equals'   },
+  { op: 'gt',         label: '> Greater than' },
+  { op: 'gte',        label: '≥ At least'     },
+  { op: 'lt',         label: '< Less than'    },
+  { op: 'lte',        label: '≤ At most'      },
+  { op: 'between',    label: 'Between'        },
+  { op: 'is_empty',   label: 'Is empty'       },
+  { op: 'not_empty',  label: 'Not empty'      },
+];
+const OPS_BY_TYPE = { text: TEXT_OPS, select: SELECT_OPS, date: DATE_OPS, number: NUMBER_OPS, boolean: SELECT_OPS };
+const NO_VALUE_OPS = new Set(['is_empty','not_empty','this_week','this_month','this_quarter','this_year']);
+const AGG_FUNCS = ['sum','avg','min','max','count'];
+
+const TABLE_ICONS = {
+  Network, Receipt, Building2, Layers, FileText, ShoppingCart,
+  ShieldAlert, DollarSign, PieChart, Database,
+};
+
+function uid() { return Math.random().toString(36).slice(2, 9); }
+
+// ── SectionHeader ─────────────────────────────────────────────────────────────
+function SectionHeader({ label, icon: Icon, count = 0, expanded, onToggle, color = '#60a5fa' }) {
+  return (
+    <button onClick={onToggle} style={{
+      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+      background: '#1e293b', border: 'none', padding: '10px 14px',
+      cursor: 'pointer', color: '#e2e8f0', borderBottom: '1px solid #334155', flexShrink: 0,
+    }}>
+      {Icon && <Icon size={14} color={color} />}
+      <span style={{ flex: 1, fontWeight: 700, fontSize: 12, textAlign: 'left', letterSpacing: 0.5 }}>
+        {label}
+        {count > 0 && (
+          <span style={{ marginLeft: 6, background: color, color: '#0f172a', borderRadius: 10, padding: '1px 7px', fontSize: 10 }}>
+            {count}
+          </span>
+        )}
+      </span>
+      <ChevronRight size={13} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', opacity: 0.5 }} />
+    </button>
+  );
+}
+
+// ── FilterValueInput ──────────────────────────────────────────────────────────
+function FilterValueInput({ field, op, value, onChange }) {
+  const NO_VAL  = NO_VALUE_OPS.has(op);
+  const BETWEEN = op === 'between';
+  const IN_SET  = op === 'in_set' || op === 'not_in_set';
+  const [p1, p2] = String(value || '').split('|');
+
+  if (NO_VAL) return <span style={{ fontSize: 11, color: '#475569', fontStyle: 'italic', padding: '4px 0' }}>no value needed</span>;
+
+  if (BETWEEN) {
+    const isDate = field?.type === 'date';
+    return (
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <input className="form-input" type={isDate ? 'date' : 'number'} value={p1 || ''} placeholder="From"
+          style={{ fontSize: 12, padding: '4px 8px' }}
+          onChange={e => onChange(`${e.target.value}|${p2 || ''}`)} />
+        <span style={{ fontSize: 11, color: '#64748b' }}>–</span>
+        <input className="form-input" type={isDate ? 'date' : 'number'} value={p2 || ''} placeholder="To"
+          style={{ fontSize: 12, padding: '4px 8px' }}
+          onChange={e => onChange(`${p1 || ''}|${e.target.value}`)} />
+      </div>
+    );
+  }
+  if (IN_SET) return (
+    <textarea className="form-input" placeholder="one per line" rows={3}
+      value={(value || '').split(',').join('\n')}
+      style={{ fontSize: 12, padding: '4px 8px', resize: 'vertical', fontFamily: 'monospace' }}
+      onChange={e => onChange(e.target.value.split('\n').map(s => s.trim()).filter(Boolean).join(','))} />
+  );
+  if (field?.type === 'select' || field?.type === 'boolean') {
+    const opts = field.options || (field.type === 'boolean' ? ['true','false'] : []);
+    return (
+      <select className="form-input" value={value || ''} style={{ fontSize: 12, padding: '4px 8px' }}
+        onChange={e => onChange(e.target.value)}>
+        <option value="">— Any —</option>
+        {opts.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    );
+  }
+  if (field?.type === 'date') return (
+    <input className="form-input" type="date" value={value || ''} style={{ fontSize: 12, padding: '4px 8px' }}
+      onChange={e => onChange(e.target.value)} />
+  );
+  if (field?.type === 'number') return (
+    <input className="form-input" type="number" placeholder="Value" value={value || ''} style={{ fontSize: 12, padding: '4px 8px' }}
+      onChange={e => onChange(e.target.value)} />
+  );
+  return (
+    <input className="form-input" placeholder="Value…" value={value || ''} style={{ fontSize: 12, padding: '4px 8px' }}
+      onChange={e => onChange(e.target.value)} />
+  );
+}
+
+// ── Cell formatter ────────────────────────────────────────────────────────────
+function formatCell(value, fieldMeta) {
+  if (value === null || value === undefined) return '—';
+  if (fieldMeta?.format === 'currency')
+    return `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (fieldMeta?.format === 'date') return String(value).split('T')[0];
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
+// ── Report templates ──────────────────────────────────────────────────────────
+const TEMPLATES = [
+  {
+    name: 'Active Circuit Summary',
+    description: 'All active circuits with vendor, location, and monthly cost',
+    config: {
+      tableKey: 'circuits', reportName: 'Active Circuit Summary',
+      fields: ['circuit_number','account_name','location','type','bandwidth','contracted_rate','status'],
+      filters: [{ id: 't1', field: 'status', op: 'equals', value: 'Active' }],
+      filterLogic: 'AND', sorts: [{ id: 's1', field: 'contracted_rate', direction: 'desc' }],
+      groupBy: [], aggregations: [], limit: 1000, distinct: false, colOverrides: {},
+    },
+  },
+  {
+    name: 'Invoice Aging Report',
+    description: 'Open and overdue invoices by vendor with amounts',
+    config: {
+      tableKey: 'invoices', reportName: 'Invoice Aging Report',
+      fields: ['invoice_number','account_name','invoice_date','due_date','total_amount','status'],
+      filters: [{ id: 't1', field: 'status', op: 'in_set', value: 'Open,Overdue' }],
+      filterLogic: 'AND', sorts: [{ id: 's1', field: 'due_date', direction: 'asc' }],
+      groupBy: [], aggregations: [], limit: 1000, distinct: false, colOverrides: {},
+    },
+  },
+  {
+    name: 'Billing Variance Analysis',
+    description: 'Line items where billed amount differs from contracted rate',
+    config: {
+      tableKey: 'line_items', reportName: 'Billing Variance Analysis',
+      fields: ['invoice_number','account_name','circuit_number','description','amount','contracted_rate','variance','audit_status'],
+      filters: [{ id: 't1', field: 'audit_status', op: 'equals', value: 'Variance' }],
+      filterLogic: 'AND', sorts: [{ id: 's1', field: 'variance', direction: 'desc' }],
+      groupBy: [], aggregations: [], limit: 1000, distinct: false, colOverrides: {},
+    },
+  },
+  {
+    name: 'Spend by Vendor (Grouped)',
+    description: 'Total billed amount grouped by vendor',
+    config: {
+      tableKey: 'invoices', reportName: 'Spend by Vendor',
+      fields: ['account_name'], filters: [], filterLogic: 'AND',
+      sorts: [{ id: 's1', field: 'total_amount', direction: 'desc' }],
+      groupBy: ['account_name'],
+      aggregations: [{ id: 'a1', field: 'total_amount', func: 'sum' }],
+      limit: 500, distinct: false, colOverrides: {},
+    },
+  },
+  {
+    name: 'Open Disputes',
+    description: 'All disputes not yet closed with amounts and vendors',
+    config: {
+      tableKey: 'disputes', reportName: 'Open Disputes',
+      fields: ['account_name','invoice_number','dispute_type','amount','status','filed_date'],
+      filters: [{ id: 't1', field: 'status', op: 'not_equals', value: 'Closed' }],
+      filterLogic: 'AND', sorts: [{ id: 's1', field: 'filed_date', direction: 'desc' }],
+      groupBy: [], aggregations: [], limit: 1000, distinct: false, colOverrides: {},
+    },
+  },
+  {
+    name: 'Contract Expiry Watch',
+    description: 'Active contracts with end dates (soonest first)',
+    config: {
+      tableKey: 'contracts', reportName: 'Contract Expiry Watch',
+      fields: ['contract_number','name','account_name','start_date','end_date','term_months','status','auto_renew'],
+      filters: [{ id: 't1', field: 'status', op: 'equals', value: 'Active' }, { id: 't2', field: 'end_date', op: 'not_empty', value: '' }],
+      filterLogic: 'AND', sorts: [{ id: 's1', field: 'end_date', direction: 'asc' }],
+      groupBy: [], aggregations: [], limit: 500, distinct: false, colOverrides: {},
+    },
+  },
+  {
+    name: 'Cost Savings Opportunities',
+    description: 'Identified and in-progress savings with projections',
+    config: {
+      tableKey: 'cost_savings', reportName: 'Cost Savings Opportunities',
+      fields: ['account_name','category','description','status','identified_date','projected_savings','realized_savings'],
+      filters: [{ id: 't1', field: 'status', op: 'not_equals', value: 'Resolved' }],
+      filterLogic: 'AND', sorts: [{ id: 's1', field: 'projected_savings', direction: 'desc' }],
+      groupBy: [], aggregations: [], limit: 500, distinct: false, colOverrides: {},
+    },
+  },
+  {
+    name: 'Allocation by Department',
+    description: 'Allocated costs grouped by department',
+    config: {
+      tableKey: 'allocations', reportName: 'Allocation by Department',
+      fields: ['department'], filters: [], filterLogic: 'AND',
+      sorts: [], groupBy: ['department'],
+      aggregations: [{ id: 'a1', field: 'allocated_amount', func: 'sum' }],
+      limit: 500, distinct: false, colOverrides: {},
+    },
+  },
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Main component
+// ══════════════════════════════════════════════════════════════════════════════
+export default function CreateReport() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Catalog
+  const [catalog, setCatalog]       = useState(null);
+  const [catalogErr, setCatalogErr] = useState(null);
+
+  // Report config
+  const [reportName, setReportName]     = useState('Untitled Report');
+  const [reportDesc, setReportDesc]     = useState('');
+  const [tableKey, setTableKey]         = useState('');
+  const [fields, setFields]             = useState([]);
+  const [filters, setFilters]           = useState([]);
+  const [filterLogic, setFilterLogic]   = useState('AND');
+  const [sorts, setSorts]               = useState([]);
+  const [groupBy, setGroupBy]           = useState([]);
+  const [aggregations, setAggregations] = useState([]);
+  const [limit, setLimit]               = useState(500);
+  const [distinct, setDistinct]         = useState(false);
+  const [colOverrides, setColOverrides] = useState({});
+
+  // UI state
+  const [activeSection, setActiveSection] = useState({ source: true, fields: true, filters: true, sort: false, group: false, options: false });
+  const [fieldSearch, setFieldSearch] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Results
+  const [results, setResults]           = useState(null);
+  const [running, setRunning]           = useState(false);
+  const [runError, setRunError]         = useState(null);
+  const [previewPage, setPreviewPage]   = useState(1);
+  const PREVIEW_SIZE                    = 50;
+
+  // Saved reports
+  const [savedReports, setSavedReports]     = useState([]);
+  const [showSaved, setShowSaved]           = useState(false);
+  const [saveModal, setSaveModal]           = useState(false);
+  const [saveLoading, setSaveLoading]       = useState(false);
+  const [currentSavedId, setCurrentSavedId] = useState(null);
+  const [saveError, setSaveError]           = useState('');
+
+  // Templates & toast
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [toast, setToast]                 = useState(null);
+  const toastTimer = useRef(null);
+
+  const showToast = useCallback((msg, type = 'success') => {
+    setToast({ msg, type });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  // Drag-to-reorder
+  const dragKey = useRef(null);
+  // Flag: auto-run once catalog + config are both ready
+  const autoRunPending = useRef(false);
+
+  // ── Load catalog ──────────────────────────────────────────
+  useEffect(() => {
+    getReportCatalog()
+      .then(r => setCatalog(r.data))
+      .catch(e => setCatalogErr(e.response?.data?.error || e.message || 'Failed to load catalog'));
+  }, []);
+
+  // ── Auto-load saved report from ?id= query param ──────────
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (!id) return;
+    getSavedReport(id)
+      .then(r => {
+        const row = r.data;
+        const cfg = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
+        applyConfig(cfg);
+        setCurrentSavedId(row.saved_reports_id);
+        autoRunPending.current = true;
+      })
+      .catch(() => {}); // silently ignore if id is invalid
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // ── Auto-run once catalog is loaded and a run is pending ──
+  useEffect(() => {
+    if (catalog && autoRunPending.current) {
+      autoRunPending.current = false;
+      // Small delay lets state settle after applyConfig
+      setTimeout(() => handleRun(), 50);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog, tableKey]);
+
+  // ── Load saved reports ────────────────────────────────────
+  const loadSaved = useCallback(() => {
+    getSavedReports().then(r => setSavedReports(r.data || [])).catch(() => {});
+  }, []);
+  useEffect(() => { loadSaved(); }, [loadSaved]);
+
+  // ── Derived ───────────────────────────────────────────────
+  const tableDef        = catalog && tableKey ? catalog[tableKey] : null;
+  const allFields       = useMemo(() => tableDef?.fields || [], [tableDef]);
+  const aggregableFields = useMemo(() => allFields.filter(f => f.aggregable), [allFields]);
+  const isGrouped       = groupBy.length > 0 || aggregations.length > 0;
+  const canRun          = !!tableKey && (isGrouped ? groupBy.length > 0 : fields.length > 0);
+
+  const filteredAvailable = useMemo(() => {
+    const q = fieldSearch.toLowerCase();
+    const sel = new Set(fields);
+    return allFields.filter(f => !sel.has(f.key) && (!q || f.label.toLowerCase().includes(q) || f.key.includes(q)));
+  }, [allFields, fields, fieldSearch]);
+
+  const selectedFieldDefs = useMemo(() =>
+    fields.map(k => allFields.find(f => f.key === k)).filter(Boolean),
+  [fields, allFields]);
+
+  // ── Config helpers ────────────────────────────────────────
+  const buildConfig = useCallback(() => ({
+    tableKey, reportName, reportDesc: reportDesc || undefined,
+    fields, filters, filterLogic, sorts, groupBy, aggregations,
+    limit, distinct, colOverrides,
+  }), [tableKey, reportName, reportDesc, fields, filters, filterLogic, sorts, groupBy, aggregations, limit, distinct, colOverrides]);
+
+  const applyConfig = useCallback((cfg) => {
+    setTableKey(cfg.tableKey || '');
+    setReportName(cfg.reportName || 'Untitled Report');
+    setReportDesc(cfg.reportDesc || '');
+    setFields(cfg.fields || []);
+    setFilters((cfg.filters || []).map(f => ({ ...f, id: f.id || uid() })));
+    setFilterLogic(cfg.filterLogic || 'AND');
+    setSorts((cfg.sorts || []).map(s => ({ ...s, id: s.id || uid() })));
+    setGroupBy(cfg.groupBy || []);
+    setAggregations((cfg.aggregations || []).map(a => ({ ...a, id: a.id || uid() })));
+    setLimit(cfg.limit || 500);
+    setDistinct(!!cfg.distinct);
+    setColOverrides(cfg.colOverrides || {});
+    setResults(null); setRunError(null); setPreviewPage(1);
+  }, []);
+
+  // ── Table change ──────────────────────────────────────────
+  const handleTableChange = useCallback((key) => {
+    setTableKey(key); setFields([]); setFilters([]); setFilterLogic('AND');
+    setSorts([]); setGroupBy([]); setAggregations([]);
+    setColOverrides({}); setResults(null); setRunError(null); setFieldSearch('');
+  }, []);
+
+  // ── Field operations ──────────────────────────────────────
+  const addField     = k => setFields(prev => prev.includes(k) ? prev : [...prev, k]);
+  const addAllFields = () => setFields(allFields.map(f => f.key));
+  const clearFields  = () => setFields([]);
+  const removeField  = k => {
+    setFields(p => p.filter(f => f !== k));
+    setGroupBy(p => p.filter(g => g !== k));
+    setAggregations(p => p.filter(a => a.field !== k));
+    setSorts(p => p.filter(s => s.field !== k));
+  };
+  const moveField = (k, dir) => setFields(prev => {
+    const idx  = prev.indexOf(k);
+    const swap = idx + dir;
+    if (idx < 0 || swap < 0 || swap >= prev.length) return prev;
+    const next = [...prev];
+    [next[idx], next[swap]] = [next[swap], next[idx]];
+    return next;
+  });
+
+  // ── Filter operations ─────────────────────────────────────
+  const addFilter    = () => setFilters(p => [...p, { id: uid(), field: allFields[0]?.key || '', op: 'contains', value: '' }]);
+  const removeFilter = id => setFilters(p => p.filter(f => f.id !== id));
+  const updateFilter = (id, patch) => setFilters(p => p.map(f => f.id === id ? { ...f, ...patch } : f));
+
+  // ── Sort operations ───────────────────────────────────────
+  const addSort    = () => setSorts(p => [...p, { id: uid(), field: selectedFieldDefs[0]?.key || allFields[0]?.key || '', direction: 'asc' }]);
+  const removeSort = id => setSorts(p => p.filter(s => s.id !== id));
+  const updateSort = (id, patch) => setSorts(p => p.map(s => s.id === id ? { ...s, ...patch } : s));
+
+  // ── Group by operations ───────────────────────────────────
+  const toggleGroupBy = k => setGroupBy(prev => prev.includes(k) ? prev.filter(g => g !== k) : [...prev, k]);
+
+  // ── Aggregation operations ────────────────────────────────
+  const addAggregation    = () => setAggregations(p => [...p, { id: uid(), field: aggregableFields[0]?.key || '', func: 'sum' }]);
+  const removeAggregation = id => setAggregations(p => p.filter(a => a.id !== id));
+  const updateAggregation = (id, patch) => setAggregations(p => p.map(a => a.id === id ? { ...a, ...patch } : a));
+
+  // ── Run ───────────────────────────────────────────────────
+  const handleRun = useCallback(async () => {
+    if (!tableKey) return;
+    setRunning(true); setRunError(null); setResults(null); setPreviewPage(1);
+    try {
+      const res = await runReport({
+        tableKey,
+        fields: isGrouped ? groupBy : fields,
+        filters, filterLogic, sorts, groupBy, aggregations,
+        limit: Math.min(limit, 10000), offset: 0, distinct,
+      });
+      setResults(res.data);
+    } catch (e) {
+      setRunError(e.response?.data?.error || e.message || 'Query failed');
+    } finally {
+      setRunning(false);
+    }
+  }, [tableKey, fields, filters, filterLogic, sorts, groupBy, aggregations, limit, distinct, isGrouped]);
+
+  // ── Export ────────────────────────────────────────────────
+  const handleExport = useCallback((fmt) => {
+    if (!results?.data?.length) return;
+    const cols = results.fields || [];
+    const rows = results.data.map(row =>
+      Object.fromEntries(cols.map(c => [(colOverrides[c.key]?.label || c.label), formatCell(row[c.key], { ...c, format: colOverrides[c.key]?.format || c.format })]))
+    );
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Report');
+    const fname = reportName || 'Report';
+    if (fmt === 'csv') {
+      saveAs(new Blob([XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv' }), `${fname}.csv`);
+    } else {
+      const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      saveAs(new Blob([buf], { type: 'application/octet-stream' }), `${fname}.xlsx`);
+    }
+  }, [results, reportName, colOverrides]);
+
+  // ── Save ──────────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    setSaveLoading(true); setSaveError('');
+    try {
+      const cfg = buildConfig();
+      if (currentSavedId) {
+        await updateSavedReport(currentSavedId, { name: reportName, description: reportDesc, config: cfg });
+        showToast('Report updated');
+      } else {
+        const res = await saveReport({ name: reportName, description: reportDesc, config: cfg });
+        setCurrentSavedId(res.data.saved_reports_id);
+        showToast('Report saved');
+      }
+      setSaveModal(false); loadSaved();
+    } catch (e) {
+      setSaveError(e.response?.data?.error || e.message || 'Save failed');
+    } finally { setSaveLoading(false); }
+  }, [buildConfig, currentSavedId, reportName, reportDesc, showToast, loadSaved]);
+
+  const handleDeleteSaved = useCallback(async (id) => {
+    if (!window.confirm('Delete this saved report?')) return;
+    await deleteSavedReport(id);
+    if (currentSavedId === id) setCurrentSavedId(null);
+    loadSaved(); showToast('Deleted', 'error');
+  }, [currentSavedId, loadSaved, showToast]);
+
+  // ── Preview pagination ────────────────────────────────────
+  const previewData = useMemo(() => {
+    if (!results?.data) return [];
+    const start = (previewPage - 1) * PREVIEW_SIZE;
+    return results.data.slice(start, start + PREVIEW_SIZE);
+  }, [results, previewPage]);
+
+  const totalPages = results ? Math.ceil(results.total / PREVIEW_SIZE) : 0;
+
+  // ── Summary totals ────────────────────────────────────────
+  const summaryRow = useMemo(() => {
+    if (!results?.data?.length || !results.fields) return null;
+    const out = {};
+    results.fields.forEach(f => {
+      if (f.type === 'number' || f.format === 'currency') {
+        out[f.key] = results.data.reduce((s, r) => s + Number(r[f.key] || 0), 0);
+      }
+    });
+    return Object.keys(out).length ? out : null;
+  }, [results]);
+
+  // ── Drag reorder ──────────────────────────────────────────
+  const onDragStart = k => { dragKey.current = k; };
+  const onDragOver  = e => e.preventDefault();
+  const onDrop      = k => {
+    if (!dragKey.current || dragKey.current === k) return;
+    setFields(prev => {
+      const next = [...prev];
+      const fi = next.indexOf(dragKey.current), ti = next.indexOf(k);
+      if (fi < 0 || ti < 0) return prev;
+      next.splice(fi, 1); next.splice(ti, 0, dragKey.current);
+      return next;
+    });
+    dragKey.current = null;
+  };
+
+  const toggleSection = k => setActiveSection(p => ({ ...p, [k]: !p[k] }));
+
+  // ── Render guards ─────────────────────────────────────────
+  if (catalogErr) return (
+    <div className="page-card" style={{ padding: 40, textAlign: 'center' }}>
+      <AlertCircle size={36} color="#dc2626" style={{ marginBottom: 12 }} />
+      <p style={{ color: '#dc2626', fontSize: 14 }}>{catalogErr}</p>
+    </div>
+  );
+  if (!catalog) return (
+    <div className="page-card" style={{ padding: 40, textAlign: 'center' }}>
+      <RefreshCw size={32} color="#94a3b8" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+      <p style={{ color: '#64748b' }}>Loading report builder…</p>
+    </div>
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, height: 'calc(100vh - 80px)', minHeight: 640, position: 'relative' }}>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          background: toast.type === 'error' ? '#fee2e2' : '#dcfce7',
+          color: toast.type === 'error' ? '#dc2626' : '#15803d',
+          border: `1px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`,
+          padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {toast.type === 'error' ? <AlertCircle size={14} /> : <Check size={14} />}
+          {toast.msg}
+        </div>
+      )}
+
+      {/* ── Top bar ──────────────────────────────────────────── */}
+      <div style={{
+        background: '#1e3a5f', color: '#bfdbfe', padding: '10px 18px',
+        display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
+        borderRadius: '12px 12px 0 0',
+      }}>
+        <button onClick={() => navigate('/reports')} title="All Reports"
+          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '5px 10px', color: '#bfdbfe', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 }}>
+          <List size={13} /> All Reports
+        </button>
+        <BarChart2 size={18} color="#60a5fa" />
+        <input
+          value={reportName}
+          onChange={e => setReportName(e.target.value)}
+          style={{
+            background: 'transparent', border: 'none', outline: 'none',
+            color: '#e2e8f0', fontSize: 16, fontWeight: 700, minWidth: 180, flex: 1,
+            borderBottom: '1px solid transparent',
+          }}
+          onFocus={e => (e.target.style.borderBottomColor = '#60a5fa')}
+          onBlur={e => (e.target.style.borderBottomColor = 'transparent')}
+          placeholder="Report Name…"
+        />
+        {currentSavedId && (
+          <span style={{ fontSize: 11, color: '#93c5fd', background: 'rgba(59,130,246,0.2)', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
+            Saved
+          </span>
+        )}
+
+        {/* Action buttons */}
+        {[
+          { label: 'Templates', icon: BookOpen, onClick: () => setShowTemplates(p => !p) },
+          { label: `Saved${savedReports.length ? ` (${savedReports.length})` : ''}`, icon: FolderOpen, onClick: () => setShowSaved(p => !p) },
+          { label: 'Save', icon: Save, onClick: () => setSaveModal(true), disabled: !tableKey },
+        ].map(({ label, icon: Icon, onClick, disabled }) => (
+          <button key={label} onClick={onClick} disabled={disabled}
+            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '5px 11px', color: disabled ? '#475569' : '#e2e8f0', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+            <Icon size={13} />{label}
+          </button>
+        ))}
+
+        {results?.data?.length > 0 && (
+          <>
+            <button onClick={() => handleExport('csv')} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '5px 11px', color: '#e2e8f0', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+              <Download size={13} /> CSV
+            </button>
+            <button onClick={() => handleExport('xlsx')} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '5px 11px', color: '#e2e8f0', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+              <Download size={13} /> XLSX
+            </button>
+          </>
+        )}
+
+        <button onClick={handleRun} disabled={!canRun || running}
+          style={{ background: canRun && !running ? '#2563eb' : '#334155', border: 'none', borderRadius: 8, padding: '7px 16px', color: '#fff', cursor: canRun && !running ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', flexShrink: 0 }}>
+          {running
+            ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Running…</>
+            : <><Play size={13} fill="currentColor" /> Run Report</>}
+        </button>
+      </div>
+
+      {/* Flyout overlays */}
+      {showTemplates && (
+        <div style={{ position: 'absolute', top: 54, right: 16, zIndex: 300, background: '#fff', borderRadius: 12, border: '1px solid #cbd5e1', boxShadow: '0 12px 40px rgba(0,0,0,0.18)', width: 370, maxHeight: 520, overflowY: 'auto' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}><BookOpen size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Report Templates</span>
+            <button onClick={() => setShowTemplates(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={15} /></button>
+          </div>
+          {TEMPLATES.map(t => (
+            <div key={t.name} onClick={() => { applyConfig(t.config); setCurrentSavedId(null); setShowTemplates(false); showToast(`Template loaded: ${t.name}`); }}
+              style={{ padding: '11px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a', marginBottom: 2 }}>{t.name}</div>
+              <div style={{ fontSize: 12, color: '#64748b' }}>{t.description}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showSaved && (
+        <div style={{ position: 'absolute', top: 54, right: 16, zIndex: 300, background: '#fff', borderRadius: 12, border: '1px solid #cbd5e1', boxShadow: '0 12px 40px rgba(0,0,0,0.18)', width: 370, maxHeight: 520, overflowY: 'auto' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}><FolderOpen size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Saved Reports</span>
+            <button onClick={() => setShowSaved(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={15} /></button>
+          </div>
+          {savedReports.length === 0 && <div style={{ padding: 28, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No saved reports yet.<br />Run a report and click Save.</div>}
+          {savedReports.map(r => (
+            <div key={r.saved_reports_id} style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ flex: 1, cursor: 'pointer' }}
+                onClick={() => { applyConfig(typeof r.config === 'string' ? JSON.parse(r.config) : r.config); setCurrentSavedId(r.saved_reports_id); setShowSaved(false); showToast(`Loaded: ${r.name}`); }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a' }}>{r.name}</div>
+                {r.description && <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>{r.description}</div>}
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>
+                  {r.updated_at ? new Date(r.updated_at).toLocaleDateString() : ''}{r.created_by_name ? ` · ${r.created_by_name}` : ''}
+                </div>
+              </div>
+              <button onClick={() => handleDeleteSaved(r.saved_reports_id)}
+                style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Main layout ───────────────────────────────────────── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', background: '#f1f5f9', border: '1px solid #b0bec5', borderTop: 'none', borderRadius: '0 0 12px 12px' }}>
+
+        {/* ── Left Sidebar ─────────────────────────────────────── */}
+        <div style={{
+          width: sidebarCollapsed ? 36 : 310, flexShrink: 0,
+          background: '#0f172a', display: 'flex', flexDirection: 'column',
+          overflow: 'hidden', transition: 'width 0.25s', borderRight: '1px solid #1e293b',
+        }}>
+          {/* Collapse toggle */}
+          <button onClick={() => setSidebarCollapsed(p => !p)} style={{
+            background: '#1e293b', border: 'none', borderBottom: '1px solid #334155',
+            color: '#64748b', padding: '7px', cursor: 'pointer',
+            display: 'flex', justifyContent: 'center', flexShrink: 0,
+          }} title={sidebarCollapsed ? 'Expand' : 'Collapse'}>
+            {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+
+          {!sidebarCollapsed && (
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+
+              {/* 1. Data Source */}
+              <SectionHeader label="1. DATA SOURCE" icon={Database} expanded={activeSection.source} onToggle={() => toggleSection('source')} color="#60a5fa" count={tableKey ? 1 : 0} />
+              {activeSection.source && (
+                <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {Object.values(catalog).map(td => {
+                    const Icon = TABLE_ICONS[td.icon] || Database;
+                    const sel  = tableKey === td.key;
+                    return (
+                      <button key={td.key} onClick={() => handleTableChange(td.key)} style={{
+                        background: sel ? td.color : '#1e293b',
+                        border: `1.5px solid ${sel ? td.color : '#334155'}`,
+                        borderRadius: 8, padding: '8px 10px', cursor: 'pointer', textAlign: 'left',
+                        color: sel ? '#fff' : '#94a3b8', transition: 'all 0.15s',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Icon size={13} />
+                          <span style={{ fontWeight: 700, fontSize: 12, flex: 1 }}>{td.label}</span>
+                          <span style={{ fontSize: 10, opacity: 0.6 }}>{td.fields.length}f</span>
+                        </div>
+                        {sel && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 4, lineHeight: 1.4 }}>{td.description}</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 2. Columns */}
+              <SectionHeader label="2. COLUMNS" icon={Copy} expanded={activeSection.fields} onToggle={() => toggleSection('fields')} color="#34d399" count={fields.length} />
+              {activeSection.fields && tableDef && (
+                <div style={{ padding: 10 }}>
+                  {/* Search bar */}
+                  <div style={{ position: 'relative', marginBottom: 7 }}>
+                    <Search size={11} style={{ position: 'absolute', left: 7, top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                    <input value={fieldSearch} onChange={e => setFieldSearch(e.target.value)} placeholder="Search fields…"
+                      style={{ width: '100%', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, padding: '5px 7px 5px 22px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+                  </div>
+                  {/* Quick actions */}
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                    <button onClick={addAllFields} style={{ flex: 1, background: 'none', border: '1px solid #334155', borderRadius: 5, padding: '3px 6px', color: '#64748b', cursor: 'pointer', fontSize: 11 }}>+ All</button>
+                    <button onClick={clearFields} style={{ flex: 1, background: 'none', border: '1px solid #334155', borderRadius: 5, padding: '3px 6px', color: '#64748b', cursor: 'pointer', fontSize: 11 }}>Clear</button>
+                  </div>
+
+                  {/* Available fields */}
+                  {['Primary','Related'].map(grp => {
+                    const grpFields = filteredAvailable.filter(f => f.group === grp);
+                    if (!grpFields.length) return null;
+                    return (
+                      <div key={grp} style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: 0.6, padding: '3px 0', marginBottom: 2 }}>{grp} Fields</div>
+                        {grpFields.map(f => (
+                          <button key={f.key} onClick={() => addField(f.key)} style={{
+                            width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                            padding: '4px 5px', borderRadius: 4, cursor: 'pointer', color: '#94a3b8',
+                            display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.color = '#e2e8f0'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#94a3b8'; }}>
+                            <Plus size={11} style={{ flexShrink: 0 }} />
+                            <span style={{ flex: 1 }}>{f.label}</span>
+                            <span style={{ fontSize: 9, color: '#334155', textTransform: 'uppercase' }}>{f.type}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {filteredAvailable.length === 0 && <div style={{ fontSize: 12, color: '#475569', padding: 4 }}>All fields selected</div>}
+
+                  {/* Selected columns */}
+                  {fields.length > 0 && (
+                    <div style={{ marginTop: 10, borderTop: '1px solid #1e293b', paddingTop: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 }}>
+                        Selected ({fields.length}) — drag to reorder
+                      </div>
+                      {selectedFieldDefs.map((f, idx) => {
+                        const ov = colOverrides[f.key] || {};
+                        return (
+                          <div key={f.key}
+                            draggable onDragStart={() => onDragStart(f.key)} onDragOver={onDragOver} onDrop={() => onDrop(f.key)}
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: 4, background: '#1e293b', border: '1px solid #334155', borderRadius: 6, padding: '5px 5px', marginBottom: 3, cursor: 'grab' }}>
+                            <Grip size={11} color="#334155" style={{ flexShrink: 0, marginTop: 4 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <input value={ov.label !== undefined ? ov.label : f.label}
+                                onChange={e => setColOverrides(p => ({ ...p, [f.key]: { ...(p[f.key] || {}), label: e.target.value } }))}
+                                style={{ background: 'none', border: 'none', color: '#e2e8f0', fontSize: 12, fontWeight: 600, width: '100%', outline: 'none', padding: 0 }}
+                                placeholder={f.label} />
+                              <select value={ov.format || f.format || ''}
+                                onChange={e => setColOverrides(p => ({ ...p, [f.key]: { ...(p[f.key] || {}), format: e.target.value } }))}
+                                style={{ background: '#0f172a', border: 'none', color: '#475569', fontSize: 10, outline: 'none', width: '100%' }}>
+                                <option value="">Auto format</option>
+                                <option value="currency">Currency ($)</option>
+                                <option value="date">Date only</option>
+                                <option value="number">Plain number</option>
+                              </select>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                              <button onClick={() => moveField(f.key, -1)} disabled={idx === 0} style={{ background: 'none', border: 'none', color: idx === 0 ? '#1e293b' : '#475569', cursor: idx === 0 ? 'default' : 'pointer', padding: 1 }}><ChevronUp size={11} /></button>
+                              <button onClick={() => moveField(f.key, 1)} disabled={idx === fields.length - 1} style={{ background: 'none', border: 'none', color: idx === fields.length-1 ? '#1e293b' : '#475569', cursor: idx === fields.length-1 ? 'default' : 'pointer', padding: 1 }}><ChevronDown size={11} /></button>
+                            </div>
+                            <button onClick={() => removeField(f.key)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: 2 }}><X size={11} /></button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. Filters */}
+              <SectionHeader label="3. FILTERS" icon={Filter} expanded={activeSection.filters} onToggle={() => toggleSection('filters')} color="#f59e0b" count={filters.length} />
+              {activeSection.filters && tableDef && (
+                <div style={{ padding: 10 }}>
+                  {filters.length > 1 && (
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 8, alignItems: 'center' }}>
+                      {['AND','OR'].map(l => (
+                        <button key={l} onClick={() => setFilterLogic(l)} style={{
+                          flex: 1, padding: '4px', fontSize: 11, fontWeight: 700, borderRadius: 5, cursor: 'pointer',
+                          background: filterLogic === l ? '#2563eb' : '#1e293b',
+                          border: `1px solid ${filterLogic === l ? '#2563eb' : '#334155'}`,
+                          color: filterLogic === l ? '#fff' : '#64748b',
+                        }}>{l}</button>
+                      ))}
+                      <span style={{ fontSize: 10, color: '#475569', marginLeft: 2 }}>logic</span>
+                    </div>
+                  )}
+                  {filters.map((f, fi) => {
+                    const fd  = allFields.find(af => af.key === f.field);
+                    const ops = OPS_BY_TYPE[fd?.type || 'text'] || TEXT_OPS;
+                    return (
+                      <div key={f.id} style={{ background: '#1e293b', borderRadius: 7, padding: 8, marginBottom: 5, border: '1px solid #334155' }}>
+                        {fi > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: '#3b82f6', marginBottom: 4 }}>{filterLogic}</div>}
+                        <select value={f.field}
+                          onChange={e => {
+                            const newFd = allFields.find(af => af.key === e.target.value);
+                            const defOp = (OPS_BY_TYPE[newFd?.type || 'text'] || TEXT_OPS)[0].op;
+                            updateFilter(f.id, { field: e.target.value, op: defOp, value: '' });
+                          }}
+                          style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', borderRadius: 5, padding: '4px 6px', color: '#e2e8f0', fontSize: 12, marginBottom: 4, outline: 'none' }}>
+                          {['Primary','Related'].map(grp => (
+                            <optgroup key={grp} label={grp}>
+                              {allFields.filter(af => af.group === grp).map(af => (
+                                <option key={af.key} value={af.key}>{af.label}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                        <select value={f.op}
+                          onChange={e => updateFilter(f.id, { op: e.target.value, value: NO_VALUE_OPS.has(e.target.value) ? '' : f.value })}
+                          style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', borderRadius: 5, padding: '4px 6px', color: '#94a3b8', fontSize: 11, marginBottom: 4, outline: 'none' }}>
+                          {ops.map(o => <option key={o.op} value={o.op}>{o.label}</option>)}
+                        </select>
+                        <FilterValueInput field={fd} op={f.op} value={f.value} onChange={v => updateFilter(f.id, { value: v })} />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 5 }}>
+                          <button onClick={() => removeFilter(f.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <Trash2 size={11} /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button onClick={addFilter} disabled={!allFields.length} style={{ width: '100%', background: 'none', border: '1px dashed #334155', borderRadius: 6, padding: 6, color: '#64748b', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    <Plus size={12} /> Add Filter
+                  </button>
+                </div>
+              )}
+
+              {/* 4. Sort */}
+              <SectionHeader label="4. SORT ORDER" icon={ChevronsUpDown} expanded={activeSection.sort} onToggle={() => toggleSection('sort')} color="#a78bfa" count={sorts.length} />
+              {activeSection.sort && tableDef && (
+                <div style={{ padding: 10 }}>
+                  {sorts.map((s, si) => (
+                    <div key={s.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 5 }}>
+                      <span style={{ fontSize: 10, color: '#475569', width: 14, textAlign: 'center', fontWeight: 700 }}>{si + 1}</span>
+                      <select value={s.field} onChange={e => updateSort(s.id, { field: e.target.value })}
+                        style={{ flex: 1, background: '#1e293b', border: '1px solid #334155', borderRadius: 5, padding: '4px 5px', color: '#e2e8f0', fontSize: 11, outline: 'none' }}>
+                        {allFields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+                      </select>
+                      <button onClick={() => updateSort(s.id, { direction: s.direction === 'asc' ? 'desc' : 'asc' })}
+                        title={s.direction === 'asc' ? 'Ascending' : 'Descending'}
+                        style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 5, padding: '4px 7px', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}>
+                        {s.direction === 'asc' ? <SortAsc size={12} /> : <SortDesc size={12} />}
+                      </button>
+                      <button onClick={() => removeSort(s.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 3 }}><X size={11} /></button>
+                    </div>
+                  ))}
+                  <button onClick={addSort} disabled={!allFields.length}
+                    style={{ width: '100%', background: 'none', border: '1px dashed #334155', borderRadius: 6, padding: 6, color: '#64748b', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    <Plus size={12} /> Add Sort
+                  </button>
+                </div>
+              )}
+
+              {/* 5. Group & Aggregate */}
+              <SectionHeader label="5. GROUP & AGGREGATE" icon={Layers} expanded={activeSection.group} onToggle={() => toggleSection('group')} color="#f472b6" count={groupBy.length + aggregations.length} />
+              {activeSection.group && tableDef && (
+                <div style={{ padding: 10 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>Group By</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 10 }}>
+                    {allFields.map(f => (
+                      <button key={f.key} onClick={() => toggleGroupBy(f.key)} style={{
+                        padding: '3px 8px', borderRadius: 12, fontSize: 11, cursor: 'pointer',
+                        background: groupBy.includes(f.key) ? '#7c3aed' : '#1e293b',
+                        border: `1px solid ${groupBy.includes(f.key) ? '#7c3aed' : '#334155'}`,
+                        color: groupBy.includes(f.key) ? '#fff' : '#64748b',
+                      }}>{f.label}</button>
+                    ))}
+                  </div>
+
+                  {aggregableFields.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5, marginTop: 4 }}>Aggregations</div>
+                      {aggregations.map(ag => (
+                        <div key={ag.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 5 }}>
+                          <select value={ag.func} onChange={e => updateAggregation(ag.id, { func: e.target.value })}
+                            style={{ width: 66, background: '#1e293b', border: '1px solid #334155', borderRadius: 5, padding: '4px 4px', color: '#f472b6', fontSize: 11, fontWeight: 700, outline: 'none' }}>
+                            {AGG_FUNCS.map(fn => <option key={fn} value={fn}>{fn.toUpperCase()}</option>)}
+                          </select>
+                          <select value={ag.field} onChange={e => updateAggregation(ag.id, { field: e.target.value })}
+                            style={{ flex: 1, background: '#1e293b', border: '1px solid #334155', borderRadius: 5, padding: '4px 5px', color: '#e2e8f0', fontSize: 11, outline: 'none' }}>
+                            {aggregableFields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+                          </select>
+                          <button onClick={() => removeAggregation(ag.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 2 }}><X size={11} /></button>
+                        </div>
+                      ))}
+                      <button onClick={addAggregation}
+                        style={{ width: '100%', background: 'none', border: '1px dashed #334155', borderRadius: 6, padding: 6, color: '#64748b', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        <Plus size={12} /> Add Aggregation
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* 6. Options */}
+              <SectionHeader label="6. OPTIONS" icon={Settings} expanded={activeSection.options} onToggle={() => toggleSection('options')} color="#94a3b8" />
+              {activeSection.options && (
+                <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Max Rows</div>
+                    <select value={limit} onChange={e => setLimit(Number(e.target.value))}
+                      style={{ width: '100%', background: '#1e293b', border: '1px solid #334155', borderRadius: 5, padding: '5px 8px', color: '#e2e8f0', fontSize: 12, outline: 'none' }}>
+                      {[100,250,500,1000,2500,5000,10000].map(n => <option key={n} value={n}>{n.toLocaleString()} rows</option>)}
+                    </select>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#94a3b8', fontSize: 12 }}>
+                    <input type="checkbox" checked={distinct} onChange={e => setDistinct(e.target.checked)} />
+                    Distinct rows only
+                  </label>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Description</div>
+                    <textarea value={reportDesc} onChange={e => setReportDesc(e.target.value)} rows={3} placeholder="Describe this report…"
+                      style={{ width: '100%', background: '#1e293b', border: '1px solid #334155', borderRadius: 5, padding: '5px 8px', color: '#94a3b8', fontSize: 12, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+        </div>
+
+        {/* ── Right: Preview ──────────────────────────────────── */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+
+          {/* No source selected */}
+          {!tableKey && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 32, color: '#94a3b8' }}>
+              <BarChart2 size={60} strokeWidth={1} color="#cbd5e1" />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#334155', marginBottom: 10 }}>Build a Custom Report</div>
+                <div style={{ fontSize: 14, color: '#64748b', maxWidth: 420, lineHeight: 1.7 }}>
+                  Select a data source from the left panel, choose your columns, add filters, then run the report.
+                  Or load a template to get started instantly.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button className="btn btn-primary" onClick={() => setShowTemplates(true)}>
+                  <BookOpen size={14} /> Browse Templates
+                </button>
+                <button className="btn btn-ghost" onClick={() => { toggleSection('source'); setSidebarCollapsed(false); }} style={{ border: '1.5px solid #cbd5e1' }}>
+                  <Database size={14} /> Choose Data Source
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Source chosen, not run yet */}
+          {tableKey && !results && !running && !runError && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 36, textAlign: 'center', maxWidth: 440, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+                <Eye size={44} color="#3b82f6" style={{ margin: '0 auto 16px' }} />
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
+                  {tableDef?.label}
+                </div>
+                <div style={{ fontSize: 13, color: '#64748b', marginBottom: 6 }}>{tableDef?.description}</div>
+                <div style={{ display: 'inline-flex', gap: 16, fontSize: 13, color: '#94a3b8', margin: '10px 0 20px' }}>
+                  <span><strong style={{ color: '#334155' }}>{fields.length}</strong> column{fields.length !== 1 ? 's' : ''}</span>
+                  <span><strong style={{ color: '#334155' }}>{filters.length}</strong> filter{filters.length !== 1 ? 's' : ''}</span>
+                  <span><strong style={{ color: '#334155' }}>{sorts.length}</strong> sort{sorts.length !== 1 ? 's' : ''}</span>
+                </div>
+                <button className="btn btn-primary" onClick={handleRun} disabled={!canRun} style={{ fontSize: 14, padding: '9px 24px' }}>
+                  <Play size={14} fill="currentColor" /> {canRun ? 'Run Report' : 'Select at least one column'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Running */}
+          {running && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#64748b' }}>
+              <RefreshCw size={26} style={{ animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontSize: 15, fontWeight: 600 }}>Executing query…</span>
+            </div>
+          )}
+
+          {/* Error */}
+          {runError && !running && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+              <div style={{ background: '#fff', border: '1.5px solid #fca5a5', borderRadius: 14, padding: 28, maxWidth: 500, textAlign: 'center', boxShadow: '0 4px 16px rgba(220,38,38,0.1)' }}>
+                <AlertCircle size={36} color="#dc2626" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontWeight: 700, color: '#dc2626', marginBottom: 8, fontSize: 16 }}>Query Error</div>
+                <div style={{ color: '#64748b', fontSize: 13, fontFamily: 'monospace', background: '#fef2f2', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>{runError}</div>
+                <button className="btn btn-ghost" onClick={() => setRunError(null)}>Dismiss</button>
+              </div>
+            </div>
+          )}
+
+          {/* Results */}
+          {results && !running && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Stats bar */}
+              <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                  {results.total.toLocaleString()} row{results.total !== 1 ? 's' : ''}
+                </span>
+                {results.total > PREVIEW_SIZE && (
+                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                    showing {((previewPage - 1) * PREVIEW_SIZE) + 1}–{Math.min(previewPage * PREVIEW_SIZE, results.total)}
+                  </span>
+                )}
+                {filters.length > 0 && (
+                  <span style={{ fontSize: 11, color: '#2563eb', background: '#dbeafe', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>
+                    {filters.length} filter{filters.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {isGrouped && (
+                  <span style={{ fontSize: 11, color: '#7c3aed', background: '#ede9fe', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>
+                    Grouped
+                  </span>
+                )}
+                {sorts.length > 0 && (
+                  <span style={{ fontSize: 11, color: '#0d9488', background: '#ccfbf1', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>
+                    Sorted
+                  </span>
+                )}
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                  <button className="btn btn-sm btn-ghost" onClick={handleRun} style={{ fontSize: 12 }}>
+                    <RefreshCw size={12} /> Refresh
+                  </button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => handleExport('csv')} style={{ fontSize: 12 }}>
+                    <Download size={12} /> CSV
+                  </button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => handleExport('xlsx')} style={{ fontSize: 12 }}>
+                    <Download size={12} /> XLSX
+                  </button>
+                </div>
+              </div>
+
+              {/* Table area */}
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                {results.data.length === 0 ? (
+                  <div style={{ padding: 56, textAlign: 'center', color: '#94a3b8' }}>
+                    <Info size={36} style={{ margin: '0 auto 14px', opacity: 0.5 }} />
+                    <div style={{ fontWeight: 600, color: '#334155', marginBottom: 6 }}>No records match your filters</div>
+                    <div style={{ fontSize: 13 }}>Try adjusting or removing some filters</div>
+                  </div>
+                ) : (
+                  <table className="data-table" style={{ width: '100%', tableLayout: 'auto' }}>
+                    <thead>
+                      <tr>
+                        {(results.fields || []).map(col => {
+                          const ov = colOverrides[col.key] || {};
+                          const label = (ov.label !== undefined && ov.label !== '') ? ov.label : col.label;
+                          const isNum = col.type === 'number' || (ov.format || col.format) === 'currency';
+                          return (
+                            <th key={col.key} style={{ textAlign: isNum ? 'right' : 'left', cursor: 'default' }}>
+                              {label}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewData.map((row, ri) => (
+                        <tr key={ri}>
+                          {(results.fields || []).map(col => {
+                            const ov  = colOverrides[col.key] || {};
+                            const fm  = { ...col, format: ov.format || col.format };
+                            const raw = row[col.key];
+                            const isNum = col.type === 'number' || fm.format === 'currency';
+                            const isNeg = isNum && Number(raw) < 0;
+                            return (
+                              <td key={col.key} style={{ textAlign: isNum ? 'right' : 'left', color: isNeg ? '#dc2626' : undefined, whiteSpace: 'nowrap' }}>
+                                {formatCell(raw, fm)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      {/* Summary totals row */}
+                      {summaryRow && (
+                        <tr>
+                          {(results.fields || []).map((col, ci) => {
+                            const has = summaryRow[col.key] !== undefined;
+                            const ov  = colOverrides[col.key] || {};
+                            const fm  = { ...col, format: ov.format || col.format };
+                            const isNum = col.type === 'number' || fm.format === 'currency';
+                            return (
+                              <td key={col.key} style={{ fontWeight: 800, background: '#0f172a', color: has ? '#60a5fa' : '#334155', textAlign: isNum ? 'right' : 'left', whiteSpace: 'nowrap', borderTop: '2px solid #1e3a5f' }}>
+                                {ci === 0 && !has ? 'TOTALS' : (has ? formatCell(summaryRow[col.key], fm) : '')}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ background: '#fff', borderTop: '1px solid #e2e8f0', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(1)} disabled={previewPage === 1}>«</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(p => Math.max(1, p - 1))} disabled={previewPage === 1}>‹</button>
+                  <span style={{ fontSize: 13, color: '#64748b', flex: 1, textAlign: 'center' }}>Page {previewPage} of {totalPages}</span>
+                  <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(p => Math.min(totalPages, p + 1))} disabled={previewPage === totalPages}>›</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(totalPages)} disabled={previewPage === totalPages}>»</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Save Modal ─────────────────────────────────────────── */}
+      {saveModal && (
+        <div className="modal-overlay" onClick={() => setSaveModal(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title"><Save size={17} style={{ verticalAlign: 'middle', marginRight: 7 }} />Save Report</span>
+              <button onClick={() => setSaveModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <div>
+                <label className="form-label">Report Name *</label>
+                <input className="form-input" value={reportName} onChange={e => setReportName(e.target.value)} placeholder="My Report" autoFocus />
+              </div>
+              <div>
+                <label className="form-label">Description (optional)</label>
+                <textarea className="form-input" value={reportDesc} onChange={e => setReportDesc(e.target.value)} rows={3}
+                  placeholder="What does this report show?" style={{ resize: 'vertical' }} />
+              </div>
+              {saveError && (
+                <div style={{ background: '#fee2e2', color: '#dc2626', borderRadius: 8, padding: '8px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <AlertCircle size={14} />{saveError}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setSaveModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saveLoading || !reportName.trim()}>
+                {saveLoading ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />}
+                {currentSavedId ? 'Update' : 'Save Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}

@@ -1,23 +1,71 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Trash2, DollarSign, Receipt } from 'lucide-react';
-import { getInvoice, getCircuits, getLineItems, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation, getUsocCodes } from '../api';
+import { ArrowLeft, Plus, Pencil, Trash2, DollarSign, Receipt, SlidersHorizontal, List, Layers, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { getInvoice, getCircuits, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation, getUsocCodes, updateInvoice, getUsers } from '../api';
 import Modal from '../components/Modal';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
+import ChangeHistory from '../components/ChangeHistory';
+import CreateTicketModal from '../components/CreateTicketModal';
+import { useConfirm } from '../context/ConfirmContext';
 
 const CHARGE_TYPES = ['MRC', 'NRC', 'Usage', 'Tax/Surcharge', 'Credit', 'Other'];
-const STATUS_BADGE = { Paid: 'badge badge-green', Open: 'badge badge-blue', Disputed: 'badge badge-orange', Void: 'badge badge-gray' };
+const STATUS_BADGE = { Paid: 'badge badge-green', Open: 'badge badge-blue', Disputed: 'badge badge-orange', Void: 'badge badge-gray', Closed: 'badge badge-gray' };
 
 const EMPTY_LI    = { description: '', circuits_id: '', usoc_codes_id: '', charge_type: 'MRC', amount: '', mrc_amount: '', nrc_amount: '', contracted_rate: '', period_start: '', period_end: '' };
 const EMPTY_ALLOC = { cost_center: '', department: '', percentage: '', notes: '' };
+
+const NAV_SECTIONS = [
+  { key: 'info',        label: 'Invoice Info',   Icon: SlidersHorizontal },
+  { key: 'lineItems',   label: 'Line Items',      Icon: List              },
+  { key: 'allocations', label: 'Allocations',     Icon: Layers            },
+  { key: 'notes',       label: 'Notes & History', Icon: MessageSquare     },
+];
+const NAV_BTN = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: 30, height: 30, borderRadius: 6, border: 'none',
+  background: 'transparent', cursor: 'pointer', color: '#cbd5e1',
+  transition: 'background 0.15s, color 0.15s',
+};
+function NavIcon({ label, Icon, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button title={label} onClick={onClick}
+      style={{ ...NAV_BTN, background: hover ? 'rgba(255,255,255,0.15)' : 'transparent', color: hover ? '#f8fafc' : '#cbd5e1' }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    ><Icon size={15} /></button>
+  );
+}
+
+function MenuDivider() {
+  return <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />;
+}
+function MenuItem({ label, onClick, stub = false }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'block', width: '100%', textAlign: 'left',
+        padding: '9px 16px', border: 'none',
+        background: hover ? 'rgba(255,255,255,0.08)' : 'transparent',
+        cursor: stub ? 'default' : 'pointer',
+        color: stub ? '#64748b' : '#e2e8f0',
+        fontSize: 13, fontWeight: 500,
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >{label}</button>
+  );
+}
 
 function InfoRow({ label, value }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8' }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 500, color: '#0f172a' }}>{value || '—'}</span>
+      <span className="rc-results-count" style={{ fontSize: 14, fontWeight: 500 }}>{value || '—'}</span>
     </div>
   );
 }
@@ -25,7 +73,10 @@ function InfoRow({ label, value }) {
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { setPageTitle } = useContext(PageTitleContext);
+  const { hasPermission } = useAuth();
+  const canUpdate = hasPermission('invoices', 'update');
   const [invoice, setInvoice]       = useState(null);
   const [lineItems, setLineItems]   = useState([]);
   const [allocations, setAllocations] = useState([]);
@@ -33,6 +84,8 @@ export default function InvoiceDetail() {
   const [usocCodes, setUsocCodes]   = useState([]);
   const [loading, setLoading]       = useState(true);
   const [toast, setToast]           = useState(null);
+  const refs = { info: useRef(null), lineItems: useRef(null), allocations: useRef(null), notes: useRef(null) };
+  const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const [liModal, setLiModal]       = useState(false);
   const [editingLi, setEditingLi]   = useState(null);
@@ -42,7 +95,45 @@ export default function InvoiceDetail() {
   const [allocLiId, setAllocLiId]   = useState(null);
   const [allocForm, setAllocForm]   = useState(EMPTY_ALLOC);
 
+  const menuRef = useRef(null);
+  const [menuOpen, setMenuOpen]         = useState(false);
+  const [assignModal, setAssignModal]   = useState(false);
+  const [allUsers, setAllUsers]         = useState([]);
+  const [assignUserId, setAssignUserId] = useState('');
+  const [ticketModal, setTicketModal]   = useState(false);
+
   const showToast = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 2500); };
+
+  const handleToggleStatus = async () => {
+    setMenuOpen(false);
+    const newStatus = invoice.status === 'Closed' ? 'Open' : 'Closed';
+    try {
+      const updated = await updateInvoice(id, { ...invoice, status: newStatus });
+      setInvoice(updated.data);
+      showToast(`Invoice ${newStatus === 'Closed' ? 'closed' : 'reopened'}.`);
+    } catch { showToast('Status update failed.', false); }
+  };
+
+  const openAssignModal = async () => {
+    setMenuOpen(false);
+    if (allUsers.length === 0) {
+      try {
+        const res = await getUsers();
+        setAllUsers(res.data);
+      } catch { showToast('Could not load users.', false); return; }
+    }
+    setAssignUserId(invoice.assigned_users_id ? String(invoice.assigned_users_id) : '');
+    setAssignModal(true);
+  };
+
+  const handleAssign = async () => {
+    try {
+      const updated = await updateInvoice(id, { ...invoice, assigned_users_id: assignUserId ? Number(assignUserId) : null });
+      setInvoice(updated.data);
+      setAssignModal(false);
+      showToast('Invoice assigned.');
+    } catch { showToast('Assignment failed.', false); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -66,6 +157,12 @@ export default function InvoiceDetail() {
     }
   }, [invoice]);
 
+  useEffect(() => {
+    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const setLi = (k, v) => setLiForm(p => ({ ...p, [k]: v }));
   const setAl = (k, v) => setAllocForm(p => ({ ...p, [k]: v }));
 
@@ -82,7 +179,7 @@ export default function InvoiceDetail() {
   };
 
   const deleteLi = async liId => {
-    if (!window.confirm('Delete this line item?')) return;
+    if (!(await confirm('Delete this line item?'))) return;
     await deleteLineItem(liId); load(); showToast('Line item deleted.');
   };
 
@@ -96,7 +193,7 @@ export default function InvoiceDetail() {
   };
 
   const deleteAlloc = async allocId => {
-    if (!window.confirm('Remove this allocation?')) return;
+    if (!(await confirm('Remove this allocation?', { confirmLabel: 'Remove' }))) return;
     await deleteAllocation(allocId); load(); showToast('Allocation removed.');
   };
 
@@ -128,10 +225,43 @@ export default function InvoiceDetail() {
           </div>
           <span className={STATUS_BADGE[invoice.status] || 'badge badge-gray'} style={{ fontSize: 13, padding: '6px 14px' }}>{invoice.status}</span>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 6px' }}>
+            {NAV_SECTIONS.map(({ key, label, Icon }) => (
+              <NavIcon key={key} label={label} Icon={Icon} onClick={() => scrollTo(key)} />
+            ))}
+          </div>
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button
+              title="Invoice options"
+              onClick={() => setMenuOpen(v => !v)}
+              style={{ ...NAV_BTN, background: menuOpen ? 'rgba(255,255,255,0.15)' : 'transparent', color: menuOpen ? '#f8fafc' : '#cbd5e1' }}
+            >
+              <MoreHorizontal size={15} />
+            </button>
+            {menuOpen && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 224, zIndex: 9000, padding: '6px 0' }}>
+                <MenuItem label="Assign to User" onClick={openAssignModal} />
+                <MenuItem label="Analyze" onClick={() => setMenuOpen(false)} stub />
+                <MenuDivider />
+                <MenuItem label={invoice.status === 'Closed' ? 'Reopen Invoice' : 'Close Invoice'} onClick={handleToggleStatus} />
+                <MenuDivider />
+                <MenuItem label="Create Contract Mappings" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Create Issue" onClick={() => { setMenuOpen(false); setTicketModal(true); }} />
+                <MenuItem label="Preview Feed" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Recategorize" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Reidentify" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Rematch" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Reset Feed" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Send Invoice Email" onClick={() => setMenuOpen(false)} stub />
+              </div>
+            )}
+          </div>
+        </div>
       </DetailHeader>
 
       {/* Invoice Info */}
-      <div className="page-card" style={{ padding: 24 }}>
+      <div className="page-card" ref={refs.info} style={{ padding: 24, scrollMarginTop: 80 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20 }}>
           <InfoRow label="Invoice Date"   value={invoice.invoice_date?.split('T')[0]} />
           <InfoRow label="Due Date"       value={invoice.due_date?.split('T')[0]} />
@@ -160,10 +290,10 @@ export default function InvoiceDetail() {
       </div>
 
       {/* Line Items */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.lineItems} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Line Items</span>
-          <button className="btn btn-primary" onClick={openNewLi}><Plus size={15} /> Add Line Item</button>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Line Items</span>
+          {canUpdate && <button className="btn btn-primary" onClick={openNewLi}><Plus size={15} /> Add Line Item</button>}
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table" style={{ minWidth: 1000 }}>
@@ -213,9 +343,9 @@ export default function InvoiceDetail() {
       </div>
 
       {/* Allocations */}
-      <div className="page-card">
+      <div className="page-card" ref={refs.allocations} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>Allocations</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Allocations</span>
         </div>
         <table className="data-table">
           <thead><tr>
@@ -287,7 +417,38 @@ export default function InvoiceDetail() {
         <div><label className="form-label">Notes</label><textarea className="form-input" rows={2} value={allocForm.notes} onChange={e => setAl('notes', e.target.value)} /></div>
       </Modal>
 
-      <NoteTimeline entityType="invoice" entityId={id} />
+      {/* Assign to User Modal */}
+      <Modal open={assignModal} title="Assign to User" onClose={() => setAssignModal(false)} onSave={handleAssign} saveLabel="Assign" width={380}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <label className="form-label">Select User</label>
+          <select className="form-input" value={assignUserId} onChange={e => setAssignUserId(e.target.value)}>
+            <option value="">— Unassigned —</option>
+            {allUsers.map(u => (
+              <option key={u.users_id} value={u.users_id}>{u.display_name} ({u.email})</option>
+            ))}
+          </select>
+          {invoice.assigned_user_name && (
+            <div style={{ fontSize: 12, color: '#64748b' }}>Currently assigned to: <strong>{invoice.assigned_user_name}</strong></div>
+          )}
+        </div>
+      </Modal>
+
+      <div ref={refs.notes} style={{ scrollMarginTop: 80 }}>
+        <NoteTimeline entityType="invoice" entityId={id} />
+        <ChangeHistory resource="invoices" resourceId={id} />
+      </div>
+
+      <CreateTicketModal
+        open={ticketModal}
+        onClose={() => setTicketModal(false)}
+        onCreated={t => showToast(`Ticket ${t.ticket_number} created.`)}
+        sourceEntityType="invoice"
+        sourceEntityId={Number(id)}
+        sourceLabel={invoice.invoice_number}
+        defaultCategory="Invoice Discrepancy"
+        defaultTitle={`Issue with Invoice ${invoice.invoice_number}`}
+        contextInfo={{ accountName: invoice.account_name }}
+      />
     </div>
   );
 }
