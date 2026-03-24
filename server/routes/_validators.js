@@ -178,17 +178,16 @@ const allocationRules = [
 ];
 
 const costSavingsRules = [
-  requiredFk('accounts_id'),
+  requiredFk('vendors_id'),
   optionalFk('inventory_id'),
   optionalFk('line_items_id'),
   optionalFk('invoices_id'),
   optionalStr('category', 80),
-  body('description').optional({ values: 'falsy' }).trim().isLength({ max: 2000 }).withMessage('description max 2000 chars'),
+  optionalStr('description', 255),
   optionalDate('identified_date'),
-  enumField('status', ['Identified', 'In Progress', 'Resolved', 'Dismissed']),
-  optionalDecimal('projected_savings'),
-  optionalDecimal('realized_savings'),
-  body('notes').optional({ values: 'falsy' }).trim().isLength({ max: 2000 }).withMessage('notes max 2000 chars'),
+  enumField('status', ['Identified', 'Implemented', 'Rejected']),
+  body('projected_savings').optional({ nullable: true }).isFloat().withMessage('projected_savings must be number'),
+  body('realized_savings').optional({ nullable: true }).isFloat().withMessage('realized_savings must be number'),
 ];
 
 const usocCodeRules = [
@@ -214,17 +213,16 @@ const contractRateRules = [
 
 const disputeRules = [
   optionalFk('line_items_id'),
-  optionalFk('invoices_id'),
-  requiredFk('accounts_id'),
+  requiredFk('invoices_id'),
+  requiredFk('vendors_id'),
   enumField('dispute_type', ['Overcharge', 'Duplicate Charge', 'Wrong Rate', 'Missing Credit', 'Service Not Delivered', 'Other']),
-  body('amount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('amount must be >= 0'),
-  enumField('status', ['Open', 'Under Review', 'Credited', 'Denied', 'Closed']),
-  optionalDate('filed_date'),
+  body('amount').notEmpty().withMessage('amount required').isFloat({ min: 0 }).withMessage('amount must be >= 0'),
+  enumField('status', ['Open', 'Won', 'Lost']),
+  requiredDate('filed_date'),
   optionalDate('resolved_date'),
-  body('resolution_notes').optional({ values: 'falsy' }).trim().isLength({ max: 2000 }),
-  optionalDecimal('credit_amount'),
+  optionalStr('resolution_notes', 1000),
+  body('credit_amount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('credit_amount must be >= 0'),
   optionalStr('reference_number', 80),
-  body('notes').optional({ values: 'falsy' }).trim().isLength({ max: 2000 }),
 ];
 
 module.exports = {

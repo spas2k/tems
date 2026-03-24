@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Eye, Download, ShieldAlert } from 'lucide-react';
-import { getDisputes, createDispute, updateDispute, deleteDispute, getAccounts, getInvoices } from '../api';
+import { getDisputes, createDispute, updateDispute, deleteDispute, getVendors, getInvoices } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
@@ -15,13 +15,13 @@ const STATUS_BADGE = {
 };
 
 const EMPTY = {
-  invoices_id: '', accounts_id: '', line_items_id: '', dispute_type: 'Overcharge',
+  invoices_id: '', vendors_id: '', line_items_id: '', dispute_type: 'Overcharge',
   amount: '', status: 'Open', filed_date: '', resolved_date: '', resolution_notes: '',
   credit_amount: '', reference_number: '', notes: '',
 };
 
 const FILTER_CONFIG = {
-  reference_number: 'text', account_name: 'select', invoice_number: 'text',
+  reference_number: 'text', vendor_name: 'select', invoice_number: 'text',
   dispute_type: 'select', status: 'select', filed_date: 'date',
 };
 
@@ -34,9 +34,9 @@ export default function Disputes() {
     idKey: 'disputes_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
-    related: { accounts: getAccounts, invoices: getInvoices },
+    related: { vendors: getVendors, invoices: getInvoices },
     defaultValues: (rel) => ({
-      accounts_id: rel.accounts[0]?.accounts_id || '',
+      vendors_id: rel.vendors[0]?.vendors_id || '',
       invoices_id: rel.invoices[0]?.invoices_id || '',
       filed_date: new Date().toISOString().slice(0, 10),
     }),
@@ -48,7 +48,7 @@ export default function Disputes() {
     }),
   });
 
-  const { accounts, invoices } = table.related;
+  const { vendors, invoices } = table.related;
   const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 
   const columns = [
@@ -59,8 +59,8 @@ export default function Disputes() {
           {v || `#${row.disputes_id}`}
         </span>
       ) },
-    { key: 'account_name', label: 'Vendor', filterType: 'select',
-      filterOptions: accounts.map(a => a.name), style: { fontWeight: 500 } },
+    { key: 'vendor_name', label: 'Vendor', filterType: 'select',
+      filterOptions: vendors.map(v => v.name), style: { fontWeight: 500 } },
     { key: 'invoice_number', label: 'Invoice',
       render: (v, row) => v
         ? <span style={{ color: '#3b82f6', cursor: 'pointer' }} onClick={() => navigate(`/invoices/${row.invoices_id}`)}>{v}</span>
@@ -80,8 +80,8 @@ export default function Disputes() {
   ];
 
   const formFields = [
-    { key: 'accounts_id', label: 'Account', type: 'select',
-      options: accounts.map(a => ({ value: a.accounts_id, label: a.name })), placeholder: 'Select…' },
+    { key: 'vendors_id', label: 'Vendor', type: 'select',
+      options: vendors.map(v => ({ value: v.vendors_id, label: v.name })), placeholder: 'Select…' },
     { key: 'invoices_id', label: 'Invoice', type: 'select',
       options: invoices.map(i => ({ value: i.invoices_id, label: i.invoice_number })), placeholder: 'Select…', half: true },
     { key: 'dispute_type', label: 'Dispute Type', type: 'select', options: TYPES, half: true },
@@ -99,7 +99,7 @@ export default function Disputes() {
     if (!table.processedData.length) return;
     const headers = ['Reference', 'Vendor', 'Invoice', 'Type', 'Amount', 'Filed', 'Status', 'Credit', 'Notes'];
     const rows = table.processedData.map(r => [
-      r.reference_number, r.account_name, r.invoice_number, r.dispute_type,
+      r.reference_number, r.vendor_name, r.invoice_number, r.dispute_type,
       r.amount, r.filed_date?.split('T')[0], r.status, r.credit_amount, r.notes,
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c ?? ''}"`).join(','))].join('\n');

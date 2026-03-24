@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Zap } from 'lucide-react';
-import { getCostSavings, createCostSaving, updateCostSaving, deleteCostSaving, getAccounts, getInventory } from '../api';
+import { getCostSavings, createCostSaving, updateCostSaving, deleteCostSaving, getVendors, getInventory } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
@@ -11,10 +11,10 @@ const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rat
 const STATUSES = ['Identified', 'In Progress', 'Resolved'];
 const STATUS_BADGE = { Identified: 'badge badge-orange', 'In Progress': 'badge badge-blue', Resolved: 'badge badge-green' };
 
-const EMPTY = { accounts_id: '', cir_id: '', category: 'Billing Error', description: '', projected_savings: '', realized_savings: '', status: 'Identified', identified_date: '', resolved_date: '', notes: '' };
+const EMPTY = { vendors_id: '', inventory_id: '', category: 'Billing Error', description: '', projected_savings: '', realized_savings: '', status: 'Identified', identified_date: '', resolved_date: '', notes: '' };
 
 const FILTER_CONFIG = {
-  account_name: 'select', category: 'select', description: 'text',
+  vendor_name: 'select', category: 'select', description: 'text',
   projected_savings: 'text', realized_savings: 'text', identified_date: 'date', status: 'select',
 };
 
@@ -27,16 +27,16 @@ export default function CostSavings() {
     idKey: 'cost_savings_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
-    related: { accounts: getAccounts, inventory: getInventory },
-    defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
-    beforeSave: form => ({ ...form, cir_id: form.cir_id || null }),
+    related: { vendors: getVendors, inventory: getInventory },
+    defaultValues: (rel) => ({ vendors_id: rel.vendors[0]?.vendors_id || '' }),
+    beforeSave: form => ({ ...form, inventory_id: form.inventory_id || null }),
   });
 
-  const { accounts, inventory } = table.related;
+  const { vendors, inventory } = table.related;
 
   const columns = [
-    { key: 'account_name', label: 'Vendor', filterType: 'select',
-      filterOptions: accounts.map(a => a.name), style: { fontWeight: 600 } },
+    { key: 'vendor_name', label: 'Vendor', filterType: 'select',
+      filterOptions: vendors.map(v => v.name), style: { fontWeight: 600 } },
     { key: 'category', label: 'Category', filterType: 'select', filterOptions: CATEGORIES,
       render: v => <span className="badge badge-blue">{v}</span> },
     { key: 'description', label: 'Description', style: { maxWidth: 200 },
@@ -50,8 +50,8 @@ export default function CostSavings() {
   ];
 
   const formFields = [
-    { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
-      options: accounts.map(a => ({ value: a.accounts_id, label: a.name })), placeholder: 'Select vendor…' },
+    { key: 'vendors_id', label: 'Vendor Account *', type: 'select',
+      options: vendors.map(v => ({ value: v.vendors_id, label: v.name })), placeholder: 'Select vendor…' },
     { key: 'category', label: 'Category', type: 'select', options: CATEGORIES, half: true },
     { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
     { key: 'description', label: 'Description', type: 'textarea' },
@@ -59,8 +59,8 @@ export default function CostSavings() {
     { key: 'realized_savings', label: 'Realized Savings ($)', type: 'number', step: '0.01', half: true },
     { key: 'identified_date', label: 'Identified Date', type: 'date', half: true },
     { key: 'resolved_date', label: 'Resolved Date', type: 'date', half: true },
-    { key: 'cir_id', label: 'Related InventoryItem (optional)', type: 'select',
-      options: inventory.map(c => ({ value: c.cir_id, label: `${c.inventory_number} — ${c.location}` })), placeholder: 'None' },
+    { key: 'inventory_id', label: 'Related InventoryItem (optional)', type: 'select',
+      options: inventory.map(i => ({ value: i.inventory_id, label: `${i.inventory_number} — ${i.location}` })), placeholder: 'None' },
     { key: 'notes', label: 'Notes', type: 'textarea' },
   ];
 
