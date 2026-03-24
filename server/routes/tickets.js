@@ -38,6 +38,8 @@ const ticketRules = [
   body('steps_to_reproduce').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 10000 }),
   body('expected_behavior').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 5000 }),
   body('actual_behavior').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 5000 }),
+  body('environment').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 500 }),
+  body('browser_info').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 500 }),
   body('console_errors').optional({ nullable: true, values: 'falsy' }).trim(),
 ];
 
@@ -87,8 +89,8 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
     const {
       title, description, category, priority, status,
       source_entity_type, source_entity_id, source_label,
-      assigned_users_id, due_date, resolution, tags,
-      steps_to_reproduce, expected_behavior, actual_behavior,
+      assigned_users_id, due_date, resolution, tags, environment, browser_info,
+        steps_to_reproduce, expected_behavior, actual_behavior,
       console_errors,
     } = req.body;
 
@@ -109,6 +111,10 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
       created_by,
       due_date:           due_date           || null,
       resolution:         resolution?.trim() || null,
+        environment:        environment?.trim() || null,
+        browser_info:       browser_info?.trim() || null,
+        environment:        environment?.trim() || null,
+        browser_info:       browser_info?.trim() || null,
       tags:               tags?.trim()       || null,
       steps_to_reproduce: steps_to_reproduce?.trim() || null,
       expected_behavior:  expected_behavior?.trim() || null,
@@ -170,8 +176,8 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
     const {
       title, description, category, priority, status,
       source_entity_type, source_entity_id, source_label,
-      assigned_users_id, due_date, resolved_date, resolution, tags,
-      steps_to_reproduce, expected_behavior, actual_behavior,
+      assigned_users_id, due_date, resolved_date, resolution, tags, environment, browser_info,
+        steps_to_reproduce, expected_behavior, actual_behavior,
       console_errors,
     } = req.body;
 
@@ -245,6 +251,10 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
       due_date:           due_date           || null,
       resolved_date:      autoResolvedDate,
       resolution:         resolution?.trim() || null,
+        environment:        environment?.trim() || null,
+        browser_info:       browser_info?.trim() || null,
+        environment:        environment?.trim() || null,
+        browser_info:       browser_info?.trim() || null,
       tags:               tags?.trim()       || null,
       steps_to_reproduce: steps_to_reproduce?.trim() || null,
       expected_behavior:  expected_behavior?.trim() || null,

@@ -16,7 +16,7 @@ const EMPTY = {
   title: '', description: '', category: 'Other', priority: 'Medium',
   assigned_users_id: '', due_date: '', tags: '',
   steps_to_reproduce: '', expected_behavior: '',
-  actual_behavior: '', console_errors: '',
+  actual_behavior: '', console_errors: '', environment: '', browser_info: '',
 };
 
 export default function TicketAdd() {
@@ -57,6 +57,8 @@ export default function TicketAdd() {
           placeholder: 'What should have happened?' },
         { key: 'actual_behavior', label: 'Actual Behavior', type: 'textarea', rows: 2,
           placeholder: 'What actually happened?' },
+        { key: 'environment', label: 'Environment', type: 'text', placeholder: 'Production, Staging, Local...' },
+        { key: 'browser_info', label: 'Browser Info', type: 'text', placeholder: 'Chrome 120 on Windows...' },
       ],
     },
     {
