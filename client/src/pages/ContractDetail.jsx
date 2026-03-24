@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, Save, Network, ShoppingCart, AlertTriangle, RefreshCw, Plus, Pencil, Trash2, Tag, ExternalLink, SlidersHorizontal, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getContract, updateContract, getContractInventory, getContractOrders, getAccounts,
+  getContract, updateContract, getContractInventory, getContractOrders, getVendors,
   getContractRates, getUsocCodes, createContractRate, updateContractRate, deleteContractRate,
 } from '../api';
 import DetailHeader from '../components/DetailHeader';
@@ -15,7 +15,6 @@ import dayjs from 'dayjs';
 import { useConfirm } from '../context/ConfirmContext';
 
 const STATUSES = ['Active', 'Pending', 'Expired', 'Terminated'];
-
 const STATUS_BADGE = {
   Active:     'badge badge-green',
   Pending:    'badge badge-blue',
@@ -78,7 +77,7 @@ export default function ContractDetail() {
   const [contract, setContract] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [orders,   setOrders]   = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [rates,    setRates]    = useState([]);
   const [usocCodes, setUsocCodes] = useState([]);
 
@@ -107,30 +106,36 @@ export default function ContractDetail() {
       getContract(id),
       getContractInventory(id),
       getContractOrders(id),
-      getAccounts(),
+      getVendors(),
       getContractRates({ contracts_id: id }).catch(() => ({ data: [] })),
       getUsocCodes().catch(() => ({ data: [] })),
-    ]).then(([co, ci, or_, ac, rt, uc]) => {
+    ]).then(([co, ci, or_, v, rt, uc]) => {
       const c = co.data;
       setContract(c);
-      setPageTitle(c.contract_number || c.name);
+      setPageTitle(c.contract_number || c.contract_name);
       setInventory(ci.data);
       setOrders(or_.data);
-      setAccounts(ac.data);
+      setVendors(v.data);
       setRates(rt.data);
       setUsocCodes(uc.data);
       setForm({
-        accounts_id:      c.accounts_id      || '',
-        name:            c.name            || '',
+        vendors_id:      c.vendors_id      || '',
+        contract_name:   c.contract_name   || '',
         contract_number: c.contract_number || '',
+        type:            c.type            || '',
+        subtype:         c.subtype         || '',
         start_date:      c.start_date      ? c.start_date.split('T')[0] : '',
-        end_date:        c.end_date        ? c.end_date.split('T')[0]   : '',
+        expiration_date: c.expiration_date ? c.expiration_date.split('T')[0] : '',
         contracted_rate: c.contracted_rate != null ? c.contracted_rate : '',
         rate_unit:       c.rate_unit       || '',
         term_months:     c.term_months     || '',
+        term_type:       c.term_type       || '',
         minimum_spend:   c.minimum_spend != null ? c.minimum_spend : '',
         etf_amount:      c.etf_amount != null ? c.etf_amount : '',
         commitment_type: c.commitment_type || '',
+        contract_value:  c.contract_value != null ? c.contract_value : '',
+        tax_assessed:    c.tax_assessed != null ? c.tax_assessed : '',
+        business_line:   c.business_line   || '',
         status:          c.status          || 'Active',
         auto_renew:      !!c.auto_renew,
       });
@@ -140,9 +145,9 @@ export default function ContractDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (contract?.contract_number || contract?.name) {
+    if (contract?.contract_number || contract?.contract_name) {
       window.dispatchEvent(new CustomEvent('tems-recent-item', {
-        detail: { path: `/contracts/${id}`, label: contract.contract_number || contract.name, type: 'contract' }
+        detail: { path: `/contracts/${id}`, label: contract.contract_number || contract.contract_name, type: 'contract' }
       }));
     }
   }, [contract]);
@@ -185,8 +190,8 @@ export default function ContractDetail() {
     catch { showToast('Delete failed.', false); }
   };
 
-  const daysToExpiry = contract.end_date
-    ? Math.ceil((new Date(contract.end_date) - new Date()) / 86400000)
+  const daysToExpiry = contract.expiration_date
+    ? Math.ceil((new Date(contract.expiration_date) - new Date()) / 86400000)
     : null;
   const expiringSoon = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 90;
   const expired = daysToExpiry !== null && daysToExpiry <= 0;
@@ -194,6 +199,8 @@ export default function ContractDetail() {
   const totalMRC = inventory
     .filter(c => c.status === 'Active')
     .reduce((s, c) => s + Number(c.contracted_rate || 0), 0);
+
+  const vendorName = vendors.find(v => v.vendors_id === contract.vendors_id)?.name || '—';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -228,10 +235,10 @@ export default function ContractDetail() {
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>
-                {contract.contract_number || contract.name}
+                {contract.contract_number || contract.contract_name}
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                {contract.account_name}{contract.name ? ` · ${contract.name}` : ''}
+                {vendorName}{contract.contract_name ? ` · ${contract.contract_name}` : ''}
               </div>
             </div>
           </div>
@@ -287,8 +294,8 @@ export default function ContractDetail() {
           <div className="kpi-label">Term</div>
           <div className="kpi-value">{contract.term_months ? `${contract.term_months} mo` : '—'}</div>
           <div className="kpi-sub">
-            {contract.end_date
-              ? (expired ? 'Expired' : expiringSoon ? `${daysToExpiry} days left` : `Expires ${dayjs(contract.end_date).format('MM/DD/YYYY')}`)
+            {contract.expiration_date
+              ? (expired ? 'Expired' : expiringSoon ? `${daysToExpiry} days left` : `Expires ${dayjs(contract.expiration_date).format('MM/DD/YYYY')}`)
               : 'No end date'}
           </div>
         </div>
@@ -313,17 +320,17 @@ export default function ContractDetail() {
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
           <Field label="Contract Name *">
-            <input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} />
+            <input className="form-input" value={form.contract_name} onChange={e => set('contract_name', e.target.value)} />
           </Field>
 
           <Field label="Contract Number">
             <input className="form-input" value={form.contract_number} onChange={e => set('contract_number', e.target.value)} />
           </Field>
 
-          <Field label="Vendor Account *">
-            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
+          <Field label="Vendor *">
+            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
               <option value="">Select vendor…</option>
-              {accounts.map(a => <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>)}
+              {vendors.map(v => <option key={v.vendors_id} value={v.vendors_id}>{v.name}</option>)}
             </select>
           </Field>
 
@@ -333,12 +340,20 @@ export default function ContractDetail() {
             </select>
           </Field>
 
+          <Field label="Type">
+            <input className="form-input" value={form.type} onChange={e => set('type', e.target.value)} placeholder="e.g. Service Agreement" />
+          </Field>
+
+          <Field label="Subtype">
+            <input className="form-input" value={form.subtype} onChange={e => set('subtype', e.target.value)} placeholder="e.g. Telecommunications" />
+          </Field>
+
           <Field label="Start Date">
             <input className="form-input" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
           </Field>
 
-          <Field label="End Date">
-            <input className="form-input" type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} />
+          <Field label="Expiration Date">
+            <input className="form-input" type="date" value={form.expiration_date} onChange={e => set('expiration_date', e.target.value)} />
           </Field>
 
           <Field label="Contracted Rate ($)">
@@ -353,12 +368,24 @@ export default function ContractDetail() {
             <input className="form-input" type="number" value={form.term_months} onChange={e => set('term_months', e.target.value)} />
           </Field>
 
+          <Field label="Term Type">
+            <input className="form-input" value={form.term_type} onChange={e => set('term_type', e.target.value)} placeholder="e.g. Fixed, Auto-Renewal" />
+          </Field>
+
           <Field label="Minimum Spend ($)">
             <input className="form-input" type="number" step="0.01" value={form.minimum_spend} onChange={e => set('minimum_spend', e.target.value)} />
           </Field>
 
           <Field label="ETF Amount ($)">
             <input className="form-input" type="number" step="0.01" value={form.etf_amount} onChange={e => set('etf_amount', e.target.value)} />
+          </Field>
+
+          <Field label="Contract Value ($)">
+            <input className="form-input" type="number" step="0.01" value={form.contract_value} onChange={e => set('contract_value', e.target.value)} />
+          </Field>
+
+          <Field label="Tax Assessed ($)">
+            <input className="form-input" type="number" step="0.01" value={form.tax_assessed} onChange={e => set('tax_assessed', e.target.value)} />
           </Field>
 
           <Field label="Commitment Type">
@@ -368,6 +395,10 @@ export default function ContractDetail() {
               <option value="Revenue">Revenue</option>
               <option value="Term">Term</option>
             </select>
+          </Field>
+
+          <Field label="Business Line">
+            <input className="form-input" value={form.business_line} onChange={e => set('business_line', e.target.value)} placeholder="e.g. Operations, IT" />
           </Field>
 
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: 8 }}>
@@ -392,7 +423,7 @@ export default function ContractDetail() {
           <span
             className="rc-results-count"
             style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onClick={() => navigate('/inventory', { state: { filters: { account_name: contract.account_name }, showFilters: true } })}
+            onClick={() => navigate('/inventory', { state: { filters: { vendor_name: vendorName }, showFilters: true } })}
             title="View all inventory for this vendor"
           >
             <Network size={16} color="#7c3aed" /> Inventory on This Contract
@@ -416,11 +447,11 @@ export default function ContractDetail() {
             </thead>
             <tbody>
               {inventory.map(ci => (
-                <tr key={ci.cir_id}>
+                <tr key={ci.inventory_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.inventory_id}`)}>{ci.inventory_number}</span>
                   </td>
-                  <td>{ci.account_name}</td>
+                  <td>{vendorName}</td>
                   <td>{ci.location || '—'}</td>
                   <td>{ci.type || '—'}</td>
                   <td>{ci.bandwidth || '—'}</td>
@@ -491,7 +522,7 @@ export default function ContractDetail() {
           <span
             className="rc-results-count"
             style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onClick={() => navigate('/orders', { state: { filters: { account_name: contract.account_name }, showFilters: true } })}
+            onClick={() => navigate('/orders', { state: { filters: { vendor_name: vendorName }, showFilters: true } })}
             title="View all orders for this vendor"
           >
             <ShoppingCart size={16} color="#d97706" /> Orders on This Contract
@@ -519,7 +550,7 @@ export default function ContractDetail() {
                   <td>
                     <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/orders/${o.orders_id}`)}>{o.order_number}</span>
                   </td>
-                  <td>{o.account_name}</td>
+                  <td>{vendorName}</td>
                   <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b', fontSize: 13 }}>{o.description || '—'}</td>
                   <td>{o.order_date ? dayjs(o.order_date).format('MM/DD/YYYY') : '—'}</td>
                   <td>{o.due_date ? dayjs(o.due_date).format('MM/DD/YYYY') : '—'}</td>

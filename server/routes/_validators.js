@@ -75,17 +75,28 @@ const accountRules = [
 ];
 
 const contractRules = [
-  requiredFk('accounts_id'),
-  optionalStr('name', 160),
+  requiredFk('vendors_id'),
+  optionalStr('contract_name', 160),
   optionalStr('contract_number', 80),
+  optionalStr('type', 60),
+  optionalStr('subtype', 60),
+  optionalFk('parent_contract_id'),
+  optionalFk('currency_id'),
+  optionalStr('contract_record_url', 500),
   optionalDate('start_date'),
-  optionalDate('end_date'),
+  optionalDate('expiration_date'),
+  optionalStr('term_type', 60),
+  optionalDate('renew_date'),
   optionalDecimal('contracted_rate'),
   optionalStr('rate_unit', 60),
   body('term_months').optional({ nullable: true, values: 'falsy' }).isInt({ min: 1 }).withMessage('term_months must be a positive integer'),
   optionalDecimal('minimum_spend'),
   optionalDecimal('etf_amount'),
   optionalStr('commitment_type', 60),
+  optionalDecimal('contract_value'),
+  optionalDecimal('tax_assessed'),
+  optionalStr('product_service_types', 255),
+  optionalStr('business_line', 120),
   enumField('status', ['Active', 'Expired', 'Pending', 'Terminated']),
   body('auto_renew').optional().isBoolean().withMessage('auto_renew must be boolean'),
 ];
@@ -133,7 +144,7 @@ const invoiceRules = [
 
 const lineItemRules = [
   requiredFk('invoices_id'),
-  optionalFk('cir_id'),
+  optionalFk('inventory_id'),
   optionalFk('usoc_codes_id'),
   optionalStr('description', 255),
   enumField('charge_type', ['MRC', 'NRC', 'Tax/Surcharge', 'Usage', 'One-Time', 'Other']),
@@ -156,7 +167,7 @@ const allocationRules = [
 
 const costSavingsRules = [
   requiredFk('accounts_id'),
-  optionalFk('cir_id'),
+  optionalFk('inventory_id'),
   optionalFk('line_items_id'),
   optionalFk('invoices_id'),
   optionalStr('category', 80),

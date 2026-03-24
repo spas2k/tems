@@ -6,18 +6,17 @@ const { validate, idParam, contractRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
-// Reusable base query for contracts with account name
 function baseQuery() {
   return db('contracts as c')
-    .leftJoin('accounts as a', 'c.accounts_id', 'a.accounts_id')
-    .select('c.*', 'a.name as account_name');
+    .leftJoin('vendors as v', 'c.vendors_id', 'v.vendors_id')
+    .select('c.*', 'v.name as vendor_name');
 }
 
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
-    if (req.query.accounts_id) query = query.where('c.accounts_id', req.query.accounts_id);
-    const rows = await query.orderBy('c.name');
+    if (req.query.vendors_id) query = query.where('c.vendors_id', req.query.vendors_id);
+    const rows = await query.orderBy('c.contract_name');
     res.json(rows);
   } catch (err) { safeError(res, err, 'contracts'); }
 });
@@ -32,15 +31,25 @@ router.get('/:id', idParam, validate, async (req, res) => {
 
 router.post('/', contractRules, validate, auditCreate('contracts', 'contracts_id'), async (req, res) => {
   try {
-    const { accounts_id, name, contract_number, start_date, end_date, contracted_rate, rate_unit, term_months, minimum_spend, etf_amount, commitment_type, status, auto_renew } = req.body;
+    const {
+      vendors_id, contract_number, contract_name, type, subtype, parent_contract_id,
+      currency_id, contract_record_url, start_date, expiration_date, term_type, renew_date,
+      contracted_rate, rate_unit, term_months, minimum_spend, etf_amount, commitment_type,
+      contract_value, tax_assessed, product_service_types, business_line, status, auto_renew
+    } = req.body;
+    
     const id = await db.insertReturningId('contracts', {
-      accounts_id, name, contract_number, start_date, end_date,
-      contracted_rate, rate_unit, term_months,
-      minimum_spend: minimum_spend || null,
-      etf_amount: etf_amount || null,
-      commitment_type: commitment_type || null,
-      status: status || 'Active',
-      auto_renew: auto_renew ? 1 : 0,
+      vendors_id, contract_number: contract_number || null, contract_name: contract_name || null,
+      type: type || null, subtype: subtype || null,
+      parent_contract_id: parent_contract_id || null, currency_id: currency_id || null,
+      contract_record_url: contract_record_url || null, start_date: start_date || null,
+      expiration_date: expiration_date || null, term_type: term_type || null, renew_date: renew_date || null,
+      contracted_rate: contracted_rate || null, rate_unit: rate_unit || null,
+      term_months: term_months || null, minimum_spend: minimum_spend || null,
+      etf_amount: etf_amount || null, commitment_type: commitment_type || null,
+      contract_value: contract_value || null, tax_assessed: tax_assessed || null,
+      product_service_types: product_service_types || null, business_line: business_line || null,
+      status: status || 'Active', auto_renew: auto_renew ? 1 : 0
     });
     const row = await baseQuery().where('c.contracts_id', id).first();
     res.status(201).json(row);
@@ -49,15 +58,25 @@ router.post('/', contractRules, validate, auditCreate('contracts', 'contracts_id
 
 router.put('/:id', idParam, ...contractRules, validate, auditUpdate('contracts', 'contracts_id'), async (req, res) => {
   try {
-    const { accounts_id, name, contract_number, start_date, end_date, contracted_rate, rate_unit, term_months, minimum_spend, etf_amount, commitment_type, status, auto_renew } = req.body;
+    const {
+      vendors_id, contract_number, contract_name, type, subtype, parent_contract_id,
+      currency_id, contract_record_url, start_date, expiration_date, term_type, renew_date,
+      contracted_rate, rate_unit, term_months, minimum_spend, etf_amount, commitment_type,
+      contract_value, tax_assessed, product_service_types, business_line, status, auto_renew
+    } = req.body;
+    
     await db('contracts').where('contracts_id', req.params.id).update({
-      accounts_id, name, contract_number, start_date, end_date,
-      contracted_rate, rate_unit, term_months,
-      minimum_spend: minimum_spend || null,
-      etf_amount: etf_amount || null,
-      commitment_type: commitment_type || null,
-      status,
-      auto_renew: auto_renew ? 1 : 0,
+      vendors_id, contract_number: contract_number || null, contract_name: contract_name || null,
+      type: type || null, subtype: subtype || null,
+      parent_contract_id: parent_contract_id || null, currency_id: currency_id || null,
+      contract_record_url: contract_record_url || null, start_date: start_date || null,
+      expiration_date: expiration_date || null, term_type: term_type || null, renew_date: renew_date || null,
+      contracted_rate: contracted_rate || null, rate_unit: rate_unit || null,
+      term_months: term_months || null, minimum_spend: minimum_spend || null,
+      etf_amount: etf_amount || null, commitment_type: commitment_type || null,
+      contract_value: contract_value || null, tax_assessed: tax_assessed || null,
+      product_service_types: product_service_types || null, business_line: business_line || null,
+      status: status || 'Active', auto_renew: auto_renew ? 1 : 0
     });
     const row = await baseQuery().where('c.contracts_id', req.params.id).first();
     res.json(row);
@@ -66,12 +85,12 @@ router.put('/:id', idParam, ...contractRules, validate, auditUpdate('contracts',
 
 router.get('/:id/inventory', idParam, validate, async (req, res) => {
   try {
-    const rows = await db('inventory as ci')
-      .leftJoin('accounts as a', 'ci.accounts_id', 'a.accounts_id')
-      .select('ci.*', 'a.name as account_name')
-      .where('ci.contracts_id', req.params.id)
-      .orderBy('ci.status')
-      .orderBy('ci.location');
+    const rows = await db('inventory as i')
+      .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
+      .select('i.*', 'a.account_number')
+      .where('i.contracts_id', req.params.id)
+      .orderBy('i.status')
+      .orderBy('i.location');
     res.json(rows);
   } catch (err) { safeError(res, err, 'contracts'); }
 });
@@ -79,8 +98,8 @@ router.get('/:id/inventory', idParam, validate, async (req, res) => {
 router.get('/:id/orders', idParam, validate, async (req, res) => {
   try {
     const rows = await db('orders as o')
-      .leftJoin('accounts as a', 'o.accounts_id', 'a.accounts_id')
-      .select('o.*', 'a.name as account_name')
+      .leftJoin('vendors as v', 'o.vendors_id', 'v.vendors_id')
+      .select('o.*', 'v.name as vendor_name')
       .where('o.contracts_id', req.params.id)
       .orderBy('o.order_date', 'desc');
     res.json(rows);

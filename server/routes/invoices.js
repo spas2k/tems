@@ -1,3 +1,4 @@
+// invoices.js
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -30,8 +31,8 @@ router.get('/:id', idParam, validate, async (req, res) => {
     if (!invoice) return res.status(404).json({ error: 'Not found' });
 
     const lineItems = await db('line_items as li')
-      .leftJoin('inventory as ci', 'li.cir_id', 'ci.cir_id')
-      .select('li.*', 'ci.inventory_number as inventory_numberentifier')
+      .leftJoin('inventory as inv', 'li.inventory_id', 'inv.inventory_id')
+      .select('li.*', 'inv.inventory_number as inventory_identifier')
       .where('li.invoices_id', req.params.id);
 
     res.json({ ...invoice, line_items: lineItems });
