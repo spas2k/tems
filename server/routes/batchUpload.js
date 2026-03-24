@@ -78,7 +78,7 @@ const TABLE_DEFS = {
     columns: [
       { column: 'accounts_id',    label: 'Account ID',     required: true,  type: 'integer', example: 1 },
       { column: 'contracts_id',   label: 'Contract ID',    required: true,  type: 'integer', example: 1 },
-      { column: 'cir_id',    label: 'InventoryItem ID',     required: false, type: 'integer', example: '' },
+      { column: 'inventory_id',    label: 'InventoryItem ID',     required: false, type: 'integer', example: '' },
       { column: 'order_number',   label: 'Order Number',   required: true,  type: 'string',  example: 'ORD-2024-001' },
       { column: 'description',    label: 'Description',    required: false, type: 'string',  example: 'New MPLS site install' },
       { column: 'contracted_rate',label: 'Contracted Rate', required: false, type: 'decimal', example: 1500.00 },
@@ -106,7 +106,7 @@ const TABLE_DEFS = {
     label: 'Line Items',
     columns: [
       { column: 'invoices_id',    label: 'Invoice ID',      required: true,  type: 'integer', example: 1 },
-      { column: 'cir_id',    label: 'InventoryItem ID',      required: false, type: 'integer', example: 1 },
+      { column: 'inventory_id',    label: 'InventoryItem ID',      required: false, type: 'integer', example: 1 },
       { column: 'usoc_codes_id',  label: 'USOC Code ID',    required: false, type: 'integer', example: '' },
       { column: 'description',    label: 'Description',     required: false, type: 'string',  example: 'MPLS Port — 100 Mbps' },
       { column: 'charge_type',    label: 'Charge Type',     required: false, type: 'string',  example: 'MRC' },
@@ -135,7 +135,7 @@ const TABLE_DEFS = {
     label: 'Cost Savings',
     columns: [
       { column: 'accounts_id',       label: 'Account ID',        required: true,  type: 'integer', example: 1 },
-      { column: 'cir_id',       label: 'InventoryItem ID',        required: false, type: 'integer', example: '' },
+      { column: 'inventory_id',       label: 'InventoryItem ID',        required: false, type: 'integer', example: '' },
       { column: 'line_items_id',     label: 'Line Item ID',      required: false, type: 'integer', example: '' },
       { column: 'invoices_id',       label: 'Invoice ID',        required: false, type: 'integer', example: '' },
       { column: 'category',          label: 'Category',          required: false, type: 'string',  example: 'Overcharge' },

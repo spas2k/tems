@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, Save, SlidersHorizontal, ClipboardList } from 'lucide-react';
-import { getDispute, updateDispute, getAccounts, getInvoices } from '../api';
+import { getDispute, updateDispute, getVendors, getInvoices } from '../api';
 import DetailHeader from '../components/DetailHeader';
 import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
@@ -68,7 +68,7 @@ export default function DisputeDetail() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getDispute(id), getAccounts(), getInvoices()])
+    Promise.all([getDispute(id), getVendors(), getInvoices()])
       .then(([d, a, inv]) => {
         const rec = d.data;
         setDispute(rec);
@@ -172,7 +172,7 @@ export default function DisputeDetail() {
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600, textTransform: 'uppercase' }}>Vendor</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{dispute.account_name || '—'}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{dispute.vendor_name || '—'}</div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600, textTransform: 'uppercase' }}>Invoice</div>
@@ -188,9 +188,9 @@ export default function DisputeDetail() {
         <div className="rc-results-count" style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Dispute Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <Field label="Account">
-            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
+            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
               <option value="">Select…</option>
-              {accounts.map(a => <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>)}
+              {accounts.map(a => <option key={a.vendors_id} value={a.vendors_id}>{a.name}</option>)}
             </select>
           </Field>
           <Field label="Invoice">

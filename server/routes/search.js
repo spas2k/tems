@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
         .limit(6),
 
       db('inventory as ci')
-        .select('ci.cir_id', 'ci.inventory_number', 'ci.location as sub')
+        .select('ci.inventory_id', 'ci.inventory_number', 'ci.location as sub')
         .where('ci.inventory_number', matchOperator, like)
         .orWhere('ci.location', matchOperator, like)
         .orWhere('ci.type', matchOperator, like)

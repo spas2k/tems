@@ -1,13 +1,13 @@
 import React from 'react';
 import { Zap } from 'lucide-react';
-import { createCostSaving, getAccounts, getInventory } from '../api';
+import { createCostSaving, getVendors, getInventory } from '../api';
 import FormPage from '../components/FormPage';
 
 const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rate Negotiation', 'Duplicate', 'Other'];
 const STATUSES = ['Identified', 'In Progress', 'Resolved'];
 
 const EMPTY = {
-  accounts_id: '', cir_id: '', category: 'Billing Error',
+  vendors_id: '', inventory_id: '', category: 'Billing Error',
   description: '', projected_savings: '', realized_savings: '',
   status: 'Identified', identified_date: '', resolved_date: '', notes: '',
 };
@@ -17,8 +17,8 @@ const SECTIONS = [
     title: 'Identification',
     description: 'Vendor, category, and current status',
     fields: (rel) => [
-      { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
-        options: (rel.accounts || []).map(a => ({ value: a.accounts_id, label: a.name })),
+      { key: 'vendors_id', label: 'Vendor Account *', type: 'select',
+        options: (rel.vendors || []).map(a => ({ value: a.vendors_id, label: a.name })),
         placeholder: 'Select vendor…' },
       { key: 'category', label: 'Category', type: 'select', options: CATEGORIES, half: true },
       { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
@@ -38,8 +38,8 @@ const SECTIONS = [
     fields: (rel) => [
       { key: 'identified_date', label: 'Identified Date', type: 'date', half: true },
       { key: 'resolved_date', label: 'Resolved Date', type: 'date', half: true },
-      { key: 'cir_id', label: 'Related InventoryItem (optional)', type: 'select',
-        options: (rel.inventory || []).map(c => ({ value: c.cir_id, label: `${c.inventory_number} — ${c.location || ''}` })),
+      { key: 'inventory_id', label: 'Related InventoryItem (optional)', type: 'select',
+        options: (rel.inventory || []).map(c => ({ value: c.inventory_id, label: `${c.inventory_number} — ${c.location || ''}` })),
         placeholder: 'None' },
     ],
   },
@@ -60,11 +60,11 @@ export default function CostSavingAdd() {
       sections={SECTIONS}
       emptyForm={EMPTY}
       loadRelated={async () => {
-        const [acct, circ] = await Promise.all([getAccounts(), getInventory()]);
-        return { accounts: acct.data, inventory: circ.data };
+        const [acct, circ] = await Promise.all([getVendors(), getInventory()]);
+        return { vendors: acct.data, inventory: circ.data };
       }}
-      defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
-      beforeSave={form => ({ ...form, cir_id: form.cir_id || null })}
+      defaultValues={(rel) => ({ vendors_id: rel.vendors?.[0]?.vendors_id || '' })}
+      beforeSave={form => ({ ...form, inventory_id: form.inventory_id || null })}
       onSubmit={d => createCostSaving(d)}
       backPath="/cost-savings"
     />

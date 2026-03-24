@@ -379,8 +379,8 @@ export default function VendorDetail() {
             </tr></thead>
             <tbody>
               {inventory.map(ci => (
-                <tr key={ci.cir_id}>
-                  <td><span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span></td>
+                <tr key={ci.inventory_id}>
+                  <td><span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.inventory_id}`)}>{ci.inventory_number}</span></td>
                   <td>{ci.location || '—'}</td>
                   <td>{ci.type || '—'}</td>
                   <td>{ci.bandwidth || '—'}</td>

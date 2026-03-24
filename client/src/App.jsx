@@ -78,7 +78,7 @@ import { globalSearch } from './api';
 const SEARCH_GROUPS = [
   { key: 'vendors',   idKey: 'accounts_id',  label: 'Vendors',   color: '#2563eb', path: id => `/vendors/${id}`,   display: r => r.name },
   { key: 'contracts', idKey: 'contracts_id', label: 'Contracts', color: '#0d9488', path: id => `/contracts/${id}`, display: r => r.contract_number || r.name },
-  { key: 'inventory',  idKey: 'cir_id',  label: 'Inventory',  color: '#7c3aed', path: id => `/inventory/${id}`,  display: r => r.inventory_number },
+  { key: 'inventory',  idKey: 'inventory_id',  label: 'Inventory',  color: '#7c3aed', path: id => `/inventory/${id}`,  display: r => r.inventory_number },
   { key: 'orders',    idKey: 'orders_id',    label: 'Orders',    color: '#d97706', path: id => `/orders/${id}`,    display: r => r.order_number },
   { key: 'invoices',  idKey: 'invoices_id',  label: 'Invoices',  color: '#dc2626', path: id => `/invoices/${id}`,  display: r => r.invoice_number },
   { key: 'usoc_codes', idKey: 'usoc_codes_id', label: 'USOC Codes', color: '#9333ea', path: id => `/usoc-codes/${id}`, display: r => `${r.usoc_code} — ${r.description}` },

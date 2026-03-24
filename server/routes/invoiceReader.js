@@ -502,8 +502,8 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     const inventoryItemCache = {};
     const inventoryItemCol = Object.entries(lineItemMappings).find(([, m]) => m.field === 'inventory_number')?.[0];
     if (inventoryItemCol) {
-      const inventory = await db('inventory').select('cir_id', 'inventory_number');
-      inventory.forEach(c => { inventoryItemCache[c.inventory_number] = c.cir_id; });
+      const inventory = await db('inventory').select('inventory_id', 'inventory_number');
+      inventory.forEach(c => { inventoryItemCache[c.inventory_number] = c.inventory_id; });
     }
 
     const usocCache = {};
@@ -542,7 +542,7 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
         const val = coerceVal(row[srcCol], mapping.type || 'string');
         if (val !== null && val !== undefined) {
           if (mapping.field === 'inventory_number') {
-            lineItem.cir_id = inventoryItemCache[val] || null;
+            lineItem.inventory_id = inventoryItemCache[val] || null;
           } else if (mapping.field === 'usoc_code') {
             lineItem.usoc_codes_id = usocCache[val] || null;
           } else {

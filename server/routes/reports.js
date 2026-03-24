@@ -80,7 +80,7 @@ const CATALOG = {
     joins: {
       i:  { table: 'invoices',  on: ['li.invoices_id',  'i.invoices_id']  },
       a:  { table: 'accounts',  on: ['i.accounts_id',   'a.accounts_id'],  dependsOn: 'i' },
-      ci: { table: 'inventory',  on: ['li.cir_id',  'ci.cir_id'] },
+      ci: { table: 'inventory',  on: ['li.inventory_id',  'ci.inventory_id'] },
     },
     fields: [
       { key: 'description',    label: 'Description',      type: 'text',   col: 'li.description' },
@@ -491,8 +491,8 @@ const EDGES = [
   ['invoices', 'disputes',     'invoices_id', 'invoices_id'],
   ['invoices', 'cost_savings', 'invoices_id', 'invoices_id'],
   // inventory
-  ['inventory', 'line_items',   'cir_id', 'cir_id'],
-  ['inventory', 'cost_savings', 'cir_id', 'cir_id'],
+  ['inventory', 'line_items',   'inventory_id', 'inventory_id'],
+  ['inventory', 'cost_savings', 'inventory_id', 'inventory_id'],
   // line_items
   ['line_items', 'allocations',  'line_items_id', 'line_items_id'],
   ['line_items', 'disputes',     'line_items_id', 'line_items_id'],

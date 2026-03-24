@@ -1,13 +1,13 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
-import { createDispute, getAccounts, getInvoices } from '../api';
+import { createDispute, getVendors, getInvoices } from '../api';
 import FormPage from '../components/FormPage';
 
 const STATUSES = ['Open', 'Under Review', 'Credited', 'Denied', 'Closed'];
 const TYPES = ['Overcharge', 'Duplicate Charge', 'Wrong Rate', 'Missing Credit', 'Service Not Delivered', 'Other'];
 
 const EMPTY = {
-  invoices_id: '', accounts_id: '', line_items_id: '', dispute_type: 'Overcharge',
+  invoices_id: '', vendors_id: '', line_items_id: '', dispute_type: 'Overcharge',
   amount: '', status: 'Open', filed_date: '', resolved_date: '',
   resolution_notes: '', credit_amount: '', reference_number: '', notes: '',
 };
@@ -17,11 +17,11 @@ const SECTIONS = [
     title: 'Dispute Details',
     description: 'Vendor, invoice, and dispute classification',
     fields: (rel) => [
-      { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
-        options: (rel.accounts || []).map(a => ({ value: a.accounts_id, label: a.name })),
+      { key: 'vendors_id', label: 'Vendor Account *', type: 'select',
+        options: (rel.vendors || []).map(a => ({ value: a.vendors_id, label: a.name })),
         placeholder: 'Select vendor…' },
       { key: 'invoices_id', label: 'Invoice', type: 'select',
-        options: (rel.invoices || []).map(i => ({ value: i.invoices_id, label: `${i.invoice_number} — ${i.account_name || ''}` })),
+        options: (rel.invoices || []).map(i => ({ value: i.invoices_id, label: `${i.invoice_number} — ${i.vendor_name || ''}` })),
         placeholder: 'Select invoice…', half: true },
       { key: 'dispute_type', label: 'Dispute Type', type: 'select', options: TYPES, half: true },
       { key: 'reference_number', label: 'Reference #', half: true },
@@ -56,11 +56,11 @@ export default function DisputeAdd() {
       sections={SECTIONS}
       emptyForm={EMPTY}
       loadRelated={async () => {
-        const [acct, inv] = await Promise.all([getAccounts(), getInvoices()]);
-        return { accounts: acct.data, invoices: inv.data };
+        const [acct, inv] = await Promise.all([getVendors(), getInvoices()]);
+        return { vendors: acct.data, invoices: inv.data };
       }}
       defaultValues={(rel) => ({
-        accounts_id: rel.accounts?.[0]?.accounts_id || '',
+        vendors_id: rel.vendors?.[0]?.vendors_id || '',
         invoices_id: rel.invoices?.[0]?.invoices_id || '',
         filed_date: new Date().toISOString().slice(0, 10),
       })}
