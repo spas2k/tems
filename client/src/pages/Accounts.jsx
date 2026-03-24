@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Building2, Trash2 } from 'lucide-react';
-import { getAccounts, createAccount, updateAccount, deleteAccount } from '../api';
+import { getAccounts, createAccount, updateAccount, deleteAccount, getVendors } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
@@ -12,7 +12,7 @@ const EMPTY = { vendors_id: '', name: '', account_number: '', subaccount_number:
 
 const FILTER_CONFIG = {
   name: 'text', account_number: 'text', subaccount_number: 'text', account_type: 'select',
-  team: 'text', status: 'select',
+  team: 'text', status: 'select', vendor_name: 'select',
 };
 
 export default function Accounts() {
@@ -26,10 +26,14 @@ export default function Accounts() {
     idKey: 'accounts_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
+    related: { vendors: getVendors },
   });
+
+  const { vendors } = table.related;
 
   const columns = [
     { key: 'name', label: 'Company / Account Name', copyable: true, summary: 'count', link: row => navigate(`/accounts/${row.accounts_id}`) },
+    { key: 'vendor_name', label: 'Vendor', filterType: 'select', filterOptions: vendors.map(v => v.name) },
     { key: 'account_number', label: 'Account #', style: { fontFamily: 'monospace', fontSize: 12, color: '#64748b' } },
     { key: 'subaccount_number', label: 'Sub-Account', filterType: 'text' },
     { key: 'account_type', label: 'Type', filterType: 'text' },
@@ -39,14 +43,14 @@ export default function Accounts() {
   ];
 
   const formFields = [
-    { key: 'name', label: 'Vendor Name *' },
+    { key: 'vendors_id', label: 'Vendor *', type: 'select',
+      options: vendors.map(v => ({ value: v.vendors_id, label: v.name })), placeholder: 'Select vendor…', half: true },
+    { key: 'name', label: 'Account Name *', half: true },
     { key: 'account_number', label: 'Account Number', half: true },
-    { key: 'vendor_type', label: 'Vendor Type', type: 'select', options: VENDOR_TYPES, half: true },
-    { key: 'contact_name', label: 'Contact Name', half: true },
-    { key: 'contact_phone', label: 'Contact Phone', half: true },
-    { key: 'contact_email', label: 'Contact Email', type: 'email' },
+    { key: 'subaccount_number', label: 'Sub-Account Number', half: true },
+    { key: 'account_type', label: 'Account Type', half: true },
+    { key: 'team', label: 'Team', half: true },
     { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'] },
-    { key: 'notes', label: 'Notes', type: 'textarea' },
   ];
 
   return (

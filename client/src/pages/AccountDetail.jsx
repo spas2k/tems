@@ -3,13 +3,11 @@ import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building2, Save, Network, ExternalLink, SlidersHorizontal, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAccount, updateAccount, getAccountInventory } from '../api';
+import { getAccount, updateAccount, getAccountInventory, getVendors } from '../api';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
-
-const VENDOR_TYPES = ['AT&T', 'Comcast', 'Verizon', 'Lumen', 'Spectrum', 'Other'];
 
 const CIRC_STATUS_BADGE = {
   Active:       'badge badge-green',
@@ -50,11 +48,13 @@ function Field({ label, children }) {
 
 export default function AccountDetail() {
   const { id }   = useParams();
-  const navigate = useNavigate();  const { setPageTitle } = useContext(PageTitleContext);
+  const navigate = useNavigate();
+  const { setPageTitle } = useContext(PageTitleContext);
   const { hasPermission } = useAuth();
   const canUpdate = hasPermission('accounts', 'update');
   const [account,  setAccount]  = useState(null);
   const [inventory, setInventory] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [form,     setForm]     = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
@@ -71,18 +71,20 @@ export default function AccountDetail() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getAccount(id), getAccountInventory(id)])
-      .then(([ac, ci]) => {
+    Promise.all([getAccount(id), getAccountInventory(id), getVendors()])
+      .then(([ac, ci, v]) => {
         setAccount(ac.data);
         setPageTitle(ac.data.name);
         setInventory(ci.data);
+        setVendors(v.data);
         setForm({
-          name:           ac.data.name           || '',
-          account_number: ac.data.account_number || '',
-          vendor_type:    ac.data.vendor_type    || 'Other',
-          contact_email:  ac.data.contact_email  || '',
-          contact_phone:  ac.data.contact_phone  || '',
-          status:         ac.data.status         || 'Active',
+          vendors_id:        ac.data.vendors_id        || '',
+          name:              ac.data.name              || '',
+          account_number:    ac.data.account_number    || '',
+          subaccount_number: ac.data.subaccount_number || '',
+          account_type:      ac.data.account_type      || '',
+          team:              ac.data.team              || '',
+          status:            ac.data.status            || 'Active',
         });
       })
       .finally(() => setLoading(false));
@@ -116,6 +118,7 @@ export default function AccountDetail() {
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>Loading account…</div>;
   if (!account) return <div style={{ padding: 60, textAlign: 'center', color: '#ef4444' }}>Account not found.</div>;
 
+  const vendorName = vendors.find(v => v.vendors_id === account.vendors_id)?.name || '—';
   const activeInventory = inventory.filter(c => c.status === 'Active');
   const totalMRC = activeInventory.reduce((s, c) => s + Number(c.contracted_rate || 0), 0);
 
@@ -153,7 +156,7 @@ export default function AccountDetail() {
             <div>
               <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>{account.name}</div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                {account.vendor_type}{account.account_number ? ` · Acct #${account.account_number}` : ''}
+                {vendorName}{account.account_number ? ` · Acct #${account.account_number}` : ''}
               </div>
             </div>
           </div>
@@ -213,7 +216,14 @@ export default function AccountDetail() {
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-          <Field label="Vendor Name *">
+          <Field label="Vendor *">
+            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
+              <option value="">Select vendor…</option>
+              {vendors.map(v => <option key={v.vendors_id} value={v.vendors_id}>{v.name}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Account Name *">
             <input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} />
           </Field>
 
@@ -221,10 +231,16 @@ export default function AccountDetail() {
             <input className="form-input" value={form.account_number} onChange={e => set('account_number', e.target.value)} />
           </Field>
 
-          <Field label="Vendor Type">
-            <select className="form-input" value={form.vendor_type} onChange={e => set('vendor_type', e.target.value)}>
-              {VENDOR_TYPES.map(t => <option key={t}>{t}</option>)}
-            </select>
+          <Field label="Sub-Account Number">
+            <input className="form-input" value={form.subaccount_number} onChange={e => set('subaccount_number', e.target.value)} />
+          </Field>
+
+          <Field label="Account Type">
+            <input className="form-input" value={form.account_type} onChange={e => set('account_type', e.target.value)} />
+          </Field>
+
+          <Field label="Team">
+            <input className="form-input" value={form.team} onChange={e => set('team', e.target.value)} />
           </Field>
 
           <Field label="Status">
@@ -232,14 +248,6 @@ export default function AccountDetail() {
               <option>Active</option>
               <option>Inactive</option>
             </select>
-          </Field>
-
-          <Field label="Contact Email">
-            <input className="form-input" type="email" value={form.contact_email} onChange={e => set('contact_email', e.target.value)} placeholder="billing@vendor.com" />
-          </Field>
-
-          <Field label="Contact Phone">
-            <input className="form-input" value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} placeholder="(800) 555-0100" />
           </Field>
 
         </div>
@@ -272,7 +280,7 @@ export default function AccountDetail() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>InventoryItem ID</th>
+                <th>Inventory ID</th>
                 <th>Location</th>
                 <th>Type</th>
                 <th>Bandwidth</th>
@@ -285,9 +293,9 @@ export default function AccountDetail() {
             </thead>
             <tbody>
               {inventory.map(ci => (
-                <tr key={ci.cir_id}>
+                <tr key={ci.inventory_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.inventory_id}`)}>{ci.inventory_number}</span>
                   </td>
                   <td>{ci.location || '—'}</td>
                   <td>{ci.type || '—'}</td>
