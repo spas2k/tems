@@ -14,7 +14,7 @@ export default function Projects() {
           <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Project Management</h3>
           <p style={{ color: '#64748b', fontSize: 14, maxWidth: 420, margin: '0 auto 24px' }}>
             Create and manage telecom projects to track installations, migrations, disconnects,
-            and other multi-step initiatives across your circuit and contract portfolio.
+            and other multi-step initiatives across your inventoryItem and contract portfolio.
           </p>
           <div style={{ color: '#94a3b8', fontSize: 13, fontStyle: 'italic' }}>Coming Soon</div>
         </div>

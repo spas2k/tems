@@ -1,6 +1,6 @@
 import React from 'react';
 import { Zap } from 'lucide-react';
-import { createCostSaving, getAccounts, getCircuits } from '../api';
+import { createCostSaving, getAccounts, getInventory } from '../api';
 import FormPage from '../components/FormPage';
 
 const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rate Negotiation', 'Duplicate', 'Other'];
@@ -38,8 +38,8 @@ const SECTIONS = [
     fields: (rel) => [
       { key: 'identified_date', label: 'Identified Date', type: 'date', half: true },
       { key: 'resolved_date', label: 'Resolved Date', type: 'date', half: true },
-      { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
-        options: (rel.circuits || []).map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location || ''}` })),
+      { key: 'cir_id', label: 'Related InventoryItem (optional)', type: 'select',
+        options: (rel.inventory || []).map(c => ({ value: c.cir_id, label: `${c.inventory_number} — ${c.location || ''}` })),
         placeholder: 'None' },
     ],
   },
@@ -60,8 +60,8 @@ export default function CostSavingAdd() {
       sections={SECTIONS}
       emptyForm={EMPTY}
       loadRelated={async () => {
-        const [acct, circ] = await Promise.all([getAccounts(), getCircuits()]);
-        return { accounts: acct.data, circuits: circ.data };
+        const [acct, circ] = await Promise.all([getAccounts(), getInventory()]);
+        return { accounts: acct.data, inventory: circ.data };
       }}
       defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
       beforeSave={form => ({ ...form, cir_id: form.cir_id || null })}

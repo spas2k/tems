@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getVendor, updateVendor, getVendorCircuits,
+  getVendor, updateVendor, getVendorInventory,
   getContracts, getOrders, getInvoices, getDisputes, getVendorRemits,
 } from '../api';
 import DetailHeader from '../components/DetailHeader';
@@ -38,7 +38,7 @@ const BADGE = {
 
 const NAV_SECTIONS = [
   { key: 'details',   label: 'Vendor Details',     Icon: SlidersHorizontal },
-  { key: 'circuits',  label: 'Circuits',            Icon: Network           },
+  { key: 'inventory',  label: 'Inventory',            Icon: Network           },
   { key: 'contracts', label: 'Contracts',           Icon: ScrollText        },
   { key: 'orders',    label: 'Orders',              Icon: ShoppingCart      },
   { key: 'invoices',  label: 'Invoices',            Icon: FileText          },
@@ -124,7 +124,7 @@ export default function VendorDetail() {
 
   const [vendor,    setVendor]    = useState(null);
   const [form,      setForm]      = useState(null);
-  const [circuits,  setCircuits]  = useState([]);
+  const [inventory,  setInventory]  = useState([]);
   const [contracts, setContracts] = useState([]);
   const [orders,    setOrders]    = useState([]);
   const [invoices,  setInvoices]  = useState([]);
@@ -138,7 +138,7 @@ export default function VendorDetail() {
 
   const refs = {
     details:   useRef(null),
-    circuits:  useRef(null),
+    inventory:  useRef(null),
     contracts: useRef(null),
     orders:    useRef(null),
     invoices:  useRef(null),
@@ -158,7 +158,7 @@ export default function VendorDetail() {
     setLoading(true);
     Promise.all([
       getVendor(id),
-      getVendorCircuits(id),
+      getVendorInventory(id),
       getContracts({ accounts_id: id }),
       getOrders({ accounts_id: id }),
       getInvoices({ accounts_id: id }),
@@ -167,7 +167,7 @@ export default function VendorDetail() {
     ]).then(([vd, ci, co, or_, inv, dis, rem]) => {
       setVendor(vd.data);
       setPageTitle(vd.data.name);
-      setCircuits(ci.data);
+      setInventory(ci.data);
       setContracts(co.data);
       setOrders(or_.data);
       setInvoices(inv.data);
@@ -213,8 +213,8 @@ export default function VendorDetail() {
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>Loading vendor…</div>;
   if (!vendor)  return <div style={{ padding: 60, textAlign: 'center', color: '#ef4444' }}>Vendor not found.</div>;
 
-  const activeCircuits  = circuits.filter(c => c.status === 'Active');
-  const totalMRC        = activeCircuits.reduce((s, c) => s + Number(c.contracted_rate || 0), 0);
+  const activeInventory  = inventory.filter(c => c.status === 'Active');
+  const totalMRC        = activeInventory.reduce((s, c) => s + Number(c.contracted_rate || 0), 0);
   const activeContracts = contracts.filter(c => c.status === 'Active');
   const openInvoices    = invoices.filter(i => i.status === 'Unpaid' || i.status === 'Overdue');
   const openOrders      = orders.filter(o => o.status === 'Pending' || o.status === 'In Progress');
@@ -287,18 +287,18 @@ export default function VendorDetail() {
       {/* KPI Row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         <div className="kpi-card blue">
-          <div className="kpi-label">Total Circuits</div>
-          <div className="kpi-value">{circuits.length}</div>
+          <div className="kpi-label">Total Inventory</div>
+          <div className="kpi-value">{inventory.length}</div>
           <div className="kpi-icon"><Network size={36} /></div>
         </div>
         <div className="kpi-card green">
-          <div className="kpi-label">Active Circuits</div>
-          <div className="kpi-value">{activeCircuits.length}</div>
+          <div className="kpi-label">Active Inventory</div>
+          <div className="kpi-value">{activeInventory.length}</div>
         </div>
         <div className="kpi-card teal">
           <div className="kpi-label">Monthly MRC</div>
           <div className="kpi-value">${totalMRC.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-          <div className="kpi-sub">Active circuits only</div>
+          <div className="kpi-sub">Active inventory only</div>
         </div>
         <div className="kpi-card purple">
           <div className="kpi-label">Active Contracts</div>
@@ -366,21 +366,21 @@ export default function VendorDetail() {
         </div>
       </SectionCard>
 
-      {/* ── Circuits ── */}
-      <SectionCard title="Circuits" icon={Network} iconColor="#7c3aed" count={circuits.length} sectionRef={refs.circuits}
-        navigatePath="/circuits" navFilters={{ account_name: vendor.name }}>
-        {circuits.length === 0 ? (
-          <EmptyState icon={Network} label="No circuits linked to this vendor" sub="Add circuits from the Circuits page and assign them to this vendor." />
+      {/* ── Inventory ── */}
+      <SectionCard title="Inventory" icon={Network} iconColor="#7c3aed" count={inventory.length} sectionRef={refs.inventory}
+        navigatePath="/inventory" navFilters={{ account_name: vendor.name }}>
+        {inventory.length === 0 ? (
+          <EmptyState icon={Network} label="No inventory linked to this vendor" sub="Add inventory from the Inventory page and assign them to this vendor." />
         ) : (
           <table className="data-table">
             <thead><tr>
-              <th>Circuit ID</th><th>Location</th><th>Type</th><th>Bandwidth</th>
+              <th>InventoryItem ID</th><th>Location</th><th>Type</th><th>Bandwidth</th>
               <th>Contract</th><th>Contracted Rate</th><th>Install Date</th><th>Status</th>
             </tr></thead>
             <tbody>
-              {circuits.map(ci => (
+              {inventory.map(ci => (
                 <tr key={ci.cir_id}>
-                  <td><span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.cir_id}`)}>{ci.circuit_id}</span></td>
+                  <td><span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span></td>
                   <td>{ci.location || '—'}</td>
                   <td>{ci.type || '—'}</td>
                   <td>{ci.bandwidth || '—'}</td>

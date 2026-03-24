@@ -17,10 +17,10 @@ const safeError = require('./_safeError');
 //  Field Catalog — defines all reportable tables and their fields
 // ══════════════════════════════════════════════════════════════
 const CATALOG = {
-  circuits: {
-    label: 'Circuits',
-    description: 'Circuit inventory: bandwidth, rates, status, linked accounts & contracts',
-    table: 'circuits',
+  inventory: {
+    label: 'Inventory',
+    description: 'InventoryItem inventory: bandwidth, rates, status, linked accounts & contracts',
+    table: 'inventory',
     alias: 'ci',
     color: '#7c3aed',
     icon: 'Network',
@@ -30,9 +30,9 @@ const CATALOG = {
       o:  { table: 'orders',    on: ['ci.orders_id',    'o.orders_id']     },
     },
     fields: [
-      { key: 'circuit_number',  label: 'Circuit Number',    type: 'text',   col: 'ci.circuit_id' },
+      { key: 'inventoryItem_number',  label: 'InventoryItem Number',    type: 'text',   col: 'ci.inventory_number' },
       { key: 'location',        label: 'Location',          type: 'text',   col: 'ci.location' },
-      { key: 'type',            label: 'Circuit Type',      type: 'select', col: 'ci.type',
+      { key: 'type',            label: 'InventoryItem Type',      type: 'select', col: 'ci.type',
         options: ['MPLS','Internet','Ethernet','Voice','SD-WAN','Dedicated','Other'] },
       { key: 'bandwidth',       label: 'Bandwidth',         type: 'text',   col: 'ci.bandwidth' },
       { key: 'contracted_rate', label: 'Monthly Rate',      type: 'number', col: 'ci.contracted_rate', format: 'currency', aggregable: true },
@@ -80,7 +80,7 @@ const CATALOG = {
     joins: {
       i:  { table: 'invoices',  on: ['li.invoices_id',  'i.invoices_id']  },
       a:  { table: 'accounts',  on: ['i.accounts_id',   'a.accounts_id'],  dependsOn: 'i' },
-      ci: { table: 'circuits',  on: ['li.cir_id',  'ci.cir_id'] },
+      ci: { table: 'inventory',  on: ['li.cir_id',  'ci.cir_id'] },
     },
     fields: [
       { key: 'description',    label: 'Description',      type: 'text',   col: 'li.description' },
@@ -97,8 +97,8 @@ const CATALOG = {
       { key: 'invoice_number', label: 'Invoice Number',   type: 'text',   col: 'i.invoice_number',   join: 'i' },
       { key: 'invoice_date',   label: 'Invoice Date',     type: 'date',   col: 'i.invoice_date',     format: 'date', join: 'i' },
       { key: 'account_name',   label: 'Vendor Name',      type: 'text',   col: 'a.name',             join: ['i','a'] },
-      { key: 'circuit_number', label: 'Circuit Number',   type: 'text',   col: 'ci.circuit_id',  join: 'ci' },
-      { key: 'circuit_location',label: 'Circuit Location',type: 'text',   col: 'ci.location',        join: 'ci' },
+      { key: 'inventoryItem_number', label: 'InventoryItem Number',   type: 'text',   col: 'ci.inventory_number',  join: 'ci' },
+      { key: 'inventoryItem_location',label: 'InventoryItem Location',type: 'text',   col: 'ci.location',        join: 'ci' },
     ],
   },
 
@@ -294,13 +294,13 @@ const TABLES = {
       { key: 'status',          label: 'Status',          type: 'select', col: 'status', options: ['Pending','In Progress','Completed','Cancelled'] },
     ],
   },
-  circuits: {
-    label: 'Circuits',
-    description: 'Circuit inventory: bandwidth, rates, status',
-    table: 'circuits', alias: 'ci', color: '#7c3aed', icon: 'Network',
+  inventory: {
+    label: 'Inventory',
+    description: 'InventoryItem inventory: bandwidth, rates, status',
+    table: 'inventory', alias: 'ci', color: '#7c3aed', icon: 'Network',
     fields: [
-      { key: 'circuit_number',  label: 'Circuit Number',  type: 'text',   col: 'circuit_id' },
-      { key: 'type',            label: 'Circuit Type',    type: 'select', col: 'type', options: ['MPLS','Internet','Ethernet','Voice','SD-WAN','Dedicated','Other'] },
+      { key: 'inventoryItem_number',  label: 'InventoryItem Number',  type: 'text',   col: 'inventory_number' },
+      { key: 'type',            label: 'InventoryItem Type',    type: 'select', col: 'type', options: ['MPLS','Internet','Ethernet','Voice','SD-WAN','Dedicated','Other'] },
       { key: 'bandwidth',       label: 'Bandwidth',       type: 'text',   col: 'bandwidth' },
       { key: 'location',        label: 'Location',        type: 'text',   col: 'location' },
       { key: 'contracted_rate', label: 'Monthly Rate',    type: 'number', col: 'contracted_rate', format: 'currency', aggregable: true },
@@ -475,24 +475,24 @@ const EDGES = [
   // accounts hub
   ['accounts', 'contracts',      'accounts_id',  'accounts_id'],
   ['accounts', 'orders',         'accounts_id',  'accounts_id'],
-  ['accounts', 'circuits',       'accounts_id',  'accounts_id'],
+  ['accounts', 'inventory',       'accounts_id',  'accounts_id'],
   ['accounts', 'invoices',       'accounts_id',  'accounts_id'],
   ['accounts', 'disputes',       'accounts_id',  'accounts_id'],
   ['accounts', 'cost_savings',   'accounts_id',  'accounts_id'],
   ['accounts', 'vendor_remit',   'accounts_id',  'accounts_id'],
   // contracts
   ['contracts', 'orders',         'contracts_id', 'contracts_id'],
-  ['contracts', 'circuits',       'contracts_id', 'contracts_id'],
+  ['contracts', 'inventory',       'contracts_id', 'contracts_id'],
   ['contracts', 'contract_rates', 'contracts_id', 'contracts_id'],
-  // orders ↔ circuits
-  ['orders', 'circuits', 'orders_id', 'orders_id'],
+  // orders ↔ inventory
+  ['orders', 'inventory', 'orders_id', 'orders_id'],
   // invoices
   ['invoices', 'line_items',   'invoices_id', 'invoices_id'],
   ['invoices', 'disputes',     'invoices_id', 'invoices_id'],
   ['invoices', 'cost_savings', 'invoices_id', 'invoices_id'],
-  // circuits
-  ['circuits', 'line_items',   'cir_id', 'cir_id'],
-  ['circuits', 'cost_savings', 'cir_id', 'cir_id'],
+  // inventory
+  ['inventory', 'line_items',   'cir_id', 'cir_id'],
+  ['inventory', 'cost_savings', 'cir_id', 'cir_id'],
   // line_items
   ['line_items', 'allocations',  'line_items_id', 'line_items_id'],
   ['line_items', 'disputes',     'line_items_id', 'line_items_id'],

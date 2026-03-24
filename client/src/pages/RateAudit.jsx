@@ -70,9 +70,9 @@ export default function RateAudit() {
 
   const exportCsv = () => {
     if (!processedData.length) return;
-    const headers = ['Account', 'Invoice', 'Contract', 'Circuit', 'USOC', 'Description', 'Billed MRC', 'Rate MRC', 'MRC Delta', 'Billed NRC', 'Rate NRC', 'NRC Delta', 'Compliant'];
+    const headers = ['Account', 'Invoice', 'Contract', 'InventoryItem', 'USOC', 'Description', 'Billed MRC', 'Rate MRC', 'MRC Delta', 'Billed NRC', 'Rate NRC', 'NRC Delta', 'Compliant'];
     const rows = processedData.map(r => [
-      r.account_name, r.invoice_number, r.contract_number, r.circuit_id,
+      r.account_name, r.invoice_number, r.contract_number, r.inventory_number,
       r.usoc_code, r.description, r.mrc_amount, r.rate_mrc, r.mrc_delta,
       r.nrc_amount, r.rate_nrc, r.nrc_delta, r.compliant ? 'Yes' : r.compliant === false ? 'No' : 'N/A',
     ]);

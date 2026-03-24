@@ -10,8 +10,8 @@ const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit')
 function baseQuery() {
   return db('cost_savings as cs')
     .leftJoin('accounts as a', 'cs.accounts_id', 'a.accounts_id')
-    .leftJoin('circuits as ci', 'cs.cir_id', 'ci.cir_id')
-    .select('cs.*', 'a.name as account_name', 'ci.circuit_id as circuit_identifier');
+    .leftJoin('inventory as ci', 'cs.cir_id', 'ci.cir_id')
+    .select('cs.*', 'a.name as account_name', 'ci.inventory_number as inventory_numberentifier');
 }
 
 router.get('/', async (req, res) => {

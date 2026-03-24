@@ -3,7 +3,7 @@ import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, Trash2, DollarSign, Receipt, SlidersHorizontal, List, Layers, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getInvoice, getCircuits, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation, getUsocCodes, updateInvoice, getUsers } from '../api';
+import { getInvoice, getInventory, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation, getUsocCodes, updateInvoice, getUsers } from '../api';
 import Modal from '../components/Modal';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
@@ -80,7 +80,7 @@ export default function InvoiceDetail() {
   const [invoice, setInvoice]       = useState(null);
   const [lineItems, setLineItems]   = useState([]);
   const [allocations, setAllocations] = useState([]);
-  const [circuits, setCircuits]     = useState([]);
+  const [inventory, setInventory]     = useState([]);
   const [usocCodes, setUsocCodes]   = useState([]);
   const [loading, setLoading]       = useState(true);
   const [toast, setToast]           = useState(null);
@@ -138,11 +138,11 @@ export default function InvoiceDetail() {
   const load = async () => {
     setLoading(true);
     try {
-      const [inv, ci, allocs, uc] = await Promise.all([getInvoice(id), getCircuits(), getAllocations({ invoices_id: id }), getUsocCodes()]);
+      const [inv, ci, allocs, uc] = await Promise.all([getInvoice(id), getInventory(), getAllocations({ invoices_id: id }), getUsocCodes()]);
       setInvoice(inv.data);
       setPageTitle(inv.data.invoice_number);
       setLineItems(inv.data.line_items || []);
-      setCircuits(ci.data);
+      setInventory(ci.data);
       setAllocations(allocs.data);
       setUsocCodes(uc.data);
     } finally { setLoading(false); }
@@ -298,7 +298,7 @@ export default function InvoiceDetail() {
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table" style={{ minWidth: 1000 }}>
             <thead><tr>
-              <th>Description</th><th>Circuit</th><th>USOC</th><th>Type</th><th>Billed</th><th>MRC</th><th>NRC</th><th>Contracted</th><th>Variance</th><th>Audit</th><th>Actions</th>
+              <th>Description</th><th>InventoryItem</th><th>USOC</th><th>Type</th><th>Billed</th><th>MRC</th><th>NRC</th><th>Contracted</th><th>Variance</th><th>Audit</th><th>Actions</th>
             </tr></thead>
             <tbody>
               {lineItems.map(li => {
@@ -309,7 +309,7 @@ export default function InvoiceDetail() {
                     <td style={{ maxWidth: 180 }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{li.description}</span></td>
                     <td style={{ fontSize: 12 }}>
                       {li.cir_id
-                        ? <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${li.cir_id}`)}>{li.circuit_identifier}</span>
+                        ? <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${li.cir_id}`)}>{li.inventory_numberentifier}</span>
                         : <span style={{ color: '#94a3b8' }}>—</span>}
                     </td>
                     <td style={{ fontSize: 12 }}>
@@ -372,10 +372,10 @@ export default function InvoiceDetail() {
       <Modal open={liModal} title={editingLi ? 'Edit Line Item' : 'Add Line Item'} onClose={() => setLiModal(false)} onSave={saveLi}>
         <div><label className="form-label">Description *</label><input className="form-input" value={liForm.description} onChange={e => setLi('description', e.target.value)} /></div>
         <div className="form-row">
-          <div><label className="form-label">Circuit (optional)</label>
+          <div><label className="form-label">InventoryItem (optional)</label>
             <select className="form-input" value={liForm.cir_id || ''} onChange={e => setLi('cir_id', e.target.value || null)}>
               <option value="">None</option>
-              {circuits.map(c => <option key={c.cir_id} value={c.cir_id}>{c.circuit_id} — {c.location}</option>)}
+              {inventory.map(c => <option key={c.cir_id} value={c.cir_id}>{c.inventory_number} — {c.location}</option>)}
             </select>
           </div>
           <div><label className="form-label">USOC Code (optional)</label>

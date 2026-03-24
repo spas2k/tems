@@ -19,7 +19,7 @@ const STATUSES   = ['Open', 'In Progress', 'Pending Vendor', 'Pending Internal',
 
 const SOURCE_PATHS = {
   invoice:  id => `/invoices/${id}`,
-  circuit:  id => `/circuits/${id}`,
+  inventoryItem:  id => `/inventory/${id}`,
   contract: id => `/contracts/${id}`,
   order:    id => `/orders/${id}`,
   account:  id => `/accounts/${id}`,

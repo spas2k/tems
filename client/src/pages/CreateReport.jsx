@@ -80,8 +80,8 @@ const CROSS_TABLE_MAP = {
   order_number:     { table: 'orders',    field: 'order_number' },
   invoice_number:   { table: 'invoices',  field: 'invoice_number' },
   invoice_date:     { table: 'invoices',  field: 'invoice_date' },
-  circuit_number:   { table: 'circuits',  field: 'circuit_id' },
-  circuit_location: { table: 'circuits',  field: 'location' },
+  inventoryItem_number:   { table: 'inventory',  field: 'inventory_number' },
+  inventoryItem_location: { table: 'inventory',  field: 'location' },
 };
 
 function convertLegacyConfig(cfg, catalog) {
@@ -206,19 +206,19 @@ function formatCell(value, fieldMeta) {
 // ── Report templates (multi-table format) ─────────────────────────────────────
 const TEMPLATES = [
   {
-    name: 'Active Circuit Summary',
-    description: 'All active circuits with vendor, location, and monthly cost',
+    name: 'Active InventoryItem Summary',
+    description: 'All active inventory with vendor, location, and monthly cost',
     config: {
-      tableKey: 'circuits', reportName: 'Active Circuit Summary',
-      linkedTables: [{ tableKey: 'accounts', joinFrom: 'circuits' }],
+      tableKey: 'inventory', reportName: 'Active InventoryItem Summary',
+      linkedTables: [{ tableKey: 'accounts', joinFrom: 'inventory' }],
       fields: [
-        { table: 'circuits', field: 'circuit_id' }, { table: 'accounts', field: 'name' },
-        { table: 'circuits', field: 'location' }, { table: 'circuits', field: 'type' },
-        { table: 'circuits', field: 'bandwidth' }, { table: 'circuits', field: 'contracted_rate' },
-        { table: 'circuits', field: 'status' },
+        { table: 'inventory', field: 'inventory_number' }, { table: 'accounts', field: 'name' },
+        { table: 'inventory', field: 'location' }, { table: 'inventory', field: 'type' },
+        { table: 'inventory', field: 'bandwidth' }, { table: 'inventory', field: 'contracted_rate' },
+        { table: 'inventory', field: 'status' },
       ],
-      filters: [{ id: 't1', table: 'circuits', field: 'status', op: 'equals', value: 'Active' }],
-      filterLogic: 'AND', sorts: [{ id: 's1', table: 'circuits', field: 'contracted_rate', direction: 'desc' }],
+      filters: [{ id: 't1', table: 'inventory', field: 'status', op: 'equals', value: 'Active' }],
+      filterLogic: 'AND', sorts: [{ id: 's1', table: 'inventory', field: 'contracted_rate', direction: 'desc' }],
       groupBy: [], aggregations: [], limit: 1000, distinct: false, colOverrides: {},
     },
   },
@@ -246,11 +246,11 @@ const TEMPLATES = [
       linkedTables: [
         { tableKey: 'invoices', joinFrom: 'line_items' },
         { tableKey: 'accounts', joinFrom: 'invoices' },
-        { tableKey: 'circuits', joinFrom: 'line_items' },
+        { tableKey: 'inventory', joinFrom: 'line_items' },
       ],
       fields: [
         { table: 'invoices', field: 'invoice_number' }, { table: 'accounts', field: 'name' },
-        { table: 'circuits', field: 'circuit_id' }, { table: 'line_items', field: 'description' },
+        { table: 'inventory', field: 'inventory_number' }, { table: 'line_items', field: 'description' },
         { table: 'line_items', field: 'amount' }, { table: 'line_items', field: 'contracted_rate' },
         { table: 'line_items', field: 'variance' }, { table: 'line_items', field: 'audit_status' },
       ],
@@ -344,20 +344,20 @@ const TEMPLATES = [
   },
   {
     name: 'Full Invoice Audit (Multi-Table)',
-    description: 'Invoices with line items, circuits, and vendor — full audit chain',
+    description: 'Invoices with line items, inventory, and vendor — full audit chain',
     config: {
       tableKey: 'invoices', reportName: 'Full Invoice Audit',
       linkedTables: [
         { tableKey: 'accounts', joinFrom: 'invoices' },
         { tableKey: 'line_items', joinFrom: 'invoices' },
-        { tableKey: 'circuits', joinFrom: 'line_items' },
+        { tableKey: 'inventory', joinFrom: 'line_items' },
       ],
       fields: [
         { table: 'accounts', field: 'name' }, { table: 'invoices', field: 'invoice_number' },
         { table: 'invoices', field: 'invoice_date' }, { table: 'invoices', field: 'total_amount' },
         { table: 'line_items', field: 'description' }, { table: 'line_items', field: 'amount' },
-        { table: 'line_items', field: 'audit_status' }, { table: 'circuits', field: 'circuit_id' },
-        { table: 'circuits', field: 'location' },
+        { table: 'line_items', field: 'audit_status' }, { table: 'inventory', field: 'inventory_number' },
+        { table: 'inventory', field: 'location' },
       ],
       filters: [], filterLogic: 'AND', sorts: [{ id: 's1', table: 'invoices', field: 'invoice_date', direction: 'desc' }],
       groupBy: [], aggregations: [], limit: 1000, distinct: false, colOverrides: {},

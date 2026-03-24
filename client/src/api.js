@@ -14,14 +14,14 @@ export const getDashboard    = () => api.get('/dashboard');
 export const globalSearch    = q  => api.get('/search', { params: { q } });
 export const getVendors         = () => api.get('/vendors');
 export const getVendor          = id => api.get(`/vendors/${id}`);
-export const getVendorCircuits  = id => api.get(`/vendors/${id}/circuits`);
+export const getVendorInventory  = id => api.get(`/vendors/${id}/inventory`);
 export const createVendor       = d  => api.post('/vendors', d);
 export const updateVendor       = (id,d) => api.put(`/vendors/${id}`, d);
 export const deleteVendor       = id => api.delete(`/vendors/${id}`);
 // Legacy aliases (used by Accounts page)
 export const getAccounts        = getVendors;
 export const getAccount         = getVendor;
-export const getAccountCircuits = getVendorCircuits;
+export const getAccountInventory = getVendorInventory;
 export const createAccount      = createVendor;
 export const updateAccount      = updateVendor;
 export const deleteAccount      = deleteVendor;
@@ -55,22 +55,22 @@ export const deleteSpendCategory  = id        => api.delete(`/spend-categories/$
 
 export const getContracts         = (params) => api.get('/contracts', { params });
 export const getContract          = id => api.get(`/contracts/${id}`);
-export const getContractCircuits  = id => api.get(`/contracts/${id}/circuits`);
+export const getContractInventory  = id => api.get(`/contracts/${id}/inventory`);
 export const getContractOrders    = id => api.get(`/contracts/${id}/orders`);
 export const createContract       = d  => api.post('/contracts', d);
 export const updateContract       = (id,d) => api.put(`/contracts/${id}`, d);
 export const deleteContract       = id => api.delete(`/contracts/${id}`);
 
-export const getCircuits        = (params) => api.get('/circuits', { params });
-export const getCircuit         = id => api.get(`/circuits/${id}`);
-export const getCircuitInvoices = id => api.get(`/circuits/${id}/invoices`);
-export const createCircuit      = d  => api.post('/circuits', d);
-export const updateCircuit      = (id,d) => api.put(`/circuits/${id}`, d);
-export const deleteCircuit      = id => api.delete(`/circuits/${id}`);
+export const getInventory        = (params) => api.get('/inventory', { params });
+export const getInventoryItem         = id => api.get(`/inventory/${id}`);
+export const getInventoryItemInvoices = id => api.get(`/inventory/${id}/invoices`);
+export const createInventoryItem      = d  => api.post('/inventory', d);
+export const updateInventoryItem      = (id,d) => api.put(`/inventory/${id}`, d);
+export const deleteInventoryItem      = id => api.delete(`/inventory/${id}`);
 
 export const getOrders        = (params) => api.get('/orders', { params });
 export const getOrder         = id => api.get(`/orders/${id}`);
-export const getOrderCircuits = id => api.get(`/orders/${id}/circuits`);
+export const getOrderInventory = id => api.get(`/orders/${id}/inventory`);
 export const createOrder      = d  => api.post('/orders', d);
 export const updateOrder      = (id,d) => api.put(`/orders/${id}`, d);
 export const deleteOrder      = id => api.delete(`/orders/${id}`);

@@ -3,7 +3,7 @@ import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building2, Save, Network, ExternalLink, SlidersHorizontal, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAccount, updateAccount, getAccountCircuits } from '../api';
+import { getAccount, updateAccount, getAccountInventory } from '../api';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
@@ -20,7 +20,7 @@ const CIRC_STATUS_BADGE = {
 
 const NAV_SECTIONS = [
   { key: 'details',  label: 'Account Details', Icon: SlidersHorizontal },
-  { key: 'circuits', label: 'Circuits',         Icon: Network           },
+  { key: 'inventory', label: 'Inventory',         Icon: Network           },
   { key: 'notes',    label: 'Notes & History',  Icon: MessageSquare     },
 ];
 const NAV_BTN = {
@@ -54,14 +54,14 @@ export default function AccountDetail() {
   const { hasPermission } = useAuth();
   const canUpdate = hasPermission('accounts', 'update');
   const [account,  setAccount]  = useState(null);
-  const [circuits, setCircuits] = useState([]);
+  const [inventory, setInventory] = useState([]);
   const [form,     setForm]     = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [historyKey, setHistoryKey] = useState(0);
   const [dirty,    setDirty]    = useState(false);
   const [toast,    setToast]    = useState(null);
-  const refs = { details: useRef(null), circuits: useRef(null), notes: useRef(null) };
+  const refs = { details: useRef(null), inventory: useRef(null), notes: useRef(null) };
   const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const showToast = (msg, ok = true) => {
@@ -71,11 +71,11 @@ export default function AccountDetail() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getAccount(id), getAccountCircuits(id)])
+    Promise.all([getAccount(id), getAccountInventory(id)])
       .then(([ac, ci]) => {
         setAccount(ac.data);
         setPageTitle(ac.data.name);
-        setCircuits(ci.data);
+        setInventory(ci.data);
         setForm({
           name:           ac.data.name           || '',
           account_number: ac.data.account_number || '',
@@ -116,8 +116,8 @@ export default function AccountDetail() {
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>Loading account…</div>;
   if (!account) return <div style={{ padding: 60, textAlign: 'center', color: '#ef4444' }}>Account not found.</div>;
 
-  const activeCircuits = circuits.filter(c => c.status === 'Active');
-  const totalMRC = activeCircuits.reduce((s, c) => s + Number(c.contracted_rate || 0), 0);
+  const activeInventory = inventory.filter(c => c.status === 'Active');
+  const totalMRC = activeInventory.reduce((s, c) => s + Number(c.contracted_rate || 0), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -184,24 +184,24 @@ export default function AccountDetail() {
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         <div className="kpi-card blue">
-          <div className="kpi-label">Total Circuits</div>
-          <div className="kpi-value">{circuits.length}</div>
+          <div className="kpi-label">Total Inventory</div>
+          <div className="kpi-value">{inventory.length}</div>
           <div className="kpi-icon"><Network size={36} /></div>
         </div>
         <div className="kpi-card green">
-          <div className="kpi-label">Active Circuits</div>
-          <div className="kpi-value">{activeCircuits.length}</div>
+          <div className="kpi-label">Active Inventory</div>
+          <div className="kpi-value">{activeInventory.length}</div>
         </div>
         <div className="kpi-card purple">
           <div className="kpi-label">Pending / Suspended</div>
           <div className="kpi-value">
-            {circuits.filter(c => c.status === 'Pending' || c.status === 'Suspended').length}
+            {inventory.filter(c => c.status === 'Pending' || c.status === 'Suspended').length}
           </div>
         </div>
         <div className="kpi-card teal">
           <div className="kpi-label">Monthly MRC</div>
           <div className="kpi-value">${totalMRC.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-          <div className="kpi-sub">Active circuits only</div>
+          <div className="kpi-sub">Active inventory only</div>
         </div>
       </div>
 
@@ -245,34 +245,34 @@ export default function AccountDetail() {
         </div>
       </div>
 
-      {/* Circuits Table */}
-      <div className="page-card" ref={refs.circuits} style={{ scrollMarginTop: 80 }}>
+      {/* Inventory Table */}
+      <div className="page-card" ref={refs.inventory} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span
             className="rc-results-count"
             style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onClick={() => navigate('/circuits', { state: { filters: { account_name: account.name }, showFilters: true } })}
-            title="View all circuits for this account"
+            onClick={() => navigate('/inventory', { state: { filters: { account_name: account.name }, showFilters: true } })}
+            title="View all inventory for this account"
           >
-            <Network size={16} color="#7c3aed" /> Circuits on This Account
+            <Network size={16} color="#7c3aed" /> Inventory on This Account
             <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>
-            {circuits.length} circuit{circuits.length !== 1 ? 's' : ''}
+            {inventory.length} inventoryItem{inventory.length !== 1 ? 's' : ''}
           </span>
         </div>
 
-        {circuits.length === 0 ? (
+        {inventory.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
             <Network size={24} style={{ marginBottom: 8, opacity: 0.4 }} />
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>No circuits linked to this account</div>
-            <div style={{ fontSize: 11 }}>Add circuits from the Circuits page and assign them to this vendor.</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>No inventory linked to this account</div>
+            <div style={{ fontSize: 11 }}>Add inventory from the Inventory page and assign them to this vendor.</div>
           </div>
         ) : (
           <table className="data-table">
             <thead>
               <tr>
-                <th>Circuit ID</th>
+                <th>InventoryItem ID</th>
                 <th>Location</th>
                 <th>Type</th>
                 <th>Bandwidth</th>
@@ -284,10 +284,10 @@ export default function AccountDetail() {
               </tr>
             </thead>
             <tbody>
-              {circuits.map(ci => (
+              {inventory.map(ci => (
                 <tr key={ci.cir_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.cir_id}`)}>{ci.circuit_id}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span>
                   </td>
                   <td>{ci.location || '—'}</td>
                   <td>{ci.type || '—'}</td>

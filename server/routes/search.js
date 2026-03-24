@@ -5,13 +5,13 @@ const safeError = require('./_safeError');
 
 router.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
-  if (!q || q.length < 2) return res.json({ vendors: [], contracts: [], circuits: [], orders: [], invoices: [], usoc_codes: [] });
+  if (!q || q.length < 2) return res.json({ vendors: [], contracts: [], inventory: [], orders: [], invoices: [], usoc_codes: [] });
 
   const escaped = q.replace(/[%_\\]/g, '\\$&');
   const like = `%${escaped}%`;
   const matchOperator = db.client.config.client === 'pg' ? 'ilike' : 'like';
   try {
-    const [vendors, contracts, circuits, orders, invoices, usoc_codes] = await Promise.all([
+    const [vendors, contracts, inventory, orders, invoices, usoc_codes] = await Promise.all([
       db('accounts as a')
         .select('a.accounts_id', 'a.name', 'a.account_number as sub')
         .where('a.name', matchOperator, like)
@@ -25,9 +25,9 @@ router.get('/', async (req, res) => {
         .orWhere('c.name', matchOperator, like)
         .limit(6),
 
-      db('circuits as ci')
-        .select('ci.cir_id', 'ci.circuit_id', 'ci.location as sub')
-        .where('ci.circuit_id', matchOperator, like)
+      db('inventory as ci')
+        .select('ci.cir_id', 'ci.inventory_number', 'ci.location as sub')
+        .where('ci.inventory_number', matchOperator, like)
         .orWhere('ci.location', matchOperator, like)
         .orWhere('ci.type', matchOperator, like)
         .limit(6),
@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
         .limit(6),
     ]);
 
-    res.json({ vendors, contracts, circuits, orders, invoices, usoc_codes });
+    res.json({ vendors, contracts, inventory, orders, invoices, usoc_codes });
   } catch (err) {
     safeError(res, err, 'search');
   }

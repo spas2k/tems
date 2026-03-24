@@ -64,9 +64,9 @@ router.put('/:id', idParam, ...contractRules, validate, auditUpdate('contracts',
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
-router.get('/:id/circuits', idParam, validate, async (req, res) => {
+router.get('/:id/inventory', idParam, validate, async (req, res) => {
   try {
-    const rows = await db('circuits as ci')
+    const rows = await db('inventory as ci')
       .leftJoin('accounts as a', 'ci.accounts_id', 'a.accounts_id')
       .select('ci.*', 'a.name as account_name')
       .where('ci.contracts_id', req.params.id)

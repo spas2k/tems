@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 const EMPTY = { category: '', label: '', value: '', sort_order: 0, is_active: true, description: '' };
 
 const formFields = [
-  { key: 'category',    label: 'Category',      required: true, placeholder: 'e.g. Bandwidth, Circuit Type…' },
+  { key: 'category',    label: 'Category',      required: true, placeholder: 'e.g. Bandwidth, InventoryItem Type…' },
   { key: 'label',       label: 'Display Label', required: true, half: true },
   { key: 'value',       label: 'Stored Value',  required: true, half: true },
   { key: 'sort_order',  label: 'Sort Order',    type: 'number', half: true },

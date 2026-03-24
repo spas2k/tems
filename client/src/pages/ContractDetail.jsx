@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, Save, Network, ShoppingCart, AlertTriangle, RefreshCw, Plus, Pencil, Trash2, Tag, ExternalLink, SlidersHorizontal, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getContract, updateContract, getContractCircuits, getContractOrders, getAccounts,
+  getContract, updateContract, getContractInventory, getContractOrders, getAccounts,
   getContractRates, getUsocCodes, createContractRate, updateContractRate, deleteContractRate,
 } from '../api';
 import DetailHeader from '../components/DetailHeader';
@@ -37,7 +37,7 @@ const ORD_STATUS_BADGE = {
 
 const NAV_SECTIONS = [
   { key: 'details',  label: 'Contract Details', Icon: SlidersHorizontal },
-  { key: 'circuits', label: 'Circuits',          Icon: Network           },
+  { key: 'inventory', label: 'Inventory',          Icon: Network           },
   { key: 'rates',    label: 'Rate Schedule',     Icon: Tag               },
   { key: 'orders',   label: 'Orders',            Icon: ShoppingCart      },
   { key: 'notes',    label: 'Notes & History',   Icon: MessageSquare     },
@@ -76,7 +76,7 @@ export default function ContractDetail() {
   const canUpdate = hasPermission('contracts', 'update');
 
   const [contract, setContract] = useState(null);
-  const [circuits, setCircuits] = useState([]);
+  const [inventory, setInventory] = useState([]);
   const [orders,   setOrders]   = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [rates,    setRates]    = useState([]);
@@ -88,7 +88,7 @@ export default function ContractDetail() {
   const [historyKey, setHistoryKey] = useState(0);
   const [dirty,   setDirty]   = useState(false);
   const [toast,   setToast]   = useState(null);
-  const refs = { details: useRef(null), circuits: useRef(null), rates: useRef(null), orders: useRef(null), notes: useRef(null) };
+  const refs = { details: useRef(null), inventory: useRef(null), rates: useRef(null), orders: useRef(null), notes: useRef(null) };
   const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const [rateModal, setRateModal]     = useState(false);
@@ -105,7 +105,7 @@ export default function ContractDetail() {
     setLoading(true);
     Promise.all([
       getContract(id),
-      getContractCircuits(id),
+      getContractInventory(id),
       getContractOrders(id),
       getAccounts(),
       getContractRates({ contracts_id: id }).catch(() => ({ data: [] })),
@@ -114,7 +114,7 @@ export default function ContractDetail() {
       const c = co.data;
       setContract(c);
       setPageTitle(c.contract_number || c.name);
-      setCircuits(ci.data);
+      setInventory(ci.data);
       setOrders(or_.data);
       setAccounts(ac.data);
       setRates(rt.data);
@@ -191,7 +191,7 @@ export default function ContractDetail() {
   const expiringSoon = daysToExpiry !== null && daysToExpiry > 0 && daysToExpiry <= 90;
   const expired = daysToExpiry !== null && daysToExpiry <= 0;
 
-  const totalMRC = circuits
+  const totalMRC = inventory
     .filter(c => c.status === 'Active')
     .reduce((s, c) => s + Number(c.contracted_rate || 0), 0);
 
@@ -293,8 +293,8 @@ export default function ContractDetail() {
           </div>
         </div>
         <div className="kpi-card purple">
-          <div className="kpi-label">Circuits</div>
-          <div className="kpi-value">{circuits.length}</div>
+          <div className="kpi-label">Inventory</div>
+          <div className="kpi-value">{inventory.length}</div>
           <div className="kpi-sub">MRC ${totalMRC.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
         </div>
         <div className="kpi-card orange">
@@ -386,39 +386,39 @@ export default function ContractDetail() {
         </div>
       </div>
 
-      {/* Circuits on this Contract */}
-      <div className="page-card" ref={refs.circuits} style={{ scrollMarginTop: 80 }}>
+      {/* Inventory on this Contract */}
+      <div className="page-card" ref={refs.inventory} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span
             className="rc-results-count"
             style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onClick={() => navigate('/circuits', { state: { filters: { account_name: contract.account_name }, showFilters: true } })}
-            title="View all circuits for this vendor"
+            onClick={() => navigate('/inventory', { state: { filters: { account_name: contract.account_name }, showFilters: true } })}
+            title="View all inventory for this vendor"
           >
-            <Network size={16} color="#7c3aed" /> Circuits on This Contract
+            <Network size={16} color="#7c3aed" /> Inventory on This Contract
             <ExternalLink size={12} color="#94a3b8" />
           </span>
-          <span style={{ fontSize: 12, color: '#64748b' }}>{circuits.length} circuit{circuits.length !== 1 ? 's' : ''}</span>
+          <span style={{ fontSize: 12, color: '#64748b' }}>{inventory.length} inventoryItem{inventory.length !== 1 ? 's' : ''}</span>
         </div>
-        {circuits.length === 0 ? (
+        {inventory.length === 0 ? (
           <div style={{ padding: 36, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
             <Network size={22} style={{ marginBottom: 8, opacity: 0.35 }} />
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>No circuits linked to this contract</div>
-            <div style={{ fontSize: 11 }}>Assign circuits to this contract from the Circuit Detail page.</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>No inventory linked to this contract</div>
+            <div style={{ fontSize: 11 }}>Assign inventory to this contract from the InventoryItem Detail page.</div>
           </div>
         ) : (
           <table className="data-table">
             <thead>
               <tr>
-                <th>Circuit ID</th><th>Vendor</th><th>Location</th><th>Type</th>
+                <th>InventoryItem ID</th><th>Vendor</th><th>Location</th><th>Type</th>
                 <th>Bandwidth</th><th>Contracted Rate</th><th>Install Date</th><th>Disconnect Date</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {circuits.map(ci => (
+              {inventory.map(ci => (
                 <tr key={ci.cir_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.cir_id}`)}>{ci.circuit_id}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span>
                   </td>
                   <td>{ci.account_name}</td>
                   <td>{ci.location || '—'}</td>

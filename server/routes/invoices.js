@@ -30,8 +30,8 @@ router.get('/:id', idParam, validate, async (req, res) => {
     if (!invoice) return res.status(404).json({ error: 'Not found' });
 
     const lineItems = await db('line_items as li')
-      .leftJoin('circuits as ci', 'li.cir_id', 'ci.cir_id')
-      .select('li.*', 'ci.circuit_id as circuit_identifier')
+      .leftJoin('inventory as ci', 'li.cir_id', 'ci.cir_id')
+      .select('li.*', 'ci.inventory_number as inventory_numberentifier')
       .where('li.invoices_id', req.params.id);
 
     res.json({ ...invoice, line_items: lineItems });

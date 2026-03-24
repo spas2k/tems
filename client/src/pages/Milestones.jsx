@@ -13,7 +13,7 @@ export default function Milestones() {
           <Flag size={48} color="#94a3b8" style={{ marginBottom: 16 }} />
           <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Order Milestones</h3>
           <p style={{ color: '#64748b', fontSize: 14, maxWidth: 420, margin: '0 auto 24px' }}>
-            Track key milestones for circuit orders — design completion, FOC dates,
+            Track key milestones for inventoryItem orders — design completion, FOC dates,
             installation, testing, and turn-up across the provisioning lifecycle.
           </p>
           <div style={{ color: '#94a3b8', fontSize: 13, fontStyle: 'italic' }}>Coming Soon</div>

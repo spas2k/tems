@@ -8,7 +8,7 @@ import { getSavedReports, deleteSavedReport } from '../api';
 import { useConfirm } from '../context/ConfirmContext';
 
 const TABLE_LABELS = {
-  circuits:       'Circuits',
+  inventory:       'Inventory',
   invoices:       'Invoices',
   line_items:     'Line Items',
   contracts:      'Contracts',
@@ -25,7 +25,7 @@ const TABLE_LABELS = {
 };
 
 const TABLE_COLORS = {
-  circuits:       '#7c3aed',
+  inventory:       '#7c3aed',
   invoices:       '#dc2626',
   line_items:     '#d97706',
   contracts:      '#0d9488',

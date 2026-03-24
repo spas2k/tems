@@ -5,7 +5,7 @@ const safeError = require('./_safeError');
 const { requireRole } = require('../middleware/auth');
 
 const ALLOWED_ENTITY_TYPES = new Set([
-  'account', 'contract', 'circuit', 'order', 'invoice', 'dispute', 'cost_saving',
+  'account', 'contract', 'inventoryItem', 'order', 'invoice', 'dispute', 'cost_saving',
 ]);
 
 // GET /notes?entity_type=account&entity_id=123

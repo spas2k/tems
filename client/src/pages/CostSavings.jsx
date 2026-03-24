@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Zap } from 'lucide-react';
-import { getCostSavings, createCostSaving, updateCostSaving, deleteCostSaving, getAccounts, getCircuits } from '../api';
+import { getCostSavings, createCostSaving, updateCostSaving, deleteCostSaving, getAccounts, getInventory } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
@@ -27,12 +27,12 @@ export default function CostSavings() {
     idKey: 'cost_savings_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
-    related: { accounts: getAccounts, circuits: getCircuits },
+    related: { accounts: getAccounts, inventory: getInventory },
     defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
     beforeSave: form => ({ ...form, cir_id: form.cir_id || null }),
   });
 
-  const { accounts, circuits } = table.related;
+  const { accounts, inventory } = table.related;
 
   const columns = [
     { key: 'account_name', label: 'Vendor', filterType: 'select',
@@ -59,8 +59,8 @@ export default function CostSavings() {
     { key: 'realized_savings', label: 'Realized Savings ($)', type: 'number', step: '0.01', half: true },
     { key: 'identified_date', label: 'Identified Date', type: 'date', half: true },
     { key: 'resolved_date', label: 'Resolved Date', type: 'date', half: true },
-    { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
-      options: circuits.map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location}` })), placeholder: 'None' },
+    { key: 'cir_id', label: 'Related InventoryItem (optional)', type: 'select',
+      options: inventory.map(c => ({ value: c.cir_id, label: `${c.inventory_number} — ${c.location}` })), placeholder: 'None' },
     { key: 'notes', label: 'Notes', type: 'textarea' },
   ];
 

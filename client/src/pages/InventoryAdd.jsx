@@ -1,23 +1,23 @@
 import React from 'react';
 import { Network } from 'lucide-react';
-import { createCircuit, getAccounts, getContracts } from '../api';
+import { createInventoryItem, getAccounts, getContracts } from '../api';
 import FormPage from '../components/FormPage';
 
 const TYPES = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', 'Other'];
 const STATUSES = ['Active', 'Pending', 'Disconnected', 'Suspended'];
 
 const EMPTY = {
-  accounts_id: '', contracts_id: '', circuit_id: '',
+  accounts_id: '', contracts_id: '', inventory_number: '',
   location: '', type: 'Internet', bandwidth: '',
   contracted_rate: '', install_date: '', status: 'Active',
 };
 
 const SECTIONS = [
   {
-    title: 'Circuit Identification',
+    title: 'InventoryItem Identification',
     description: 'Key identifiers and vendor assignment',
     fields: (rel) => [
-      { key: 'circuit_id', label: 'Circuit ID *', half: true },
+      { key: 'inventory_number', label: 'InventoryItem ID *', half: true },
       { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
         options: (rel.accounts || []).map(a => ({ value: a.accounts_id, label: a.name })),
         placeholder: 'Select vendor…', half: true },
@@ -26,9 +26,9 @@ const SECTIONS = [
   },
   {
     title: 'Configuration',
-    description: 'Circuit type, bandwidth, and cost details',
+    description: 'InventoryItem type, bandwidth, and cost details',
     fields: [
-      { key: 'type', label: 'Circuit Type', type: 'select', options: TYPES, half: true },
+      { key: 'type', label: 'InventoryItem Type', type: 'select', options: TYPES, half: true },
       { key: 'bandwidth', label: 'Bandwidth', placeholder: 'e.g. 100 Mbps', half: true },
       { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
       { key: 'install_date', label: 'Install Date', type: 'date', half: true },
@@ -46,11 +46,11 @@ const SECTIONS = [
   },
 ];
 
-export default function CircuitAdd() {
+export default function InventoryItemAdd() {
   return (
     <FormPage
-      title="New Circuit"
-      subtitle="Add a circuit to the inventory"
+      title="New InventoryItem"
+      subtitle="Add a inventoryItem to the inventory"
       icon={Network}
       sections={SECTIONS}
       emptyForm={EMPTY}
@@ -59,9 +59,9 @@ export default function CircuitAdd() {
         return { accounts: acct.data, contracts: contr.data };
       }}
       defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
-      onSubmit={d => createCircuit(d)}
-      backPath="/circuits"
-      redirectOnSave={res => `/circuits/${res.data.cir_id}`}
+      onSubmit={d => createInventoryItem(d)}
+      backPath="/inventory"
+      redirectOnSave={res => `/inventory/${res.data.cir_id}`}
     />
   );
 }

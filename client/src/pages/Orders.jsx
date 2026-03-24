@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ShoppingCart, Trash2 } from 'lucide-react';
-import { getOrders, createOrder, updateOrder, deleteOrder, getAccounts, getContracts, getCircuits } from '../api';
+import { getOrders, createOrder, updateOrder, deleteOrder, getAccounts, getContracts, getInventory } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
@@ -15,7 +15,7 @@ const EMPTY = { accounts_id: '', contracts_id: '', cir_id: '', order_number: '',
 
 const FILTER_CONFIG = {
   order_number: 'text', account_name: 'select', description: 'text',
-  circuit_identifier: 'text', order_date: 'date', due_date: 'date',
+  inventory_numberentifier: 'text', order_date: 'date', due_date: 'date',
   contracted_rate: 'text', status: 'select',
 };
 
@@ -30,19 +30,19 @@ export default function Orders() {
     idKey: 'orders_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
-    related: { accounts: getAccounts, contracts: getContracts, circuits: getCircuits },
+    related: { accounts: getAccounts, contracts: getContracts, inventory: getInventory },
     defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
     beforeSave: form => ({ ...form, cir_id: form.cir_id || null }),
   });
 
-  const { accounts, circuits } = table.related;
+  const { accounts, inventory } = table.related;
 
   const columns = [
     { key: 'order_number', label: 'Order #', copyable: true, link: row => navigate(`/orders/${row.orders_id}`) },
     { key: 'account_name', label: 'Vendor', filterType: 'select', filterOptions: accounts.map(a => a.name) },
     { key: 'description', label: 'Description',
       style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b', fontSize: 13 } },
-    { key: 'circuit_identifier', label: 'Circuit', style: { fontSize: 12, color: '#64748b' } },
+    { key: 'inventory_numberentifier', label: 'InventoryItem', style: { fontSize: 12, color: '#64748b' } },
     { key: 'order_date', label: 'Order Date', filterType: 'date', format: 'date' },
     { key: 'due_date', label: 'Due Date', filterType: 'date', format: 'date' },
     { key: 'contracted_rate', label: 'Rate', format: 'currency', summary: 'sum', style: { fontWeight: 700 } },
@@ -56,8 +56,8 @@ export default function Orders() {
     { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
     { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
     { key: 'description', label: 'Description', placeholder: 'Brief description of this order' },
-    { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
-      options: circuits.map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location}` })), placeholder: 'None' },
+    { key: 'cir_id', label: 'Related InventoryItem (optional)', type: 'select',
+      options: inventory.map(c => ({ value: c.cir_id, label: `${c.inventory_number} — ${c.location}` })), placeholder: 'None' },
     { key: 'order_date', label: 'Order Date', type: 'date', half: true },
     { key: 'due_date', label: 'Due Date', type: 'date', half: true },
     { key: 'notes', label: 'Notes', type: 'textarea' },

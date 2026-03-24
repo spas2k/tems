@@ -128,7 +128,7 @@ router.get('/audit-log/resource/:resource/:id', async (req, res) => {
 
     // Whitelist to prevent enumeration attacks via arbitrary table names
     const ALLOWED_RESOURCES = new Set([
-      'accounts', 'circuits', 'contracts', 'disputes', 'invoices',
+      'accounts', 'inventory', 'contracts', 'disputes', 'invoices',
       'orders', 'usoc_codes', 'locations', 'vendor_remit', 'roles', 'users',
       'field_catalog', 'spend_categories', 'announcements', 'allocations',
       'contract_rates', 'cost_savings', 'tickets',

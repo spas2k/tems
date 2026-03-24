@@ -90,11 +90,11 @@ const contractRules = [
   body('auto_renew').optional().isBoolean().withMessage('auto_renew must be boolean'),
 ];
 
-const circuitRules = [
+const inventoryItemRules = [
   requiredFk('accounts_id'),
   optionalFk('contracts_id'),
   optionalFk('orders_id'),
-  requiredStr('circuit_id', 100),
+  requiredStr('inventory_number', 100),
   optionalStr('type', 60),
   optionalStr('bandwidth', 40),
   optionalStr('location', 200),
@@ -209,7 +209,7 @@ module.exports = {
   idParam,
   accountRules,
   contractRules,
-  circuitRules,
+  inventoryItemRules,
   orderRules,
   invoiceRules,
   lineItemRules,

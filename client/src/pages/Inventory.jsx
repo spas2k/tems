@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Network, Trash2 } from 'lucide-react';
-import { getCircuits, createCircuit, updateCircuit, deleteCircuit, getAccounts, getContracts } from '../api';
+import { getInventory, createInventoryItem, updateInventoryItem, deleteInventoryItem, getAccounts, getContracts } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
@@ -12,21 +12,21 @@ const TYPES = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', '
 const STATUSES = ['Active', 'Pending', 'Disconnected', 'Suspended'];
 const STATUS_BADGE = { Active: 'badge badge-green', Pending: 'badge badge-blue', Disconnected: 'badge badge-gray', Suspended: 'badge badge-orange' };
 
-const EMPTY = { accounts_id: '', contracts_id: '', orders_id: '', circuit_id: '', location: '', type: 'Internet', bandwidth: '', contracted_rate: '', install_date: '', status: 'Active' };
+const EMPTY = { accounts_id: '', contracts_id: '', orders_id: '', inventory_number: '', location: '', type: 'Internet', bandwidth: '', contracted_rate: '', install_date: '', status: 'Active' };
 
 const FILTER_CONFIG = {
-  circuit_id: 'text', account_name: 'select', location: 'text',
+  inventory_number: 'text', account_name: 'select', location: 'text',
   type: 'select', bandwidth: 'text', contracted_rate: 'text', status: 'select',
 };
 
-export default function Circuits() {
+export default function Inventory() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canCreate = hasPermission('circuits', 'create');
-  const canDelete = hasPermission('circuits', 'delete');
+  const canCreate = hasPermission('inventory', 'create');
+  const canDelete = hasPermission('inventory', 'delete');
   const table = useCrudTable({
-    api: { list: getCircuits, create: createCircuit, update: updateCircuit, delete: deleteCircuit },
+    api: { list: getInventory, create: createInventoryItem, update: updateInventoryItem, delete: deleteInventoryItem },
     idKey: 'cir_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
@@ -37,7 +37,7 @@ export default function Circuits() {
   const { accounts, contracts } = table.related;
 
   const columns = [
-    { key: 'circuit_id', label: 'Circuit ID', copyable: true, link: row => navigate(`/circuits/${row.cir_id}`) },
+    { key: 'inventory_number', label: 'InventoryItem ID', copyable: true, link: row => navigate(`/inventory/${row.cir_id}`) },
     { key: 'account_name', label: 'Vendor', filterType: 'select', filterOptions: accounts.map(a => a.name) },
     { key: 'location', label: 'Location' },
     { key: 'type', label: 'Type', filterType: 'select', filterOptions: TYPES },
@@ -47,11 +47,11 @@ export default function Circuits() {
   ];
 
   const formFields = [
-    { key: 'circuit_id', label: 'Circuit ID *', half: true },
+    { key: 'inventory_number', label: 'InventoryItem ID *', half: true },
     { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
       options: accounts.map(a => ({ value: a.accounts_id, label: a.name })), placeholder: 'Select vendor…', half: true },
     { key: 'location', label: 'Location' },
-    { key: 'type', label: 'Circuit Type', type: 'select', options: TYPES, half: true },
+    { key: 'type', label: 'InventoryItem Type', type: 'select', options: TYPES, half: true },
     { key: 'bandwidth', label: 'Bandwidth', placeholder: 'e.g. 100 Mbps', half: true },
     { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
     { key: 'install_date', label: 'Install Date', type: 'date', half: true },
@@ -67,26 +67,26 @@ export default function Circuits() {
       {table.renderToast()}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-        <div className="kpi-card purple"><div className="kpi-label">Total Circuits</div><div className="kpi-value">{table.data.length}</div><div className="kpi-icon"><Network size={40} /></div></div>
-        <div className="kpi-card green"><div className="kpi-label">Active Circuits</div><div className="kpi-value">{table.data.filter(d => d.status === 'Active').length}</div></div>
-        <div className="kpi-card blue"><div className="kpi-label">Monthly MRC</div><div className="kpi-value">${totalMRC.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div><div className="kpi-sub">Active circuits only</div></div>
+        <div className="kpi-card purple"><div className="kpi-label">Total Inventory</div><div className="kpi-value">{table.data.length}</div><div className="kpi-icon"><Network size={40} /></div></div>
+        <div className="kpi-card green"><div className="kpi-label">Active Inventory</div><div className="kpi-value">{table.data.filter(d => d.status === 'Active').length}</div></div>
+        <div className="kpi-card blue"><div className="kpi-label">Monthly MRC</div><div className="kpi-value">${totalMRC.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div><div className="kpi-sub">Active inventory only</div></div>
       </div>
 
       <DataTable
         columns={columns}
         {...table.tableProps}
-        title="Circuit Inventory"
+        title="InventoryItem Inventory"
         titleIcon={<Network size={15} color="#7c3aed" />}
-        exportFilename="Circuits"
+        exportFilename="Inventory"
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.cir_id, { skipConfirm: true })); } }
         ] : []}
-        headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/circuits/new')}><Plus size={15} /> New Circuit</button> : null}
+        headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/inventory/new')}><Plus size={15} /> New InventoryItem</button> : null}
       />
 
       <CrudModal
         open={table.modal}
-        title="Edit Circuit"
+        title="Edit InventoryItem"
         onClose={() => table.setModal(false)}
         onSave={table.handleSave}
         form={table.form}

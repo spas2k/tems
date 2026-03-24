@@ -8,8 +8,8 @@ import Modal from '../components/Modal';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import {
-  getOrder, updateOrder, getOrderCircuits,
-  getAccounts, getContracts, getCircuits, getUsers,
+  getOrder, updateOrder, getOrderInventory,
+  getAccounts, getContracts, getInventory, getUsers,
 } from '../api';
 import dayjs from 'dayjs';
 
@@ -31,7 +31,7 @@ const CIRC_STATUS_BADGE = {
 
 const NAV_SECTIONS = [
   { key: 'details',  label: 'Order Details',   Icon: SlidersHorizontal },
-  { key: 'circuits', label: 'Circuit Changes', Icon: Network           },
+  { key: 'inventory', label: 'InventoryItem Changes', Icon: Network           },
   { key: 'notes',    label: 'Notes & History', Icon: MessageSquare     },
 ];
 const NAV_BTN = {
@@ -87,10 +87,10 @@ export default function OrderDetail() {
   const { hasPermission } = useAuth();
   const canUpdate = hasPermission('orders', 'update');
   const [order,     setOrder]     = useState(null);
-  const [circuits,  setCircuits]  = useState([]);
+  const [inventory,  setInventory]  = useState([]);
   const [accounts,  setAccounts]  = useState([]);
   const [contracts, setContracts] = useState([]);
-  const [allCircuits, setAllCircuits] = useState([]);
+  const [allInventory, setAllInventory] = useState([]);
 
   const [form,    setForm]    = useState(null);
   const [loading, setLoading] = useState(true);
@@ -98,7 +98,7 @@ export default function OrderDetail() {
   const [historyKey, setHistoryKey] = useState(0);
   const [dirty,   setDirty]   = useState(false);
   const [toast,   setToast]   = useState(null);
-  const refs = { details: useRef(null), circuits: useRef(null), notes: useRef(null) };
+  const refs = { details: useRef(null), inventory: useRef(null), notes: useRef(null) };
   const scrollTo = key => refs[key]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const menuRef = useRef(null);
@@ -139,25 +139,25 @@ export default function OrderDetail() {
     } catch { showToast('Assignment failed.', false); }
   };
 
-  const loadCircuits = () =>
-    getOrderCircuits(id).then(r => setCircuits(r.data)).catch(() => setCircuits([]));
+  const loadInventory = () =>
+    getOrderInventory(id).then(r => setInventory(r.data)).catch(() => setInventory([]));
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
       getOrder(id),
-      getOrderCircuits(id),
+      getOrderInventory(id),
       getAccounts(),
       getContracts(),
-      getCircuits(),
+      getInventory(),
     ]).then(([o, ci, ac, co, allCi]) => {
       const ord = o.data;
       setOrder(ord);
       setPageTitle(ord.order_number);
-      setCircuits(ci.data);
+      setInventory(ci.data);
       setAccounts(ac.data);
       setContracts(co.data);
-      setAllCircuits(allCi.data);
+      setAllInventory(allCi.data);
       setForm({
         accounts_id:      ord.accounts_id      || '',
         contracts_id:     ord.contracts_id     || '',
@@ -324,9 +324,9 @@ export default function OrderDetail() {
           <div className="kpi-sub">Monthly rate</div>
         </div>
         <div className="kpi-card purple">
-          <div className="kpi-label">Circuits on Order</div>
-          <div className="kpi-value">{circuits.length}</div>
-          <div className="kpi-sub">Linked circuit changes</div>
+          <div className="kpi-label">Inventory on Order</div>
+          <div className="kpi-value">{inventory.length}</div>
+          <div className="kpi-sub">Linked inventoryItem changes</div>
         </div>
       </div>
 
@@ -387,34 +387,34 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* Circuit Change Orders */}
-      <div className="page-card" ref={refs.circuits} style={{ scrollMarginTop: 80 }}>
+      {/* InventoryItem Change Orders */}
+      <div className="page-card" ref={refs.inventory} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span
             className="rc-results-count"
             style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onClick={() => navigate('/circuits', { state: { filters: { account_name: order.account_name }, showFilters: true } })}
-            title="View all circuits for this vendor"
+            onClick={() => navigate('/inventory', { state: { filters: { account_name: order.account_name }, showFilters: true } })}
+            title="View all inventory for this vendor"
           >
-            <Network size={16} color="#7c3aed" /> Circuit Change Orders
+            <Network size={16} color="#7c3aed" /> InventoryItem Change Orders
             <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>
-            {circuits.length} circuit{circuits.length !== 1 ? 's' : ''} linked to this order
+            {inventory.length} inventoryItem{inventory.length !== 1 ? 's' : ''} linked to this order
           </span>
         </div>
 
-        {circuits.length === 0 ? (
+        {inventory.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
             <Network size={24} style={{ marginBottom: 8, opacity: 0.4 }} />
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>No circuits linked to this order</div>
-            <div style={{ fontSize: 11 }}>Circuits are linked by setting their "Linked Order" field on the Circuit Detail page.</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>No inventory linked to this order</div>
+            <div style={{ fontSize: 11 }}>Inventory are linked by setting their "Linked Order" field on the InventoryItem Detail page.</div>
           </div>
         ) : (
           <table className="data-table">
             <thead>
               <tr>
-                <th>Circuit ID</th>
+                <th>InventoryItem ID</th>
                 <th>Vendor</th>
                 <th>Location</th>
                 <th>Type</th>
@@ -426,10 +426,10 @@ export default function OrderDetail() {
               </tr>
             </thead>
             <tbody>
-              {circuits.map(ci => (
+              {inventory.map(ci => (
                 <tr key={ci.cir_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/circuits/${ci.cir_id}`)}>{ci.circuit_id}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span>
                   </td>
                   <td>{ci.account_name}</td>
                   <td>{ci.location || '—'}</td>

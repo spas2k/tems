@@ -16,7 +16,7 @@ const SECTIONS = [
   { label: 'USOC Codes',       icon: Tag,          resource: 'usoc_codes' },
   { label: 'Contract Rates',   icon: DollarSign,   resource: 'contract_rates' },
   { label: 'Disputes',         icon: ShieldAlert,  resource: 'disputes' },
-  { label: 'Circuits',         icon: Network,      resource: 'circuits' },
+  { label: 'Inventory',         icon: Network,      resource: 'inventory' },
   { label: 'Cost Savings',     icon: Zap,          resource: 'cost_savings' },
   { label: 'Orders',           icon: ShoppingCart, resource: 'orders' },
   { label: 'Invoices',         icon: Receipt,      resource: 'invoices' },

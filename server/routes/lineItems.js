@@ -6,15 +6,15 @@ const { validate, idParam, lineItemRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 
-// Reusable base query for line items with joined circuit/invoice/usoc info
+// Reusable base query for line items with joined inventoryItem/invoice/usoc info
 function baseQuery() {
   return db('line_items as li')
-    .leftJoin('circuits as ci', 'li.cir_id', 'ci.cir_id')
+    .leftJoin('inventory as ci', 'li.cir_id', 'ci.cir_id')
     .leftJoin('invoices as i', 'li.invoices_id', 'i.invoices_id')
     .leftJoin('usoc_codes as u', 'li.usoc_codes_id', 'u.usoc_codes_id')
     .select(
       'li.*',
-      'ci.circuit_id as circuit_identifier', 'ci.location as circuit_location',
+      'ci.inventory_number as inventory_numberentifier', 'ci.location as inventoryItem_location',
       'i.invoice_number',
       'u.usoc_code', 'u.description as usoc_description', 'u.category as usoc_category'
     );

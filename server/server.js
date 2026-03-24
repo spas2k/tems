@@ -84,7 +84,7 @@ app.use('/api/vendor-remit', require('./routes/vendorRemit'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/spend-categories', require('./routes/spendCategories'));
 app.use('/api/contracts',    require('./routes/contracts'));
-app.use('/api/circuits',     require('./routes/circuits'));
+app.use('/api/inventory',     require('./routes/inventory'));
 app.use('/api/orders',       require('./routes/orders'));
 app.use('/api/invoices',     require('./routes/invoices'));
 app.use('/api/line-items',   require('./routes/lineItems'));
@@ -109,7 +109,7 @@ app.get('/api/dashboard', async (req, res) => {
     const [
       countAccounts,
       countContracts,
-      countCircuits,
+      countInventory,
       countInvoices,
       sumBilled,
       sumVariance,
@@ -124,7 +124,7 @@ app.get('/api/dashboard', async (req, res) => {
     ] = await Promise.all([
       db('accounts').count('* as val').first(),
       db('contracts').where('status', 'Active').count('* as val').first(),
-      db('circuits').where('status', 'Active').count('* as val').first(),
+      db('inventory').where('status', 'Active').count('* as val').first(),
       db('invoices').whereIn('status', ['Open', 'Disputed']).count('* as val').first(),
       db('invoices').sum('total_amount as val').first(),
       db('line_items').whereNotNull('variance').sum('variance as val').first(),
@@ -142,7 +142,7 @@ app.get('/api/dashboard', async (req, res) => {
 
     const totalAccounts          = Number(countAccounts.val);
     const activeContracts        = Number(countContracts.val);
-    const activeCircuits         = Number(countCircuits.val);
+    const activeInventory         = Number(countInventory.val);
     const openInvoices           = Number(countInvoices.val);
     const totalBilled            = Number(sumBilled.val)    || 0;
     const totalVariance          = Number(sumVariance.val)   || 0;
@@ -172,16 +172,16 @@ app.get('/api/dashboard', async (req, res) => {
     // Recent variances — line items with non-zero variance
     const recentVariances = await db('line_items as li')
       .leftJoin('invoices as i', 'li.invoices_id', 'i.invoices_id')
-      .leftJoin('circuits as ci', 'li.cir_id', 'ci.cir_id')
+      .leftJoin('inventory as ci', 'li.cir_id', 'ci.cir_id')
       .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
       .select('li.line_items_id', 'li.description', 'li.amount', 'li.contracted_rate', 'li.variance', 'li.audit_status',
-              'i.invoice_number', 'i.invoices_id', 'ci.circuit_id', 'a.name as account_name')
+              'i.invoice_number', 'i.invoices_id', 'ci.inventory_number', 'a.name as account_name')
       .where('li.audit_status', 'Variance')
       .orderBy('li.line_items_id', 'desc')
       .limit(10);
 
     res.json({
-      totalAccounts, activeContracts, activeCircuits, openInvoices,
+      totalAccounts, activeContracts, activeInventory, openInvoices,
       totalBilled, totalVariance, totalSavingsIdentified, pendingOrders,
       totalMrc, totalNrc, auditCounts, openDisputes,
       recentInvoices, savingsOpportunities, recentVariances,
@@ -198,7 +198,7 @@ app.get('/api/rate-validation', async (req, res) => {
   try {
     const rows = await db('line_items as li')
       .leftJoin('invoices as i',       'li.invoices_id',   'i.invoices_id')
-      .leftJoin('circuits as ci',      'li.cir_id',   'ci.cir_id')
+      .leftJoin('inventory as ci',      'li.cir_id',   'ci.cir_id')
       .leftJoin('accounts as a',       'i.accounts_id',    'a.accounts_id')
       .leftJoin('contracts as co',     'ci.contracts_id',  'co.contracts_id')
       .leftJoin('contract_rates as cr', function () {
@@ -212,7 +212,7 @@ app.get('/api/rate-validation', async (req, res) => {
         'i.invoice_number', 'i.invoices_id', 'i.invoice_date',
         'a.name as account_name', 'a.accounts_id',
         'co.contract_number', 'co.contracts_id',
-        'ci.circuit_id',
+        'ci.inventory_number',
         'u.usoc_code', 'u.description as usoc_description',
         'cr.mrc as rate_mrc', 'cr.nrc as rate_nrc', 'cr.effective_date as rate_effective',
       )

@@ -7,8 +7,8 @@ import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import {
-  getCircuit, updateCircuit,
-  getCircuitInvoices,
+  getInventoryItem, updateInventoryItem,
+  getInventoryItemInvoices,
   getAccounts, getContracts, getOrders, getOrder,
 } from '../api';
 import dayjs from 'dayjs';
@@ -39,7 +39,7 @@ const ORD_STATUS_BADGE = {
 };
 
 const NAV_SECTIONS = [
-  { key: 'details',  label: 'Circuit Details', Icon: SlidersHorizontal },
+  { key: 'details',  label: 'InventoryItem Details', Icon: SlidersHorizontal },
   { key: 'order',    label: 'Related Order',   Icon: ShoppingCart      },
   { key: 'invoices', label: 'Invoices',        Icon: Receipt           },
   { key: 'notes',    label: 'Notes & History', Icon: MessageSquare     },
@@ -91,14 +91,14 @@ function Field({ label, children }) {
   );
 }
 
-export default function CircuitDetail() {
+export default function InventoryDetail() {
   const { id }   = useParams();
   const navigate = useNavigate();
   const { setPageTitle } = useContext(PageTitleContext);
   const { hasPermission } = useAuth();
-  const canUpdate = hasPermission('circuits', 'update');
+  const canUpdate = hasPermission('inventory', 'update');
 
-  const [circuit,  setCircuit]  = useState(null);
+  const [inventoryItem,  setInventoryItem]  = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [order,    setOrder]    = useState(null);
   const [accounts,  setAccounts]  = useState([]);
@@ -130,26 +130,26 @@ export default function CircuitDetail() {
 
   const handleToggleActive = async () => {
     setMenuOpen(false);
-    const newStatus = circuit.status === 'Disconnected' ? 'Active' : 'Disconnected';
+    const newStatus = inventoryItem.status === 'Disconnected' ? 'Active' : 'Disconnected';
     try {
-      const updated = await updateCircuit(id, { ...form, status: newStatus });
-      setCircuit(updated.data);
+      const updated = await updateInventoryItem(id, { ...form, status: newStatus });
+      setInventoryItem(updated.data);
       setForm(f => ({ ...f, status: newStatus }));
-      showToast(`Circuit ${newStatus === 'Active' ? 'activated' : 'disconnected'}.`);
+      showToast(`InventoryItem ${newStatus === 'Active' ? 'activated' : 'disconnected'}.`);
     } catch { showToast('Status update failed.', false); }
   };
 
   useEffect(() => {
     Promise.all([
-      getCircuit(id),
-      getCircuitInvoices(id),
+      getInventoryItem(id),
+      getInventoryItemInvoices(id),
       getAccounts(),
       getContracts(),
       getOrders(),
     ]).then(([ci, inv, ac, co, or_]) => {
       const c = ci.data;
-      setCircuit(c);
-      setPageTitle(c.circuit_id);
+      setInventoryItem(c);
+      setPageTitle(c.inventory_number);
       setInvoices(inv.data);
       setAccounts(ac.data);
       setContracts(co.data);
@@ -158,7 +158,7 @@ export default function CircuitDetail() {
         accounts_id:      c.accounts_id || '',
         contracts_id:     c.contracts_id || '',
         orders_id:        c.orders_id || '',
-        circuit_id:      c.circuit_id || '',
+        inventory_number:      c.inventory_number || '',
         type:            c.type || 'Internet',
         bandwidth:       c.bandwidth || '',
         location:        c.location || '',
@@ -175,12 +175,12 @@ export default function CircuitDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (circuit?.circuit_id) {
+    if (inventoryItem?.inventory_number) {
       window.dispatchEvent(new CustomEvent('tems-recent-item', {
-        detail: { path: `/circuits/${id}`, label: circuit.circuit_id, type: 'circuit' }
+        detail: { path: `/inventory/${id}`, label: inventoryItem.inventory_number, type: 'inventoryItem' }
       }));
     }
-  }, [circuit]);
+  }, [inventoryItem]);
 
   const set = (k, v) => {
     setForm(p => ({ ...p, [k]: v }));
@@ -190,11 +190,11 @@ export default function CircuitDetail() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await updateCircuit(id, form);
-      setCircuit(updated.data);
+      const updated = await updateInventoryItem(id, form);
+      setInventoryItem(updated.data);
       setDirty(false);
       setHistoryKey(k => k + 1);
-      showToast('Circuit saved successfully.');
+      showToast('InventoryItem saved successfully.');
       // Reload order if order_id changed
       if (form.orders_id) {
         getOrder(form.orders_id).then(r => setOrder(r.data)).catch(() => setOrder(null));
@@ -209,10 +209,10 @@ export default function CircuitDetail() {
   };
 
   if (loading) {
-    return <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8', fontSize: 15 }}>Loading circuit…</div>;
+    return <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8', fontSize: 15 }}>Loading inventoryItem…</div>;
   }
-  if (!circuit) {
-    return <div style={{ padding: 60, textAlign: 'center', color: '#ef4444', fontSize: 15 }}>Circuit not found.</div>;
+  if (!inventoryItem) {
+    return <div style={{ padding: 60, textAlign: 'center', color: '#ef4444', fontSize: 15 }}>InventoryItem not found.</div>;
   }
 
   return (
@@ -233,7 +233,7 @@ export default function CircuitDetail() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             className="btn btn-ghost btn-sm"
-            onClick={() => navigate('/circuits')}
+            onClick={() => navigate('/inventory')}
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <ArrowLeft size={15} /> Back
@@ -248,14 +248,14 @@ export default function CircuitDetail() {
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc' }}>
-                {circuit.circuit_id}
+                {inventoryItem.inventory_number}
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                {circuit.location || 'No location'} · {circuit.account_name}
+                {inventoryItem.location || 'No location'} · {inventoryItem.account_name}
               </div>
             </div>
           </div>
-          <span className={STATUS_BADGE[circuit.status] || 'badge badge-gray'}>{circuit.status}</span>
+          <span className={STATUS_BADGE[inventoryItem.status] || 'badge badge-gray'}>{inventoryItem.status}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -277,7 +277,7 @@ export default function CircuitDetail() {
           )}
           <div ref={menuRef} style={{ position: 'relative' }}>
             <button
-              title="Circuit options"
+              title="InventoryItem options"
               onClick={() => setMenuOpen(v => !v)}
               style={{ ...NAV_BTN, background: menuOpen ? 'rgba(255,255,255,0.15)' : 'transparent', color: menuOpen ? '#f8fafc' : '#cbd5e1' }}
             >
@@ -285,7 +285,7 @@ export default function CircuitDetail() {
             </button>
             {menuOpen && (
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 220, zIndex: 9000, padding: '6px 0' }}>
-                <MenuItem label={circuit.status === 'Disconnected' ? 'Activate Circuit' : 'Disconnect Circuit'} onClick={handleToggleActive} />
+                <MenuItem label={inventoryItem.status === 'Disconnected' ? 'Activate InventoryItem' : 'Disconnect InventoryItem'} onClick={handleToggleActive} />
                 <MenuDivider />
                 <MenuItem label="Non-PO Edit" onClick={() => setMenuOpen(false)} stub />
                 <MenuItem label="Create Contract Mapping" onClick={() => setMenuOpen(false)} stub />
@@ -301,14 +301,14 @@ export default function CircuitDetail() {
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         <div className="kpi-card purple">
-          <div className="kpi-label">Circuit Type</div>
-          <div className="kpi-value" style={{ fontSize: 22 }}>{circuit.type || '—'}</div>
-          <div className="kpi-sub">{circuit.bandwidth || 'Bandwidth not set'}</div>
+          <div className="kpi-label">InventoryItem Type</div>
+          <div className="kpi-value" style={{ fontSize: 22 }}>{inventoryItem.type || '—'}</div>
+          <div className="kpi-sub">{inventoryItem.bandwidth || 'Bandwidth not set'}</div>
         </div>
         <div className="kpi-card blue">
           <div className="kpi-label">Monthly Rate</div>
           <div className="kpi-value">
-            {circuit.contracted_rate != null ? `$${Number(circuit.contracted_rate).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
+            {inventoryItem.contracted_rate != null ? `$${Number(inventoryItem.contracted_rate).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
           </div>
           <div className="kpi-sub">Contracted rate</div>
         </div>
@@ -319,16 +319,16 @@ export default function CircuitDetail() {
         </div>
       </div>
 
-      {/* Editable Circuit Details */}
+      {/* Editable InventoryItem Details */}
       <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
-          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Circuit Details</span>
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>InventoryItem Details</span>
           {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-          <Field label="Circuit ID *">
-            <input className="form-input" value={form.circuit_id} onChange={e => set('circuit_id', e.target.value)} />
+          <Field label="InventoryItem ID *">
+            <input className="form-input" value={form.inventory_number} onChange={e => set('inventory_number', e.target.value)} />
           </Field>
 
           <Field label="Vendor Account *">
@@ -342,7 +342,7 @@ export default function CircuitDetail() {
             <input className="form-input" value={form.location} onChange={e => set('location', e.target.value)} />
           </Field>
 
-          <Field label="Circuit Type">
+          <Field label="InventoryItem Type">
             <select className="form-input" value={form.type} onChange={e => set('type', e.target.value)}>
               {TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
@@ -397,7 +397,7 @@ export default function CircuitDetail() {
         {!order ? (
           <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
             <AlertTriangle size={20} style={{ marginBottom: 6 }} />
-            <div>No order linked to this circuit.</div>
+            <div>No order linked to this inventoryItem.</div>
             <div style={{ fontSize: 11, marginTop: 4 }}>Use the dropdown above to assign an order.</div>
           </div>
         ) : (
@@ -440,10 +440,10 @@ export default function CircuitDetail() {
           <span
             className="rc-results-count"
             style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onClick={() => navigate('/invoices', { state: { filters: { account_name: circuit.account_name }, showFilters: true } })}
+            onClick={() => navigate('/invoices', { state: { filters: { account_name: inventoryItem.account_name }, showFilters: true } })}
             title="View all invoices for this vendor"
           >
-            <Receipt size={16} color="#2563eb" /> Invoices Containing This Circuit
+            <Receipt size={16} color="#2563eb" /> Invoices Containing This InventoryItem
             <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>{invoices.length} invoice{invoices.length !== 1 ? 's' : ''}</span>
@@ -451,7 +451,7 @@ export default function CircuitDetail() {
         {invoices.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
             <Receipt size={20} style={{ marginBottom: 6 }} />
-            <div>No invoices found for this circuit.</div>
+            <div>No invoices found for this inventoryItem.</div>
           </div>
         ) : (
           <table className="data-table">
@@ -462,7 +462,7 @@ export default function CircuitDetail() {
                 <th>Invoice Date</th>
                 <th>Due Date</th>
                 <th>Period</th>
-                <th>Circuit Charges</th>
+                <th>InventoryItem Charges</th>
                 <th>Line Items</th>
                 <th>Invoice Total</th>
                 <th>Status</th>
@@ -481,7 +481,7 @@ export default function CircuitDetail() {
                     {inv.period_start ? `${dayjs(inv.period_start).format('MM/DD')} – ${dayjs(inv.period_end).format('MM/DD/YYYY')}` : '—'}
                   </td>
                   <td style={{ fontWeight: 700, color: '#2563eb' }}>
-                    ${Number(inv.circuit_total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    ${Number(inv.inventoryItem_total || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </td>
                   <td style={{ textAlign: 'center' }}>{inv.line_item_count}</td>
                   <td style={{ fontWeight: 700 }}>
@@ -498,8 +498,8 @@ export default function CircuitDetail() {
       </div>
 
       <div ref={refs.notes} style={{ scrollMarginTop: 80 }}>
-        <NoteTimeline entityType="circuit" entityId={id} />
-        <ChangeHistory resource="circuits" resourceId={id} refreshKey={historyKey} />
+        <NoteTimeline entityType="inventoryItem" entityId={id} />
+        <ChangeHistory resource="inventory" resourceId={id} refreshKey={historyKey} />
       </div>
     </div>
   );

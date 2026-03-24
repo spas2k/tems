@@ -11,9 +11,9 @@ function baseQuery() {
   return db('orders as o')
     .leftJoin('accounts as a', 'o.accounts_id', 'a.accounts_id')
     .leftJoin('contracts as co', 'o.contracts_id', 'co.contracts_id')
-    .leftJoin('circuits as ci', 'o.cir_id', 'ci.cir_id')
+    .leftJoin('inventory as ci', 'o.cir_id', 'ci.cir_id')
     .leftJoin('users as u', 'o.assigned_users_id', 'u.users_id')
-    .select('o.*', 'a.name as account_name', 'co.contract_number', 'ci.circuit_id as circuit_identifier', 'u.display_name as assigned_user_name');
+    .select('o.*', 'a.name as account_name', 'co.contract_number', 'ci.inventory_number as inventory_numberentifier', 'u.display_name as assigned_user_name');
 }
 
 router.get('/', async (req, res) => {
@@ -64,15 +64,15 @@ router.put('/:id', idParam, ...orderRules, validate, auditUpdate('orders', 'orde
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.get('/:id/circuits', idParam, validate, async (req, res) => {
+router.get('/:id/inventory', idParam, validate, async (req, res) => {
   try {
-    const rows = await db('circuits as ci')
+    const rows = await db('inventory as ci')
       .leftJoin('accounts as a', 'ci.accounts_id', 'a.accounts_id')
       .leftJoin('contracts as co', 'ci.contracts_id', 'co.contracts_id')
       .select('ci.*', 'a.name as account_name', 'co.contract_number')
       .where('ci.orders_id', req.params.id)
       .orderBy('ci.install_date', 'desc')
-      .orderBy('ci.circuit_id');
+      .orderBy('ci.inventory_number');
     res.json(rows);
   } catch (err) { safeError(res, err, 'orders'); }
 });

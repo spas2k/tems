@@ -21,9 +21,9 @@ import AccountDetail from './pages/AccountDetail';
 import Contracts    from './pages/Contracts';
 import ContractAdd  from './pages/ContractAdd';
 import ContractDetail from './pages/ContractDetail';
-import Circuits     from './pages/Circuits';
-import CircuitAdd   from './pages/CircuitAdd';
-import CircuitDetail from './pages/CircuitDetail';
+import Inventory     from './pages/Inventory';
+import InventoryItemAdd   from './pages/InventoryItemAdd';
+import InventoryDetail from './pages/InventoryDetail';
 import Orders       from './pages/Orders';
 import OrderAdd     from './pages/OrderAdd';
 import OrderDetail  from './pages/OrderDetail';
@@ -78,7 +78,7 @@ import { globalSearch } from './api';
 const SEARCH_GROUPS = [
   { key: 'vendors',   idKey: 'accounts_id',  label: 'Vendors',   color: '#2563eb', path: id => `/vendors/${id}`,   display: r => r.name },
   { key: 'contracts', idKey: 'contracts_id', label: 'Contracts', color: '#0d9488', path: id => `/contracts/${id}`, display: r => r.contract_number || r.name },
-  { key: 'circuits',  idKey: 'cir_id',  label: 'Circuits',  color: '#7c3aed', path: id => `/circuits/${id}`,  display: r => r.circuit_id },
+  { key: 'inventory',  idKey: 'cir_id',  label: 'Inventory',  color: '#7c3aed', path: id => `/inventory/${id}`,  display: r => r.inventory_number },
   { key: 'orders',    idKey: 'orders_id',    label: 'Orders',    color: '#d97706', path: id => `/orders/${id}`,    display: r => r.order_number },
   { key: 'invoices',  idKey: 'invoices_id',  label: 'Invoices',  color: '#dc2626', path: id => `/invoices/${id}`,  display: r => r.invoice_number },
   { key: 'usoc_codes', idKey: 'usoc_codes_id', label: 'USOC Codes', color: '#9333ea', path: id => `/usoc-codes/${id}`, display: r => `${r.usoc_code} — ${r.description}` },
@@ -136,7 +136,7 @@ function GlobalSearch() {
           value={query}
           onChange={handleChange}
           onFocus={() => results && setOpen(true)}
-          placeholder="Search accounts, circuits, orders…"
+          placeholder="Search accounts, inventory, orders…"
           className="global-search-input"
           style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, fontWeight: 500 }}
         />
@@ -218,7 +218,7 @@ function RecentItems() {
     return () => window.removeEventListener('tems-recent-item', handler);
   }, []);
 
-  const TYPE_COLORS = { account: '#2563eb', contract: '#0d9488', circuit: '#7c3aed', order: '#d97706', invoice: '#dc2626' };
+  const TYPE_COLORS = { account: '#2563eb', contract: '#0d9488', inventoryItem: '#7c3aed', order: '#d97706', invoice: '#dc2626' };
 
   if (items.length === 0) return null;
 
@@ -452,9 +452,9 @@ const NAV = [
       { path: '/locations', icon: MapPin, label: 'All Locations' },
     ],
   },
-  { path: '/circuits',     icon: Network,         label: 'Circuits',
+  { path: '/inventory',     icon: Network,         label: 'Inventory',
     children: [
-      { path: '/circuits',     icon: Network,       label: 'All Circuits' },
+      { path: '/inventory',     icon: Network,       label: 'All Inventory' },
       { path: '/cost-savings', icon: Zap,          label: 'Cost Savings' },
       { path: '/projects',     icon: FolderKanban,  label: 'Projects' },
     ],
@@ -487,11 +487,11 @@ const PAGE_META = {
   '/contracts':     { label: 'Contracts',    sub: 'Track contracts and terms' },
   '/contracts/new': { label: 'New Contract', sub: 'Create a new vendor contract' },
   '/contracts/:id': { label: 'Contract Detail', sub: 'View and edit contract information' },
-  '/circuits':     { label: 'Circuits',    sub: 'Circuit inventory' },
-  '/circuits/new': { label: 'New Circuit', sub: 'Add a circuit to the inventory' },
-  '/circuits/:id': { label: 'Circuit Detail', sub: 'View and edit circuit information' },
-  '/orders':        { label: 'Orders',       sub: 'Circuit orders & provisioning' },
-  '/orders/new':    { label: 'New Order',    sub: 'Create a new circuit order' },
+  '/inventory':     { label: 'Inventory',    sub: 'InventoryItem inventory' },
+  '/inventory/new': { label: 'New InventoryItem', sub: 'Add a inventoryItem to the inventory' },
+  '/inventory/:id': { label: 'InventoryItem Detail', sub: 'View and edit inventoryItem information' },
+  '/orders':        { label: 'Orders',       sub: 'InventoryItem orders & provisioning' },
+  '/orders/new':    { label: 'New Order',    sub: 'Create a new inventoryItem order' },
   '/orders/:id':    { label: 'Order Detail', sub: 'View and edit order information' },
   '/invoices':     { label: 'Invoices',    sub: 'Invoice management & review' },
   '/invoices/new': { label: 'New Invoice', sub: 'Record a new vendor invoice' },
@@ -516,7 +516,7 @@ const PAGE_META = {
   '/administration': { label: 'Administration', sub: 'System administration tools' },
   '/batch-upload':   { label: 'Batch Upload', sub: 'Import data from Excel templates' },
   '/role-permissions': { label: 'Role Permissions', sub: 'Configure access control for each user role' },
-  '/locations':      { label: 'Locations',        sub: 'Circuit installation site locations' },
+  '/locations':      { label: 'Locations',        sub: 'InventoryItem installation site locations' },
   '/locations/new':  { label: 'New Location',     sub: 'Add a new site location' },
   '/locations/:id':  { label: 'Location Detail',  sub: 'View and edit location' },
   '/field-catalog':            { label: 'Field Catalog',    sub: 'User-defined dropdown options' },
@@ -601,9 +601,9 @@ function AppShell() {
     '/disputes':           'disputes',
     '/rate-audit':         'contracts',
     '/audit-log':          'roles',
-    '/circuits':           'circuits',
+    '/inventory':           'inventory',
     '/cost-savings':       'cost_savings',
-    '/projects':           'circuits',
+    '/projects':           'inventory',
     '/orders':             'orders',
     '/milestones':         'orders',
     '/invoices':           'invoices',
@@ -706,8 +706,8 @@ function AppShell() {
 
   const activeKey = location.pathname.endsWith('/new')
     ? location.pathname
-    : location.pathname.startsWith('/circuits/') && location.pathname !== '/circuits'
-    ? '/circuits/:id'
+    : location.pathname.startsWith('/inventory/') && location.pathname !== '/inventory'
+    ? '/inventory/:id'
     : location.pathname.startsWith('/orders/') && location.pathname !== '/orders'
     ? '/orders/:id'
     : location.pathname.startsWith('/vendors/') && location.pathname !== '/vendors'
@@ -1077,9 +1077,9 @@ function AppShell() {
             <Route path="/contracts"     element={<Contracts />} />
             <Route path="/contracts/new" element={<ContractAdd />} />
             <Route path="/contracts/:id" element={<ContractDetail />} />
-            <Route path="/circuits"     element={<Circuits />} />
-            <Route path="/circuits/new" element={<CircuitAdd />} />
-            <Route path="/circuits/:id" element={<CircuitDetail />} />
+            <Route path="/inventory"     element={<Inventory />} />
+            <Route path="/inventory/new" element={<InventoryItemAdd />} />
+            <Route path="/inventory/:id" element={<InventoryDetail />} />
             <Route path="/orders"       element={<Orders />} />
             <Route path="/orders/new"   element={<OrderAdd />} />
             <Route path="/orders/:id"   element={<OrderDetail />} />

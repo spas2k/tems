@@ -8,23 +8,23 @@ const db = require('../db');
 const DEPS = {
   accounts: [
     { table: 'contracts',    fk: 'accounts_id',  label: 'contracts' },
-    { table: 'circuits',     fk: 'accounts_id',  label: 'circuits' },
+    { table: 'inventory',     fk: 'accounts_id',  label: 'inventory' },
     { table: 'orders',       fk: 'accounts_id',  label: 'orders' },
     { table: 'invoices',     fk: 'accounts_id',  label: 'invoices' },
     { table: 'cost_savings', fk: 'accounts_id',  label: 'cost savings' },
     { table: 'disputes',     fk: 'accounts_id',  label: 'disputes' },
   ],
   contracts: [
-    { table: 'circuits',       fk: 'contracts_id', label: 'circuits' },
+    { table: 'inventory',       fk: 'contracts_id', label: 'inventory' },
     { table: 'orders',         fk: 'contracts_id', label: 'orders' },
     { table: 'contract_rates', fk: 'contracts_id', label: 'contract rates' },
   ],
-  circuits: [
+  inventory: [
     { table: 'line_items',   fk: 'cir_id',  label: 'line items' },
     { table: 'cost_savings', fk: 'cir_id',  label: 'cost savings' },
   ],
   orders: [
-    { table: 'circuits', fk: 'orders_id', label: 'circuits' },
+    { table: 'inventory', fk: 'orders_id', label: 'inventory' },
   ],
   invoices: [
     { table: 'line_items', fk: 'invoices_id', label: 'line items' },

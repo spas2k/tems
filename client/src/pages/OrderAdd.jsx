@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShoppingCart } from 'lucide-react';
-import { createOrder, getAccounts, getCircuits } from '../api';
+import { createOrder, getAccounts, getInventory } from '../api';
 import FormPage from '../components/FormPage';
 
 const STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
@@ -29,8 +29,8 @@ const SECTIONS = [
     description: 'What this order is for and related records',
     fields: (rel) => [
       { key: 'description', label: 'Description', placeholder: 'Brief description of this order' },
-      { key: 'cir_id', label: 'Related Circuit (optional)', type: 'select',
-        options: (rel.circuits || []).map(c => ({ value: c.cir_id, label: `${c.circuit_id} — ${c.location || ''}` })),
+      { key: 'cir_id', label: 'Related InventoryItem (optional)', type: 'select',
+        options: (rel.inventory || []).map(c => ({ value: c.cir_id, label: `${c.inventory_number} — ${c.location || ''}` })),
         placeholder: 'None' },
     ],
   },
@@ -53,13 +53,13 @@ export default function OrderAdd() {
   return (
     <FormPage
       title="New Order"
-      subtitle="Create a new circuit order"
+      subtitle="Create a new inventoryItem order"
       icon={ShoppingCart}
       sections={SECTIONS}
       emptyForm={EMPTY}
       loadRelated={async () => {
-        const [acct, circ] = await Promise.all([getAccounts(), getCircuits()]);
-        return { accounts: acct.data, circuits: circ.data };
+        const [acct, circ] = await Promise.all([getAccounts(), getInventory()]);
+        return { accounts: acct.data, inventory: circ.data };
       }}
       defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
       beforeSave={form => ({ ...form, cir_id: form.cir_id || null })}

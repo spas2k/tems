@@ -30,7 +30,7 @@ function sourceLink(type, id, label) {
   if (!type || !id) return '—';
   const paths = {
     invoice:  `/invoices/${id}`,
-    circuit:  `/circuits/${id}`,
+    inventoryItem:  `/inventory/${id}`,
     contract: `/contracts/${id}`,
     order:    `/orders/${id}`,
     account:  `/accounts/${id}`,

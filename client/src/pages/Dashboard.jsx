@@ -110,7 +110,7 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
         <KpiCard label="Vendors"       value={data.totalAccounts}  icon={Building2}     color="blue"   sub="Active accounts" />
         <KpiCard label="Contracts"     value={data.activeContracts} icon={FileText}     color="teal"   sub="Active agreements" />
-        <KpiCard label="Circuits"      value={data.activeCircuits}  icon={Network}      color="purple" sub="In inventory" />
+        <KpiCard label="Inventory"      value={data.activeInventory}  icon={Network}      color="purple" sub="In inventory" />
         <KpiCard label="Open Invoices" value={data.openInvoices}    icon={Receipt}      color="orange" sub="Pending review" />
         <KpiCard label="Pending Orders" value={data.pendingOrders}  icon={ShoppingCart} color="slate"  sub="In provisioning" />
         <KpiCard label="Monthly MRC"   value={`$${fmt(totalMrc)}`}  icon={RefreshCw}    color="blue"   sub="Recurring charges" />
@@ -298,7 +298,7 @@ export default function Dashboard() {
           </div>
           <table className="data-table">
             <thead><tr>
-              <th>Description</th><th>Invoice</th><th>Circuit</th><th>Billed</th><th>Contracted</th><th>Variance</th><th>Audit</th>
+              <th>Description</th><th>Invoice</th><th>InventoryItem</th><th>Billed</th><th>Contracted</th><th>Variance</th><th>Audit</th>
             </tr></thead>
             <tbody>
               {data.recentVariances.map(v => (
@@ -309,7 +309,7 @@ export default function Dashboard() {
                       {v.invoice_number}
                     </span>
                   </td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{v.circuit_id || '—'}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{v.inventory_number || '—'}</td>
                   <td style={{ fontWeight: 700 }}>${Number(v.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                   <td>${Number(v.contracted_rate || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                   <td style={{ color: '#ef4444', fontWeight: 700 }}>${Number(v.variance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>

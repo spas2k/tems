@@ -57,13 +57,13 @@ const TABLE_DEFS = {
       { column: 'auto_renew',     label: 'Auto Renew (0/1)',  required: false, type: 'integer', example: 0 },
     ],
   },
-  circuits: {
-    label: 'Circuits',
+  inventory: {
+    label: 'Inventory',
     columns: [
       { column: 'accounts_id',    label: 'Account ID',     required: true,  type: 'integer', example: 1 },
       { column: 'contracts_id',   label: 'Contract ID',    required: true,  type: 'integer', example: 1 },
       { column: 'orders_id',      label: 'Order ID',       required: false, type: 'integer', example: '' },
-      { column: 'circuit_id', label: 'Circuit ID',  required: true,  type: 'string',  example: 'CKT-ATT-1001' },
+      { column: 'inventory_number', label: 'InventoryItem ID',  required: true,  type: 'string',  example: 'CKT-ATT-1001' },
       { column: 'type',           label: 'Type',            required: false, type: 'string',  example: 'MPLS' },
       { column: 'bandwidth',      label: 'Bandwidth',       required: false, type: 'string',  example: '100 Mbps' },
       { column: 'location',       label: 'Location',        required: false, type: 'string',  example: 'New York, NY' },
@@ -78,7 +78,7 @@ const TABLE_DEFS = {
     columns: [
       { column: 'accounts_id',    label: 'Account ID',     required: true,  type: 'integer', example: 1 },
       { column: 'contracts_id',   label: 'Contract ID',    required: true,  type: 'integer', example: 1 },
-      { column: 'cir_id',    label: 'Circuit ID',     required: false, type: 'integer', example: '' },
+      { column: 'cir_id',    label: 'InventoryItem ID',     required: false, type: 'integer', example: '' },
       { column: 'order_number',   label: 'Order Number',   required: true,  type: 'string',  example: 'ORD-2024-001' },
       { column: 'description',    label: 'Description',    required: false, type: 'string',  example: 'New MPLS site install' },
       { column: 'contracted_rate',label: 'Contracted Rate', required: false, type: 'decimal', example: 1500.00 },
@@ -106,7 +106,7 @@ const TABLE_DEFS = {
     label: 'Line Items',
     columns: [
       { column: 'invoices_id',    label: 'Invoice ID',      required: true,  type: 'integer', example: 1 },
-      { column: 'cir_id',    label: 'Circuit ID',      required: false, type: 'integer', example: 1 },
+      { column: 'cir_id',    label: 'InventoryItem ID',      required: false, type: 'integer', example: 1 },
       { column: 'usoc_codes_id',  label: 'USOC Code ID',    required: false, type: 'integer', example: '' },
       { column: 'description',    label: 'Description',     required: false, type: 'string',  example: 'MPLS Port — 100 Mbps' },
       { column: 'charge_type',    label: 'Charge Type',     required: false, type: 'string',  example: 'MRC' },
@@ -135,7 +135,7 @@ const TABLE_DEFS = {
     label: 'Cost Savings',
     columns: [
       { column: 'accounts_id',       label: 'Account ID',        required: true,  type: 'integer', example: 1 },
-      { column: 'cir_id',       label: 'Circuit ID',        required: false, type: 'integer', example: '' },
+      { column: 'cir_id',       label: 'InventoryItem ID',        required: false, type: 'integer', example: '' },
       { column: 'line_items_id',     label: 'Line Item ID',      required: false, type: 'integer', example: '' },
       { column: 'invoices_id',       label: 'Invoice ID',        required: false, type: 'integer', example: '' },
       { column: 'category',          label: 'Category',          required: false, type: 'string',  example: 'Overcharge' },
@@ -156,7 +156,7 @@ const TABLE_DEFS = {
       { column: 'sub_category', label: 'Sub Category', required: false, type: 'string',  example: 'Data' },
       { column: 'default_mrc',  label: 'Default MRC',  required: false, type: 'decimal', example: 500.00 },
       { column: 'default_nrc',  label: 'Default NRC',  required: false, type: 'decimal', example: 0 },
-      { column: 'unit',         label: 'Unit',         required: false, type: 'string',  example: 'per circuit' },
+      { column: 'unit',         label: 'Unit',         required: false, type: 'string',  example: 'per inventoryItem' },
       { column: 'status',       label: 'Status',       required: false, type: 'string',  example: 'Active' },
     ],
   },
