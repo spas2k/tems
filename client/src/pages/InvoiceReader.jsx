@@ -7,7 +7,7 @@ import {
 import {
   parseInvoiceFile, processInvoiceFile, getReaderFields,
   getReaderTemplates, createReaderTemplate, deleteReaderTemplate,
-  getReaderUploads, getAccounts,
+  getReaderUploads, getVendors,
 } from '../api';
 
 const FORMAT_ICONS = { Excel: FileSpreadsheet, PDF: FileText, EDI: FileCode };
@@ -29,10 +29,10 @@ export default function InvoiceReader() {
   const [parsed, setParsed]       = useState(null);   // parsed file data
   const [fields, setFields]       = useState(null);   // available target fields
   const [templates, setTemplates] = useState([]);
-  const [accounts, setAccounts]   = useState([]);
+  const [vendors, setVendors]   = useState([]);
   const [uploads, setUploads]     = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [selectedAccount, setSelectedAccount]   = useState('');
+  const [selectedVendor, setSelectedVendor]   = useState('');
   const [selectedSheet, setSelectedSheet]       = useState('');
   const [mappings, setMappings]   = useState({});     // { sourceCol: { field, table, type } }
   const [result, setResult]       = useState(null);
@@ -41,11 +41,11 @@ export default function InvoiceReader() {
   const [templateName, setTemplateName] = useState('');
   const fileInputRef = useRef(null);
 
-  // Fetch fields, templates, accounts on mount
+  // Fetch fields, templates, vendors on mount
   useEffect(() => {
     getReaderFields().then(r => setFields(r.data)).catch(() => {});
     getReaderTemplates().then(r => setTemplates(r.data)).catch(() => {});
-    getAccounts().then(r => setAccounts(r.data)).catch(() => {});
+    getVendors().then(r => setVendors(r.data)).catch(() => {});
     getReaderUploads().then(r => setUploads(r.data)).catch(() => {});
   }, []);
 
@@ -101,8 +101,8 @@ export default function InvoiceReader() {
     if (tmpl.config?.columnMappings) {
       setMappings(tmpl.config.columnMappings);
     }
-    if (tmpl.accounts_id) {
-      setSelectedAccount(String(tmpl.accounts_id));
+    if (tmpl.vendors_id) {
+      setSelectedVendor(String(tmpl.vendors_id));
     }
   };
 
@@ -112,7 +112,7 @@ export default function InvoiceReader() {
     try {
       const res = await createReaderTemplate({
         name: templateName.trim(),
-        accounts_id: selectedAccount || null,
+        vendors_id: selectedVendor || null,
         format_type: parsed?.format || 'Excel',
         config: {
           columnMappings: mappings,
@@ -134,7 +134,7 @@ export default function InvoiceReader() {
     setError(null);
     try {
       const opts = {
-        accounts_id: selectedAccount || null,
+        vendors_id: selectedVendor || null,
         mappings,
         sheet_name: selectedSheet || null,
       };
@@ -273,23 +273,23 @@ export default function InvoiceReader() {
           {/* ── STEP 1: Upload ───────────────────────────────── */}
           {step === 1 && (
             <div>
-              {/* Account selector */}
+              {/* Vendor selector */}
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: 6, fontSize: 14 }}>
-                  Account / Vendor (Optional)
+                  Vendor / Vendor (Optional)
                 </label>
                 <select
-                  value={selectedAccount}
-                  onChange={e => setSelectedAccount(e.target.value)}
+                  value={selectedVendor}
+                  onChange={e => setSelectedVendor(e.target.value)}
                   style={{
                     width: '100%', maxWidth: 400, padding: '10px 12px', borderRadius: 8,
                     border: '1px solid var(--border-color, #d1d5db)', fontSize: 14,
                     background: 'var(--input-bg, #fff)', color: 'var(--text-color, #1e293b)',
                   }}
                 >
-                  <option value="">— Select Account —</option>
-                  {accounts.map(a => (
-                    <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>
+                  <option value="">— Select Vendor —</option>
+                  {vendors.map(a => (
+                    <option key={a.vendors_id} value={a.vendors_id}>{a.name}</option>
                   ))}
                 </select>
               </div>
@@ -648,7 +648,7 @@ export default function InvoiceReader() {
                 </table>
               </div>
 
-              {/* Account & file info */}
+              {/* Vendor & file info */}
               <div style={{
                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20,
               }}>
@@ -663,9 +663,9 @@ export default function InvoiceReader() {
                   padding: 16, borderRadius: 10,
                   background: 'var(--bg-muted, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)',
                 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted, #94a3b8)', marginBottom: 4 }}>Account</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted, #94a3b8)', marginBottom: 4 }}>Vendor</div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>
-                    {selectedAccount ? accounts.find(a => a.accounts_id === Number(selectedAccount))?.name || '—' : 'Not selected'}
+                    {selectedVendor ? vendors.find(a => a.vendors_id === Number(selectedVendor))?.name || '—' : 'Not selected'}
                   </div>
                 </div>
               </div>
@@ -903,7 +903,7 @@ export default function InvoiceReader() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-muted, #f8fafc)' }}>
-                    {['File', 'Format', 'Account', 'Template', 'Status', 'Rows', 'Invoices', 'Line Items', 'Errors', 'Date'].map(h => (
+                    {['File', 'Format', 'Vendor', 'Template', 'Status', 'Rows', 'Invoices', 'Line Items', 'Errors', 'Date'].map(h => (
                       <th key={h} style={{
                         padding: '10px 12px', textAlign: 'left',
                         borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: 600,

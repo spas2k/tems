@@ -175,7 +175,7 @@ export default function Dashboard() {
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={(data.savingsOpportunities || []).slice(0, 10).map(s => ({
-              name: s.account_name?.length > 14 ? s.account_name.slice(0, 14) + '…' : s.account_name,
+              name: s.vendor_name?.length > 14 ? s.vendor_name.slice(0, 14) + '…' : s.vendor_name,
               Savings: parseFloat(s.projected_savings) || 0,
             }))} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -272,7 +272,7 @@ export default function Dashboard() {
             <tbody>
               {(data.savingsOpportunities || []).map(s => (
                 <tr key={s.cost_savings_id}>
-                  <td style={{ fontWeight: 500 }}>{s.account_name}</td>
+                  <td style={{ fontWeight: 500 }}>{s.vendor_name}</td>
                   <td><span className="badge badge-blue">{s.category}</span></td>
                   <td style={{ color: '#16a34a', fontWeight: 700 }}>${Number(s.projected_savings).toLocaleString()}</td>
                   <td><span className={STATUS_BADGE[s.status] || 'badge badge-gray'}>{s.status}</span></td>
