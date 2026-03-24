@@ -10,10 +10,10 @@ import { useConfirm } from '../context/ConfirmContext';
 
 const SERVICE_TYPES = ['Telecom', 'ISP', 'Wireless', 'Fiber/Colocation', 'Fiber/Small Cell', 'SD-WAN/Carrier', 'ISP/Cable', 'Other'];
 
-const EMPTY = { name: '', account_number: '', vendor_type: 'Telecom', contact_name: '', contact_email: '', contact_phone: '', status: 'Active', notes: '' };
+const EMPTY = { name: '', vendor_number: '', vendor_type: 'Telecom', contact_name: '', contact_email: '', contact_phone: '', status: 'Active' };
 
 const FILTER_CONFIG = {
-  name: 'text', account_number: 'text', vendor_type: 'select',
+  name: 'text', vendor_number: 'text', vendor_type: 'select',
   contact_name: 'text', contact_email: 'text', status: 'select',
 };
 
@@ -21,18 +21,18 @@ export default function Vendors() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canCreate = hasPermission('accounts', 'create');
-  const canDelete = hasPermission('accounts', 'delete');
+  const canCreate = hasPermission('vendors', 'create');
+  const canDelete = hasPermission('vendors', 'delete');
   const table = useCrudTable({
     api: { list: getVendors, create: createVendor, update: updateVendor, delete: deleteVendor },
-    idKey: 'accounts_id',
+    idKey: 'vendors_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
   });
 
   const columns = [
-    { key: 'name', label: 'Vendor Name', copyable: true, summary: 'count', link: row => navigate(`/vendors/${row.accounts_id}`) },
-    { key: 'account_number', label: 'Account #', style: { fontFamily: 'monospace', fontSize: 12, color: '#64748b' } },
+    { key: 'name', label: 'Vendor Name', copyable: true, summary: 'count', link: row => navigate(`/vendors/${row.vendors_id}`) },
+    { key: 'vendor_number', label: 'Vendor #', style: { fontFamily: 'monospace', fontSize: 12, color: '#64748b' } },
     { key: 'vendor_type', label: 'Service Type', filterType: 'select', filterOptions: SERVICE_TYPES },
     { key: 'contact_name', label: 'Contact' },
     { key: 'contact_email', label: 'Email', style: { color: '#3b82f6' } },

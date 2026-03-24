@@ -8,13 +8,11 @@ import CrudModal from '../components/CrudModal';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 
-const VENDOR_TYPES = ['AT&T', 'Comcast', 'Verizon', 'Lumen', 'Spectrum', 'Other'];
-
-const EMPTY = { name: '', account_number: '', vendor_type: 'AT&T', contact_name: '', contact_email: '', contact_phone: '', status: 'Active', notes: '' };
+const EMPTY = { vendors_id: '', name: '', account_number: '', subaccount_number: '', account_type: '', team: '', status: 'Active' };
 
 const FILTER_CONFIG = {
-  name: 'text', account_number: 'text', vendor_type: 'select',
-  contact_name: 'text', contact_email: 'text', status: 'select',
+  name: 'text', account_number: 'text', subaccount_number: 'text', account_type: 'select',
+  team: 'text', status: 'select',
 };
 
 export default function Accounts() {
@@ -31,11 +29,11 @@ export default function Accounts() {
   });
 
   const columns = [
-    { key: 'name', label: 'Vendor Name', copyable: true, summary: 'count', link: row => navigate(`/accounts/${row.accounts_id}`) },
+    { key: 'name', label: 'Company / Account Name', copyable: true, summary: 'count', link: row => navigate(`/accounts/${row.accounts_id}`) },
     { key: 'account_number', label: 'Account #', style: { fontFamily: 'monospace', fontSize: 12, color: '#64748b' } },
-    { key: 'vendor_type', label: 'Type', filterType: 'select', filterOptions: VENDOR_TYPES },
-    { key: 'contact_name', label: 'Contact' },
-    { key: 'contact_email', label: 'Email', style: { color: '#3b82f6' } },
+    { key: 'subaccount_number', label: 'Sub-Account', filterType: 'text' },
+    { key: 'account_type', label: 'Type', filterType: 'text' },
+    { key: 'team', label: 'Team', filterType: 'text' },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: ['Active', 'Inactive'],
       badge: { Active: 'badge badge-green', Inactive: 'badge badge-gray' } },
   ];

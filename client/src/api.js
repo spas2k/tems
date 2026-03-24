@@ -18,13 +18,12 @@ export const getVendorInventory  = id => api.get(`/vendors/${id}/inventory`);
 export const createVendor       = d  => api.post('/vendors', d);
 export const updateVendor       = (id,d) => api.put(`/vendors/${id}`, d);
 export const deleteVendor       = id => api.delete(`/vendors/${id}`);
-// Legacy aliases (used by Accounts page)
-export const getAccounts        = getVendors;
-export const getAccount         = getVendor;
-export const getAccountInventory = getVendorInventory;
-export const createAccount      = createVendor;
-export const updateAccount      = updateVendor;
-export const deleteAccount      = deleteVendor;
+export const getAccounts        = () => api.get('/accounts');
+export const getAccount         = id => api.get(`/accounts/${id}`);
+export const getAccountInventory = id => api.get(`/accounts/${id}/inventory`);
+export const createAccount      = d  => api.post('/accounts', d);
+export const updateAccount      = (id,d) => api.put(`/accounts/${id}`, d);
+export const deleteAccount      = id => api.delete(`/accounts/${id}`);
 
 export const getLocations    = ()        => api.get('/locations');
 export const getLocation     = id        => api.get(`/locations/${id}`);
