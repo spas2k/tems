@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import LookupField from './LookupField';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import DetailHeader from './DetailHeader';
@@ -106,6 +107,35 @@ export default function FormPage({
     }
 
     const labelEl = <label className="form-label">{label}</label>;
+
+    if (type === 'lookup') {
+      const fieldData = typeof field.data === 'function' ? field.data(related) : (field.data || []);
+      const idKey = field.idKey || 'id';
+      const displayKey = field.displayKey || 'name';
+      
+      const selectedItem = fieldData.find(item => item[idKey] == value);
+      const displayValue = selectedItem ? selectedItem[displayKey] : '';
+
+      return (
+        <LookupField
+          label={label}
+          value={value}
+          displayValue={displayValue}
+          options={fieldData}
+          data={fieldData}
+          idKey={idKey}
+          displayKey={displayKey}
+          disabled={disabled}
+          placeholder={placeholder}
+          modalTitle={field.modalTitle || label}
+          searchableKeys={field.searchableKeys}
+          columns={field.columns}
+          onChange={(row) => setField(key, row[idKey])}
+          onClear={() => setField(key, '')}
+        />
+      );
+    }
+  
 
     if (type === 'select') {
       const opts = typeof options === 'function' ? options(related) : (options || []);

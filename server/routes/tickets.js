@@ -29,7 +29,7 @@ const ticketRules = [
   body('status').optional().isIn(STATUSES).withMessage('Invalid status'),
   body('source_entity_type').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 50 }),
   body('source_entity_id').optional({ nullable: true, values: 'falsy' }).isInt({ min: 1 }),
-  body('source_label').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 255 }),
+  body('source_entity_label').optional({ nullable: true, values: 'falsy' }).trim().isLength({ max: 255 }),
   body('assigned_users_id').optional({ nullable: true, values: 'falsy' }).isInt({ min: 1 }),
   body('due_date').optional({ nullable: true, values: 'falsy' }).isISO8601(),
   body('resolved_date').optional({ nullable: true, values: 'falsy' }).isISO8601(),
@@ -88,7 +88,7 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
   try {
     const {
       title, description, category, priority, status,
-      source_entity_type, source_entity_id, source_label,
+      source_entity_type, source_entity_id, source_entity_label,
       assigned_users_id, due_date, resolution, tags, environment, browser_info,
         steps_to_reproduce, expected_behavior, actual_behavior,
       console_errors,
@@ -106,7 +106,7 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
       status:             status    || 'Open',
       source_entity_type: source_entity_type || null,
       source_entity_id:   source_entity_id   || null,
-      source_label:       source_label       || null,
+      source_entity_label:       source_entity_label       || null,
       assigned_users_id:  assigned_users_id  || null,
       created_by,
       due_date:           due_date           || null,
@@ -175,7 +175,7 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
   try {
     const {
       title, description, category, priority, status,
-      source_entity_type, source_entity_id, source_label,
+      source_entity_type, source_entity_id, source_entity_label,
       assigned_users_id, due_date, resolved_date, resolution, tags, environment, browser_info,
         steps_to_reproduce, expected_behavior, actual_behavior,
       console_errors,
@@ -246,7 +246,7 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
       status,
       source_entity_type: source_entity_type || null,
       source_entity_id:   source_entity_id   || null,
-      source_label:       source_label       || null,
+      source_entity_label:       source_entity_label       || null,
       assigned_users_id:  assigned_users_id  || null,
       due_date:           due_date           || null,
       resolved_date:      autoResolvedDate,

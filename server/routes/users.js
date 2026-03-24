@@ -163,6 +163,22 @@ router.post('/', requireRole('Admin'), userRules, validate, auditCreate('users',
   } catch (err) { safeError(res, err, 'users'); }
 });
 
+
+// PUT /api/users/me/preferences - update current user preferences
+router.put('/me/preferences', async (req, res) => {
+  try {
+    if (!req.user || !req.user.users_id) return res.json({ success: true, fake: true });
+    // Merge new preferences
+    const user = await db('users').where('users_id', req.user.users_id).first();
+    const prefs = user.preferences || {};
+    const updated = { ...prefs, ...req.body };
+    await db('users').where('users_id', req.user.users_id).update({ preferences: JSON.stringify(updated) });
+    res.json(updated);
+  } catch (err) {
+    safeError(res, err, 'users');
+  }
+});
+
 // PUT /api/users/:id — Admin only
 router.put('/:id', requireRole('Admin'), idParam, ...userRules, validate, auditUpdate('users', 'users_id'), async (req, res) => {
   try {

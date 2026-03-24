@@ -115,6 +115,7 @@ export const getRateValidation = () => api.get('/rate-validation');
 
 // ── Auth / Users / Roles ───────────────────────────────────
 export const getCurrentUser   = () => api.get('/users/me');
+export const updateMyPreferences = (prefs) => api.put('/users/me/preferences', prefs);
 export const getDemoUsers     = () => api.get('/users/demo-users');
 export const getUsers         = () => api.get('/users');
 export const getUser          = id => api.get(`/users/${id}`);

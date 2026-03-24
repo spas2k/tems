@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getCurrentUser, getDemoUsers } from '../api';
+import { getCurrentUser, getDemoUsers, updateMyPreferences } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -15,7 +15,19 @@ export function AuthProvider({ children }) {
   const loadUser = useCallback(async () => {
     try {
       const res = await getCurrentUser();
-      setUser(res.data);
+      
+      const userData = res.data;
+      if (typeof userData.preferences === 'string') {
+        try { userData.preferences = JSON.parse(userData.preferences); } catch(e) { userData.preferences = {}; }
+      } else {
+        userData.preferences = userData.preferences || {};
+      }
+      
+      // Sync DB preferences to localStorage for FOUC and external scripts
+      if (userData.preferences.theme) localStorage.setItem('tems-theme', userData.preferences.theme);
+      if (userData.preferences.rows_per_page) localStorage.setItem('tems-rows-per-page', userData.preferences.rows_per_page);
+      
+      setUser(userData);
     } catch {
       setUser({
         users_id: null,
@@ -69,6 +81,22 @@ export function AuthProvider({ children }) {
    * @param {string} resource - e.g. 'accounts'
    * @param {string} action   - e.g. 'delete'
    */
+
+  const updatePreferences = async (newPrefs) => {
+    if (!user) return;
+    const merged = { ...(user.preferences || {}), ...newPrefs };
+    setUser(u => ({ ...u, preferences: merged }));
+    
+    if (merged.theme) localStorage.setItem('tems-theme', merged.theme);
+    if (merged.rows_per_page) localStorage.setItem('tems-rows-per-page', merged.rows_per_page);
+    
+    try {
+      await updateMyPreferences(newPrefs);
+    } catch (e) {
+      console.error('Failed to save preferences to server', e);
+    }
+  };
+
   const hasPermission = useCallback((resource, action) => {
     if (!user) return false;
     const perms = user.permissions || [];
@@ -92,6 +120,7 @@ export function AuthProvider({ children }) {
     demoUsers,
     isImpersonating: !!impersonatedId,
     refreshUser: loadUser,
+    updatePreferences,
     hasPermission,
     hasRole,
     canWrite,

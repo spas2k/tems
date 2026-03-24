@@ -69,6 +69,7 @@ import VendorRemitDetail from './pages/VendorRemitDetail';
 import Announcements   from './pages/Announcements';
 import SpendCategories from './pages/SpendCategories';
 import AnnouncementBanner from './components/AnnouncementBanner';
+import ScrollToTop from './components/ScrollToTop';
 import FavoritesPanel from './components/FavoritesPanel';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { ConfirmProvider } from './context/ConfirmContext';
@@ -1065,6 +1066,7 @@ function AppShell() {
         <PageTitleContext.Provider value={{ setPageTitle }}>
         <div className="app-content" style={{ flex: 1, overflowY: 'auto', padding: effectiveMobile ? '14px' : '24px' }}>
           <AnnouncementBanner />
+            <ScrollToTop />
           <ErrorBoundary>
             <Routes>
             <Route path="/"             element={<Dashboard />} />
@@ -1135,7 +1137,7 @@ function AppShell() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <FavoritesProvider>
           <ConfirmProvider>
