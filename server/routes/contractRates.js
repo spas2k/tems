@@ -11,7 +11,7 @@ function baseQuery() {
   return db('contract_rates as cr')
     .leftJoin('contracts as c', 'cr.contracts_id', 'c.contracts_id')
     .leftJoin('usoc_codes as u', 'cr.usoc_codes_id', 'u.usoc_codes_id')
-    .leftJoin('accounts as a', 'c.accounts_id', 'a.accounts_id')
+    .leftJoin('vendors as a', 'c.vendors_id', 'a.vendors_id')
     .select(
       'cr.*',
       'c.contract_number', 'c.name as contract_name',

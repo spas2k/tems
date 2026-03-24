@@ -13,13 +13,13 @@ router.get('/', async (req, res) => {
   try {
     const [vendors, contracts, inventory, orders, invoices, usoc_codes] = await Promise.all([
       db('accounts as a')
-        .select('a.accounts_id', 'a.name', 'a.account_number as sub')
+        .select('a.vendors_id', 'a.name', 'a.account_number as sub')
         .where('a.name', matchOperator, like)
         .orWhere('a.account_number', matchOperator, like)
         .limit(6),
 
       db('contracts as c')
-        .leftJoin('accounts as a', 'c.accounts_id', 'a.accounts_id')
+        .leftJoin('vendors as a', 'c.vendors_id', 'a.vendors_id')
         .select('c.contracts_id', db.raw('COALESCE(c.contract_number, c.name) as contract_number'), 'c.name', 'a.name as sub')
         .where('c.contract_number', matchOperator, like)
         .orWhere('c.name', matchOperator, like)
@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
         .limit(6),
 
       db('invoices as i')
-        .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
+        .leftJoin('accounts as a', 'i.accounts_id', 'a.vendors_id')
         .select('i.invoices_id', 'i.invoice_number', 'a.name as sub')
         .where('i.invoice_number', matchOperator, like)
         .limit(6),

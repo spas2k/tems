@@ -1,0 +1,11 @@
+const fs = require('fs');
+let rContent = fs.readFileSync('client/src/pages/InvoiceReader.jsx', 'utf8');
+rContent = rContent.replace(/accounts_id/g, 'vendors_id');
+rContent = rContent.replace(/accounts=getAccounts/g, 'vendors=getVendors');
+rContent = rContent.replace(/getAccounts/g, 'getVendors');
+rContent = rContent.replace(/accounts/g, 'vendors');
+rContent = rContent.replace(/Accounts/g, 'Vendors');
+rContent = rContent.replace(/Account/g, 'Vendor');
+rContent = rContent.replace(/selectedAccount/g, 'selectedVendor');
+rContent = rContent.replace(/setSelectedAccount/g, 'setSelectedVendor');
+fs.writeFileSync('client/src/pages/InvoiceReader.jsx', rContent);

@@ -311,10 +311,10 @@ router.post('/parse', requireRole('Admin', 'Manager', 'Analyst'), upload.single(
 router.get('/templates', requireRole('Admin', 'Manager', 'Analyst'), async (req, res) => {
   try {
     let query = db('invoice_reader_templates as t')
-      .leftJoin('accounts as a', 't.accounts_id', 'a.accounts_id')
+      .leftJoin('vendors as a', 't.vendors_id', 'a.vendors_id')
       .select('t.*', 'a.name as account_name');
 
-    if (req.query.accounts_id) query = query.where('t.accounts_id', req.query.accounts_id);
+    if (req.query.vendors_id) query = query.where('t.vendors_id', req.query.vendors_id);
     if (req.query.format_type) query = query.where('t.format_type', req.query.format_type);
     if (req.query.status)      query = query.where('t.status', req.query.status);
 
@@ -332,7 +332,7 @@ router.get('/templates', requireRole('Admin', 'Manager', 'Analyst'), async (req,
 router.get('/templates/:id', requireRole('Admin', 'Manager', 'Analyst'), async (req, res) => {
   try {
     const row = await db('invoice_reader_templates as t')
-      .leftJoin('accounts as a', 't.accounts_id', 'a.accounts_id')
+      .leftJoin('vendors as a', 't.vendors_id', 'a.vendors_id')
       .select('t.*', 'a.name as account_name')
       .where('t.invoice_reader_templates_id', req.params.id)
       .first();
@@ -373,7 +373,7 @@ router.put('/templates/:id', requireRole('Admin', 'Manager'), async (req, res) =
     const { name, accounts_id, format_type, config, status } = req.body;
     const update = {};
     if (name !== undefined)        update.name = name;
-    if (accounts_id !== undefined) update.accounts_id = accounts_id || null;
+    if (vendors_id !== undefined) update.vendors_id = accounts_id || null;
     if (format_type !== undefined)  update.format_type = format_type;
     if (config !== undefined)      update.config = JSON.stringify(config);
     if (status !== undefined)      update.status = status;
@@ -411,7 +411,7 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     try {
       return {
         template_id: req.body.template_id ? Number(req.body.template_id) : null,
-        accounts_id: req.body.accounts_id ? Number(req.body.accounts_id) : null,
+        accounts_id: req.body.vendors_id ? Number(req.body.vendors_id) : null,
         mappings: req.body.mappings ? JSON.parse(req.body.mappings) : null,
         sheet_name: req.body.sheet_name || null,
       };
@@ -646,10 +646,10 @@ router.get('/uploads', requireRole('Admin', 'Manager', 'Analyst'), async (req, r
   try {
     let query = db('invoice_reader_uploads as u')
       .leftJoin('invoice_reader_templates as t', 'u.invoice_reader_templates_id', 't.invoice_reader_templates_id')
-      .leftJoin('accounts as a', 'u.accounts_id', 'a.accounts_id')
+      .leftJoin('vendors as a', 'u.vendors_id', 'a.vendors_id')
       .select('u.*', 't.name as template_name', 'a.name as account_name');
 
-    if (req.query.accounts_id) query = query.where('u.accounts_id', req.query.accounts_id);
+    if (req.query.vendors_id) query = query.where('u.vendors_id', req.query.vendors_id);
     if (req.query.status)      query = query.where('u.status', req.query.status);
 
     const rows = await query.orderBy('u.created_at', 'desc');
