@@ -11,9 +11,13 @@ const ROLES = [
 
 // All TEMS resources
 const RESOURCES = [
-  'accounts', 'contracts', 'circuits', 'orders', 'invoices',
+  'vendors', 'accounts', 'contracts', 'inventory', 'orders', 'invoices',
   'line_items', 'allocations', 'cost_savings', 'usoc_codes',
-  'contract_rates', 'disputes', 'users', 'roles',
+  'contract_rates', 'disputes', 'users', 'roles', 'permissions', 'locations',
+  'company_codes', 'currencies', 'bank_cost_centers', 'spend_categories',
+  'field_catalog', 'vendor_remit', 'invoice_reader_templates', 'invoice_reader_uploads',
+  'tickets', 'ticket_comments', 'user_favorites', 'audit_log', 'announcements',
+  'projects', 'form_instructions'
 ];
 
 const ACTIONS = ['create', 'read', 'update', 'delete'];
