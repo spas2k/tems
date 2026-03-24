@@ -79,7 +79,7 @@ export default function Vendors() {
         titleIcon={<Landmark size={15} color="#2563eb" />}
         exportFilename="Vendors"
         bulkActions={canDelete ? [
-          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.accounts_id, { skipConfirm: true })); } }
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.vendors_id, { skipConfirm: true })); } }
         ] : []}
         headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/vendors/new')}><Plus size={15} /> New Vendor</button> : null}
       />

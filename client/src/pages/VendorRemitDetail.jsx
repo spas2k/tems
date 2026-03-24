@@ -24,7 +24,7 @@ export default function VendorRemitDetail() {
   const navigate = useNavigate();
   const { setPageTitle } = useContext(PageTitleContext);
   const { hasPermission } = useAuth();
-  const canUpdate = hasPermission('accounts', 'update');
+  const canUpdate = hasPermission('vendors', 'update');
 
   const [remit,   setRemit]   = useState(null);
   const [vendors, setVendors] = useState([]);
@@ -50,12 +50,12 @@ export default function VendorRemitDetail() {
         setPageTitle(d.remit_name);
         setFormData({
           remit_name:          d.remit_name          || '',
-          accounts_id:         String(d.accounts_id  || ''),
+          vendors_id:         String(d.vendors_id  || ''),
           remit_code:          d.remit_code          || '',
           payment_method:      d.payment_method      || 'ACH',
           bank_name:           d.bank_name           || '',
           routing_number:      d.routing_number      || '',
-          bank_account_number: d.bank_account_number || '',
+          bank_vendor_number: d.bank_vendor_number || '',
           remit_address:       d.remit_address       || '',
           remit_city:          d.remit_city          || '',
           remit_state:         d.remit_state         || '',
@@ -151,9 +151,9 @@ export default function VendorRemitDetail() {
             </Field>
           </div>
           <Field label="Vendor">
-            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
+            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
               <option value="">— Select Vendor —</option>
-              {vendors.map(v => <option key={v.accounts_id} value={String(v.accounts_id)}>{v.name}</option>)}
+              {vendors.map(v => <option key={v.vendors_id} value={String(v.vendors_id)}>{v.name}</option>)}
             </select>
           </Field>
           <Field label="Remit Code">
@@ -186,8 +186,8 @@ export default function VendorRemitDetail() {
             <input className="form-input" value={form.routing_number} onChange={e => set('routing_number', e.target.value)} />
           </Field>
           <div style={{ gridColumn: '1 / -1' }}>
-            <Field label="Account Number">
-              <input className="form-input" value={form.bank_account_number} onChange={e => set('bank_account_number', e.target.value)} />
+            <Field label="Vendor Number">
+              <input className="form-input" value={form.bank_vendor_number} onChange={e => set('bank_vendor_number', e.target.value)} />
             </Field>
           </div>
         </div>

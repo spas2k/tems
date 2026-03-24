@@ -11,8 +11,8 @@ import { useConfirm } from '../context/ConfirmContext';
 const PAYMENT_METHODS = ['ACH', 'Check', 'Wire', 'EFT', 'Credit Card'];
 
 const EMPTY = {
-  accounts_id: '', remit_name: '', remit_code: '', payment_method: 'ACH',
-  bank_name: '', routing_number: '', bank_account_number: '',
+  vendors_id: '', remit_name: '', remit_code: '', payment_method: 'ACH',
+  bank_name: '', routing_number: '', bank_vendor_number: '',
   remit_address: '', remit_city: '', remit_state: '', remit_zip: '',
   status: 'Active', notes: '',
 };
@@ -25,8 +25,8 @@ export default function VendorRemit() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canCreate = hasPermission('accounts', 'create');
-  const canDelete  = hasPermission('accounts', 'delete');
+  const canCreate = hasPermission('vendors', 'create');
+  const canDelete  = hasPermission('vendors', 'delete');
 
   const table = useCrudTable({
     api: { list: getVendorRemits, create: createVendorRemit, update: updateVendorRemit, delete: deleteVendorRemit },
@@ -37,7 +37,7 @@ export default function VendorRemit() {
   });
 
   const vendorOptions = (table.related?.vendors || []).map(v => ({
-    value: String(v.accounts_id), label: v.name,
+    value: String(v.vendors_id), label: v.name,
   }));
 
   const columns = [
@@ -53,7 +53,7 @@ export default function VendorRemit() {
 
   const formFields = [
     { key: 'remit_name', label: 'Remit Name *' },
-    { key: 'accounts_id', label: 'Vendor', type: 'select',
+    { key: 'vendors_id', label: 'Vendor', type: 'select',
       options: vendorOptions.map(v => v.value),
       optionLabels: vendorOptions.map(v => v.label),
       half: true },
@@ -62,7 +62,7 @@ export default function VendorRemit() {
     { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], half: true },
     { key: 'bank_name', label: 'Bank Name', half: true },
     { key: 'routing_number', label: 'Routing Number', half: true },
-    { key: 'bank_account_number', label: 'Bank Account Number' },
+    { key: 'bank_vendor_number', label: 'Bank Vendor Number' },
     { key: 'remit_address', label: 'Remit Address' },
     { key: 'remit_city', label: 'City', half: true },
     { key: 'remit_state', label: 'State', half: true },
