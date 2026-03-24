@@ -9,7 +9,7 @@ import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import {
   getOrder, updateOrder, getOrderInventory,
-  getAccounts, getContracts, getInventory, getUsers,
+  getVendors, getContracts, getInventory, getUsers,
 } from '../api';
 import dayjs from 'dayjs';
 
@@ -88,7 +88,7 @@ export default function OrderDetail() {
   const canUpdate = hasPermission('orders', 'update');
   const [order,     setOrder]     = useState(null);
   const [inventory,  setInventory]  = useState([]);
-  const [accounts,  setAccounts]  = useState([]);
+  const [vendors,  setVendors]  = useState([]);
   const [contracts, setContracts] = useState([]);
   const [allInventory, setAllInventory] = useState([]);
 
@@ -147,7 +147,7 @@ export default function OrderDetail() {
     Promise.all([
       getOrder(id),
       getOrderInventory(id),
-      getAccounts(),
+      getVendors(),
       getContracts(),
       getInventory(),
     ]).then(([o, ci, ac, co, allCi]) => {
@@ -155,13 +155,13 @@ export default function OrderDetail() {
       setOrder(ord);
       setPageTitle(ord.order_number);
       setInventory(ci.data);
-      setAccounts(ac.data);
+      setVendors(ac.data);
       setContracts(co.data);
       setAllInventory(allCi.data);
       setForm({
-        accounts_id:      ord.accounts_id      || '',
+        vendors_id:      ord.vendors_id      || '',
         contracts_id:     ord.contracts_id     || '',
-        cir_id:      ord.cir_id      || '',
+        inventory_id:      ord.inventory_id      || '',
         order_number:    ord.order_number    || '',
         description:     ord.description     || '',
         contracted_rate: ord.contracted_rate != null ? ord.contracted_rate : '',
@@ -246,7 +246,7 @@ export default function OrderDetail() {
                 {order.order_number}
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                {order.account_name}{order.contract_number ? ` · ${order.contract_number}` : ''}
+                {order.vendor_name}{order.contract_number ? ` · ${order.contract_number}` : ''}
               </div>
             </div>
           </div>
@@ -342,10 +342,10 @@ export default function OrderDetail() {
             <input className="form-input" value={form.order_number} onChange={e => set('order_number', e.target.value)} />
           </Field>
 
-          <Field label="Vendor Account *">
-            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
+          <Field label="Vendor *">
+            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
               <option value="">Select vendor…</option>
-              {accounts.map(a => <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>)}
+              {vendors.map(v => <option key={v.vendors_id} value={v.vendors_id}>{v.name}</option>)}
             </select>
           </Field>
 
@@ -387,16 +387,16 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* InventoryItem Change Orders */}
+      {/* Inventory Item Change Orders */}
       <div className="page-card" ref={refs.inventory} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span
             className="rc-results-count"
             style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onClick={() => navigate('/inventory', { state: { filters: { account_name: order.account_name }, showFilters: true } })}
+            onClick={() => navigate('/inventory', { state: { filters: { vendor_name: order.vendor_name }, showFilters: true } })}
             title="View all inventory for this vendor"
           >
-            <Network size={16} color="#7c3aed" /> InventoryItem Change Orders
+            <Network size={16} color="#7c3aed" /> Inventory Item Change Orders
             <ExternalLink size={12} color="#94a3b8" />
           </span>
           <span style={{ fontSize: 12, color: '#64748b' }}>
@@ -427,9 +427,9 @@ export default function OrderDetail() {
             </thead>
             <tbody>
               {inventory.map(ci => (
-                <tr key={ci.cir_id}>
+                <tr key={ci.inventory_id}>
                   <td>
-                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.cir_id}`)}>{ci.inventory_number}</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`/inventory/${ci.inventory_id}`)}>{ci.inventory_number}</span>
                   </td>
                   <td>{ci.account_name}</td>
                   <td>{ci.location || '—'}</td>

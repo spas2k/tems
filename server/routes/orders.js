@@ -9,18 +9,18 @@ const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit')
 // Reusable base query for orders with joined names
 function baseQuery() {
   return db('orders as o')
-    .leftJoin('accounts as a', 'o.accounts_id', 'a.accounts_id')
+    .leftJoin('vendors as v', 'o.vendors_id', 'v.vendors_id')
     .leftJoin('contracts as co', 'o.contracts_id', 'co.contracts_id')
-    .leftJoin('inventory as ci', 'o.cir_id', 'ci.cir_id')
+    .leftJoin('inventory as i', 'o.inventory_id', 'i.inventory_id')
     .leftJoin('users as u', 'o.assigned_users_id', 'u.users_id')
-    .select('o.*', 'a.name as account_name', 'co.contract_number', 'ci.inventory_number as inventory_numberentifier', 'u.display_name as assigned_user_name');
+    .select('o.*', 'v.name as vendor_name', 'co.contract_number', 'i.inventory_number', 'u.display_name as assigned_user_name');
 }
 
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
-    if (req.query.accounts_id) query = query.where('o.accounts_id', req.query.accounts_id);
-    if (req.query.status)      query = query.where('o.status', req.query.status);
+    if (req.query.vendors_id) query = query.where('o.vendors_id', req.query.vendors_id);
+    if (req.query.status) query = query.where('o.status', req.query.status);
     const rows = await query.orderBy('o.order_date', 'desc');
     res.json(rows);
   } catch (err) { safeError(res, err, 'orders'); }
@@ -36,10 +36,15 @@ router.get('/:id', idParam, validate, async (req, res) => {
 
 router.post('/', orderRules, validate, auditCreate('orders', 'orders_id'), async (req, res) => {
   try {
-    const { accounts_id, contracts_id, cir_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
+    const { vendors_id, contracts_id, inventory_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
     const id = await db.insertReturningId('orders', {
-      accounts_id, contracts_id, cir_id: cir_id || null,
-      order_number, description, contracted_rate, order_date,
+      vendors_id,
+      contracts_id,
+      inventory_id: inventory_id || null,
+      order_number,
+      description: description || '',
+      contracted_rate: contracted_rate || null,
+      order_date: order_date || null,
       due_date: due_date || null,
       status: status || 'In Progress',
       notes: notes || '',
@@ -52,11 +57,18 @@ router.post('/', orderRules, validate, auditCreate('orders', 'orders_id'), async
 
 router.put('/:id', idParam, ...orderRules, validate, auditUpdate('orders', 'orders_id'), async (req, res) => {
   try {
-    const { accounts_id, contracts_id, cir_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
+    const { vendors_id, contracts_id, inventory_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
     await db('orders').where('orders_id', req.params.id).update({
-      accounts_id, contracts_id, cir_id: cir_id || null,
-      order_number, description, contracted_rate, order_date,
-      due_date: due_date || null, status, notes: notes || '',
+      vendors_id,
+      contracts_id,
+      inventory_id: inventory_id || null,
+      order_number,
+      description: description || '',
+      contracted_rate: contracted_rate || null,
+      order_date: order_date || null,
+      due_date: due_date || null,
+      status,
+      notes: notes || '',
       assigned_users_id: assigned_users_id || null,
     });
     const row = await baseQuery().where('o.orders_id', req.params.id).first();
@@ -66,13 +78,13 @@ router.put('/:id', idParam, ...orderRules, validate, auditUpdate('orders', 'orde
 
 router.get('/:id/inventory', idParam, validate, async (req, res) => {
   try {
-    const rows = await db('inventory as ci')
-      .leftJoin('accounts as a', 'ci.accounts_id', 'a.accounts_id')
-      .leftJoin('contracts as co', 'ci.contracts_id', 'co.contracts_id')
-      .select('ci.*', 'a.name as account_name', 'co.contract_number')
-      .where('ci.orders_id', req.params.id)
-      .orderBy('ci.install_date', 'desc')
-      .orderBy('ci.inventory_number');
+    const rows = await db('inventory as i')
+      .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
+      .leftJoin('contracts as co', 'i.contracts_id', 'co.contracts_id')
+      .select('i.*', 'a.name as account_name', 'co.contract_number')
+      .where('i.orders_id', req.params.id)
+      .orderBy('i.install_date', 'desc')
+      .orderBy('i.inventory_number');
     res.json(rows);
   } catch (err) { safeError(res, err, 'orders'); }
 });

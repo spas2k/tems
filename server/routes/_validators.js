@@ -92,7 +92,7 @@ const contractRules = [
 
 const inventoryItemRules = [
   requiredFk('accounts_id'),
-  optionalFk('contracts_id'),
+  requiredFk('contracts_id'),
   optionalFk('orders_id'),
   requiredStr('inventory_number', 100),
   optionalStr('type', 60),
@@ -105,9 +105,9 @@ const inventoryItemRules = [
 ];
 
 const orderRules = [
-  requiredFk('accounts_id'),
-  optionalFk('contracts_id'),
-  optionalFk('cir_id'),
+  requiredFk('vendors_id'),
+  requiredFk('contracts_id'),
+  optionalFk('inventory_id'),
   requiredStr('order_number', 80),
   optionalStr('description', 255),
   optionalDecimal('contracted_rate'),
