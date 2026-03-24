@@ -84,7 +84,7 @@ export default function Orders() {
         titleIcon={<ShoppingCart size={15} color="#16a34a" />}
         exportFilename="Orders"
         bulkActions={canDelete ? [
-          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(Delete  + rows.length +  records?))) return; rows.forEach(r => table.handleDelete(r.orders_id, { skipConfirm: true })); } }
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm('Delete ' + rows.length + ' records?'))) return; rows.forEach(r => table.handleDelete(r.orders_id, { skipConfirm: true })); } }
         ] : []}
         headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/orders/new')}><Plus size={15} /> New Order</button> : null}
       />

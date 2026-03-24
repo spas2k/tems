@@ -82,7 +82,7 @@ export default function Inventory() {
         titleIcon={<Network size={15} color="#7c3aed" />}
         exportFilename="Inventory"
         bulkActions={canDelete ? [
-          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(Delete  + rows.length +  records?))) return; rows.forEach(r => table.handleDelete(r.inventory_id, { skipConfirm: true })); } }
+          { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm('Delete ' + rows.length + ' records?'))) return; rows.forEach(r => table.handleDelete(r.inventory_id, { skipConfirm: true })); } }
         ] : []}
         headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/inventory/new')}><Plus size={15} /> New Inventory Item</button> : null}
       />

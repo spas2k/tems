@@ -22,7 +22,7 @@ import Contracts    from './pages/Contracts';
 import ContractAdd  from './pages/ContractAdd';
 import ContractDetail from './pages/ContractDetail';
 import Inventory     from './pages/Inventory';
-import InventoryItemAdd   from './pages/InventoryItemAdd';
+import InventoryAdd   from './pages/InventoryAdd';
 import InventoryDetail from './pages/InventoryDetail';
 import Orders       from './pages/Orders';
 import OrderAdd     from './pages/OrderAdd';
@@ -1078,7 +1078,7 @@ function AppShell() {
             <Route path="/contracts/new" element={<ContractAdd />} />
             <Route path="/contracts/:id" element={<ContractDetail />} />
             <Route path="/inventory"     element={<Inventory />} />
-            <Route path="/inventory/new" element={<InventoryItemAdd />} />
+            <Route path="/inventory/new" element={<InventoryAdd />} />
             <Route path="/inventory/:id" element={<InventoryDetail />} />
             <Route path="/orders"       element={<Orders />} />
             <Route path="/orders/new"   element={<OrderAdd />} />

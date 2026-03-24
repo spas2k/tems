@@ -33,7 +33,7 @@ const SECTIONS = [
     fields: (rel) => [
       { key: 'description', label: 'Description', placeholder: 'Brief description of this order' },
       { key: 'inventory_id', label: 'Related Inventory Item (optional)', type: 'select',
-        options: (rel.inventory || []).map(i => ({ value: i.inventory_id, label: i.inventory_number + (i.location ?  —  + i.location : '') })),
+        options: (rel.inventory || []).map(i => ({ value: i.inventory_id, label: i.inventory_number + (i.location ? ' � ' + i.location : '') })),
         placeholder: 'None' },
     ],
   },
