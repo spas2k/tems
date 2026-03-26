@@ -31,6 +31,7 @@ export default function Locations() {
     idKey: 'locations_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
+    resourceName: 'locations',
   });
 
   const columns = [
@@ -87,6 +88,7 @@ export default function Locations() {
         title="All Locations"
         titleIcon={<MapPin size={15} color="#0d9488" />}
         exportFilename="Locations"
+        bulkUpdateFields={formFields}
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true,
             onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.locations_id, { skipConfirm: true })); } },

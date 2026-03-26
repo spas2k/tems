@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam } = require('./_validators');
 const { body } = require('express-validator');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 const remitRules = [
   body('remit_name').trim().notEmpty().withMessage('Remit Name is required').isLength({ max: 120 }),
@@ -38,7 +40,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
 
-router.post('/', remitRules, validate, auditCreate('vendor_remit', 'vendor_remit_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), remitRules, validate, auditCreate('vendor_remit', 'vendor_remit_id'), async (req, res) => {
   try {
     const { vendors_id, remit_name, remit_code, payment_method, bank_name,
             routing_number, bank_vendor_number, remit_address, remit_city,
@@ -57,7 +59,7 @@ router.post('/', remitRules, validate, auditCreate('vendor_remit', 'vendor_remit
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
 
-router.put('/:id', idParam, remitRules, validate, auditUpdate('vendor_remit', 'vendor_remit_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, remitRules, validate, auditUpdate('vendor_remit', 'vendor_remit_id'), async (req, res) => {
   try {
     const { vendors_id, remit_name, remit_code, payment_method, bank_name,
             routing_number, bank_vendor_number, remit_address, remit_city,
@@ -75,11 +77,14 @@ router.put('/:id', idParam, remitRules, validate, auditUpdate('vendor_remit', 'v
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
 
-router.delete('/:id', idParam, validate, auditDelete('vendor_remit', 'vendor_remit_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('vendor_remit', 'vendor_remit_id'), async (req, res) => {
   try {
     await db('vendor_remit').where('vendor_remit_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('vendor_remit', 'vendor_remit_id'));
 
 module.exports = router;

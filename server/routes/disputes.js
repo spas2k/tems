@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, disputeRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 function baseQuery() {
   return db('disputes as d')
@@ -32,7 +34,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'disputes'); }
 });
 
-router.post('/', disputeRules, validate, auditCreate('disputes', 'disputes_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), disputeRules, validate, auditCreate('disputes', 'disputes_id'), async (req, res) => {
   try {
     const { line_items_id, invoices_id, vendors_id, dispute_type, amount, status, filed_date, resolved_date, resolution_notes, credit_amount, reference_number, notes } = req.body;
     const id = await db.insertReturningId('disputes', {
@@ -48,7 +50,7 @@ router.post('/', disputeRules, validate, auditCreate('disputes', 'disputes_id'),
   } catch (err) { safeError(res, err, 'disputes'); }
 });
 
-router.put('/:id', idParam, ...disputeRules, validate, auditUpdate('disputes', 'disputes_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...disputeRules, validate, auditUpdate('disputes', 'disputes_id'), async (req, res) => {
   try {
     const { line_items_id, invoices_id, vendors_id, dispute_type, amount, status, filed_date, resolved_date, resolution_notes, credit_amount, reference_number, notes } = req.body;
     await db('disputes').where('disputes_id', req.params.id).update({
@@ -63,11 +65,14 @@ router.put('/:id', idParam, ...disputeRules, validate, auditUpdate('disputes', '
   } catch (err) { safeError(res, err, 'disputes'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('disputes', 'disputes_id'), auditDelete('disputes', 'disputes_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('disputes', 'disputes_id'), auditDelete('disputes', 'disputes_id'), async (req, res) => {
   try {
     await db('disputes').where('disputes_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'disputes'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('disputes', 'disputes_id'));
 
 module.exports = router;

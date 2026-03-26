@@ -26,20 +26,20 @@ export default function FieldCatalogDetail() {
       delete: deleteFieldCatalog,
     },
     idKey:        'field_catalog_id',
-    emptyForm:    { category: categoryName, label: '', value: '', sort_order: 0, is_active: true, description: '' },
-    filterConfig: { label: 'text', value: 'text', is_active: 'select' },
+    emptyForm:    { category: categoryName, label: '', sort_order: 0, is_active: true, description: '' },
+    filterConfig: { label: 'text', is_active: 'select' },
+    beforeSave: form => ({ ...form, value: form.label, is_active: form.is_active === true || form.is_active === 'true' }),
   });
 
   const columns = [
-    { key: 'label',       label: 'Display Label', summary: 'count' },
-    { key: 'value',       label: 'Stored Value',  style: { fontFamily: 'monospace', fontSize: 12, color: '#64748b' } },
+    { key: 'label',       label: 'Label', summary: 'count', link: row => table.openEdit(row) },
     { key: 'sort_order',  label: 'Order',         style: { textAlign: 'center', width: 80 } },
     { key: 'description', label: 'Description' },
     {
       key: 'is_active', label: 'Active',
-      render: row => (
-        <span className={row.is_active ? 'badge badge-green' : 'badge badge-gray'}>
-          {row.is_active ? 'Yes' : 'No'}
+      render: val => (
+        <span className={val ? 'badge badge-green' : 'badge badge-gray'}>
+          {val ? 'Yes' : 'No'}
         </span>
       ),
     },
@@ -47,8 +47,7 @@ export default function FieldCatalogDetail() {
 
   const formFields = [
     { key: 'category', label: 'Category', disabled: true },
-    { key: 'label',       label: 'Display Label', required: true, half: true },
-    { key: 'value',       label: 'Stored Value',  required: true, half: true },
+    { key: 'label',       label: 'Label', required: true, half: true },
     { key: 'sort_order',  label: 'Sort Order', type: 'number', half: true },
     { key: 'is_active',   label: 'Active', type: 'select', options: ['true', 'false'], half: true },
     { key: 'description', label: 'Description', type: 'textarea' },

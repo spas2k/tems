@@ -3,15 +3,17 @@ import { Eye, PieChart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAllocations, getInvoices } from '../api';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
 
 export default function Allocations() {
+  const { user } = useAuth();
   const [data, setData]         = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [filterInv, setFilterInv] = useState('');
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(() => user?.preferences?.rows_per_page || 26);
 
   const load = (invId) => {
     setLoading(true);

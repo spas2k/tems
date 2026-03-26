@@ -221,7 +221,7 @@ export default function LocationDetail() {
         </div>
       </div>
 
-      <NoteTimeline entity="location" entityId={id} />
+      <NoteTimeline entityType="location" entityId={id} />
       <ChangeHistory resource="locations" resourceId={id} refreshKey={historyKey} />
     </div>
   );

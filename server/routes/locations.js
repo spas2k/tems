@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam } = require('./_validators');
 const { body } = require('express-validator');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 const SITE_TYPES = ['Data Center', 'Office', 'Remote', 'Warehouse', 'Colocation', 'Other'];
 
@@ -30,7 +32,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'locations'); }
 });
 
-router.post('/', locationRules, validate, auditCreate('locations', 'locations_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), locationRules, validate, auditCreate('locations', 'locations_id'), async (req, res) => {
   try {
     const { name, site_code, site_type, address, city, state, zip, country,
             contact_name, contact_phone, contact_email, status, notes } = req.body;
@@ -44,7 +46,7 @@ router.post('/', locationRules, validate, auditCreate('locations', 'locations_id
   } catch (err) { safeError(res, err, 'locations'); }
 });
 
-router.put('/:id', idParam, locationRules, validate, auditUpdate('locations', 'locations_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, locationRules, validate, auditUpdate('locations', 'locations_id'), async (req, res) => {
   try {
     const { name, site_code, site_type, address, city, state, zip, country,
             contact_name, contact_phone, contact_email, status, notes } = req.body;
@@ -57,11 +59,14 @@ router.put('/:id', idParam, locationRules, validate, auditUpdate('locations', 'l
   } catch (err) { safeError(res, err, 'locations'); }
 });
 
-router.delete('/:id', idParam, validate, auditDelete('locations', 'locations_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('locations', 'locations_id'), async (req, res) => {
   try {
     await db('locations').where('locations_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'locations'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('locations', 'locations_id'));
 
 module.exports = router;

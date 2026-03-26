@@ -5,6 +5,7 @@ const safeError = require('./_safeError');
 const { validate, idParam } = require('./_validators');
 const { body } = require('express-validator');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
 
 const announcementRules = [
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 200 }),
@@ -41,7 +42,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'announcements'); }
 });
 
-router.post('/', announcementRules, validate, auditCreate('announcements', 'announcements_id'), async (req, res) => {
+router.post('/', requireRole('Admin'), announcementRules, validate, auditCreate('announcements', 'announcements_id'), async (req, res) => {
   try {
     const { title, message, type, is_active, start_date, end_date } = req.body;
     const created_by = req.user?.users_id || null;
@@ -57,7 +58,7 @@ router.post('/', announcementRules, validate, auditCreate('announcements', 'anno
   } catch (err) { safeError(res, err, 'announcements'); }
 });
 
-router.put('/:id', idParam, announcementRules, validate, auditUpdate('announcements', 'announcements_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin'), idParam, announcementRules, validate, auditUpdate('announcements', 'announcements_id'), async (req, res) => {
   try {
     const { title, message, type, is_active, start_date, end_date } = req.body;
     await db('announcements').where('announcements_id', req.params.id).update({
@@ -70,7 +71,7 @@ router.put('/:id', idParam, announcementRules, validate, auditUpdate('announceme
   } catch (err) { safeError(res, err, 'announcements'); }
 });
 
-router.delete('/:id', idParam, validate, auditDelete('announcements', 'announcements_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('announcements', 'announcements_id'), async (req, res) => {
   try {
     await db('announcements').where('announcements_id', req.params.id).del();
     res.json({ success: true });

@@ -5,7 +5,7 @@ import {
   Receipt, PieChart, Zap, DollarSign, ChevronLeft, ChevronRight, ChevronDown, User, Search, X, Tag,
   ShieldAlert, ShieldCheck, Users, Shield, Settings, Upload, Wrench, FolderKanban, Landmark, Flag, UserCheck, BookOpen,
   BarChart2, LineChart, Bell, Clock, Command, AlertTriangle, KeyRound, Menu,
-  MapPin, CreditCard, Megaphone, Layers, Database, LifeBuoy, AlertCircle,
+  MapPin, CreditCard, Megaphone, Layers, Database, LifeBuoy, AlertCircle, GitBranch,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { getContracts, getDashboard, getNotifications, markAllNotificationsRead } from './api';
@@ -67,7 +67,10 @@ import VendorRemit     from './pages/VendorRemit';
 import VendorRemitAdd  from './pages/VendorRemitAdd';
 import VendorRemitDetail from './pages/VendorRemitDetail';
 import Announcements   from './pages/Announcements';
+import FormInstructions from './pages/FormInstructions';
 import SpendCategories from './pages/SpendCategories';
+import Workflows from './pages/Workflows';
+import WorkflowDetail from './pages/WorkflowDetail';
 import AnnouncementBanner from './components/AnnouncementBanner';
 import ScrollToTop from './components/ScrollToTop';
 import FavoritesPanel from './components/FavoritesPanel';
@@ -474,7 +477,9 @@ const NAV = [
       { path: '/users',             icon: Users,     label: 'Users' },
       { path: '/role-permissions',  icon: KeyRound,  label: 'Role Permissions' },
       { path: '/field-catalog',     icon: Database,  label: 'Field Catalog' },
+      { path: '/form-instructions', icon: BookOpen,  label: 'Form Instructions' },
       { path: '/announcements',     icon: Megaphone, label: 'Announcements' },
+      { path: '/workflows',         icon: GitBranch, label: 'Workflows' },
     ],
   },
 
@@ -526,6 +531,8 @@ const PAGE_META = {
   '/vendor-remit/new': { label: 'New Vendor Remit', sub: 'Add a remittance record' },
   '/vendor-remit/:id': { label: 'Remit Detail',   sub: 'View and edit remittance record' },
   '/announcements':  { label: 'Announcements',    sub: 'System-wide announcement banners' },
+  '/workflows':      { label: 'Workflows',         sub: 'Workflow execution history & flowcharts' },
+  '/form-instructions': { label: 'Form Instructions', sub: 'Manage user form helper blurbs' },
   '/spend-categories': { label: 'Spend Categories', sub: 'Spending classification hierarchy' },
   '/tickets':        { label: 'Tickets & Issues', sub: 'Issue tracking and resolution' },
   '/tickets/new':    { label: 'New Ticket',        sub: 'Create a new ticket' },
@@ -618,6 +625,7 @@ function AppShell() {
     '/vendor-remit':       'accounts',
     '/field-catalog':      'users',
     '/announcements':      'roles',
+    '/form-instructions':  'roles',
     '/spend-categories':   'accounts',
   };
 
@@ -637,8 +645,10 @@ function AppShell() {
 
   const COLLAPSE_BREAKPOINT = 1024;
   const MOBILE_BREAKPOINT    = 768;
+  const COMPACT_HEADER_BREAKPOINT = 1450;
   const [collapsed, setCollapsed]         = useState(() => window.innerWidth < COLLAPSE_BREAKPOINT);
   const [isMobile, setIsMobile]           = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
+  const [isCompactHeader, setIsCompactHeader] = useState(() => window.innerWidth < COMPACT_HEADER_BREAKPOINT);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [manualOverride, setManualOverride] = useState(false);
   const [virtualMobile, setVirtualMobile] = useState(() => localStorage.getItem('tems-virtual-mobile') === 'true');
@@ -676,6 +686,7 @@ function AppShell() {
         setCollapsed(w < COLLAPSE_BREAKPOINT);
         setManualOverride(false);
         setIsMobile(w < MOBILE_BREAKPOINT);
+        setIsCompactHeader(w < COMPACT_HEADER_BREAKPOINT);
         if (w >= MOBILE_BREAKPOINT) setMobileNavOpen(false);
       }, 100);
     };
@@ -993,13 +1004,14 @@ function AppShell() {
         {/* Header */}
         <div className="app-header" style={{
           height: 60,
-          display: 'grid',
-          gridTemplateColumns: effectiveMobile ? '1fr auto' : '1fr auto 1fr',
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
+          gap: 16,
           padding: effectiveMobile ? '0 14px' : '0 28px',
           flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: effectiveMobile ? 10 : 0, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: effectiveMobile ? 10 : 0, minWidth: 0, flex: 1 }}>
             {effectiveMobile && (
               <button
                 onClick={() => setMobileNavOpen(o => !o)}
@@ -1010,14 +1022,22 @@ function AppShell() {
               </button>
             )}
             <div style={{ minWidth: 0 }}>
-              <div className="app-header-title" style={{ fontWeight: 800, fontSize: effectiveMobile ? 14 : 17, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.label}</div>
-              {!effectiveMobile && <div className="app-header-sub" style={{ fontSize: 12 }}>{meta.sub}</div>}
+              {(!isCompactHeader || effectiveMobile) && (
+                <>
+                  <div className="app-header-title" style={{ fontWeight: 800, fontSize: effectiveMobile ? 14 : 17, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.label}</div>
+                  {!effectiveMobile && <div className="app-header-sub" style={{ fontSize: 12 }}>{meta.sub}</div>}
+                </>
+              )}
             </div>
           </div>
-          {!effectiveMobile && <GlobalSearch />}
-          <div style={{ display: 'flex', alignItems: 'center', gap: effectiveMobile ? 8 : 16, justifyContent: 'flex-end' }}>
-            {!effectiveMobile && <FavoritesPanel />}
-            {!effectiveMobile && <RecentItems />}
+          {!effectiveMobile && (
+            <div style={{ flex: isCompactHeader ? '0 1 200px' : '0 1 400px', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+              <GlobalSearch />
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: effectiveMobile ? 8 : 16, justifyContent: 'flex-end', flex: 1, minWidth: 0 }}>
+            {!effectiveMobile && !isCompactHeader && <FavoritesPanel />}
+            {!effectiveMobile && !isCompactHeader && <RecentItems />}
             <NotificationCenter />
             <UserSwitcher />
           </div>
@@ -1122,10 +1142,13 @@ function AppShell() {
             <Route path="/vendor-remit/new" element={<VendorRemitAdd />} />
             <Route path="/vendor-remit/:id" element={<VendorRemitDetail />} />
             <Route path="/announcements"   element={<Announcements />} />
+            <Route path="/form-instructions" element={<FormInstructions />} />
             <Route path="/spend-categories" element={<SpendCategories />} />
             <Route path="/tickets"      element={<Tickets />} />
             <Route path="/tickets/new" element={<TicketAdd />} />
             <Route path="/tickets/:id" element={<TicketDetail />} />
+            <Route path="/workflows"    element={<Workflows />} />
+            <Route path="/workflows/:id" element={<WorkflowDetail />} />
           </Routes>
           </ErrorBoundary>
         </div>

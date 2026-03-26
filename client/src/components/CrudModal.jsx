@@ -1,5 +1,7 @@
 import React from 'react';
 import Modal from './Modal';
+import { useLocation } from 'react-router-dom';
+import FormInstructionBanner from './FormInstructionBanner';
 
 /**
  * Shared CRUD modal with config-driven form fields.
@@ -132,8 +134,12 @@ export default function CrudModal({
     return els;
   };
 
+  const location = useLocation();
+  const formId = location.pathname.replace(/^\/([^/]+).*/, '$1');
+
   return (
     <Modal open={open} title={title} onClose={onClose} onSave={onSave} width={width}>
+      {formId && <FormInstructionBanner formId={formId} />}
       {children || renderFields()}
     </Modal>
   );

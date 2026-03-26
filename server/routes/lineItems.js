@@ -6,6 +6,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, lineItemRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 // Reusable base query for line items with joined inventoryItem/invoice/usoc info
 function baseQuery() {
@@ -39,7 +41,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
-router.post('/', lineItemRules, validate, auditCreate('line_items', 'line_items_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), lineItemRules, validate, auditCreate('line_items', 'line_items_id'), async (req, res) => {
   try {
     const { invoices_id, inventory_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
     const variance = (contracted_rate != null && amount != null)
@@ -65,7 +67,7 @@ router.post('/', lineItemRules, validate, auditCreate('line_items', 'line_items_
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
-router.put('/:id', idParam, ...lineItemRules, validate, auditUpdate('line_items', 'line_items_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...lineItemRules, validate, auditUpdate('line_items', 'line_items_id'), async (req, res) => {
   try {
     const { invoices_id, inventory_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
     const variance = (contracted_rate != null && amount != null)
@@ -90,11 +92,14 @@ router.put('/:id', idParam, ...lineItemRules, validate, auditUpdate('line_items'
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('line_items', 'line_items_id'), auditDelete('line_items', 'line_items_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('line_items', 'line_items_id'), auditDelete('line_items', 'line_items_id'), async (req, res) => {
   try {
     await db('line_items').where('line_items_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('line_items', 'line_items_id'));
 
 module.exports = router;

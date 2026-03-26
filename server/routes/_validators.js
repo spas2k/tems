@@ -1,9 +1,9 @@
-// ============================================================
+﻿// ============================================================
 // Shared express-validator rules for all TEMS entities
 // ============================================================
 const { body, param, validationResult } = require('express-validator');
 
-// ── Middleware: run after validation rules to return 400 on failure ──
+// â”€â”€ Middleware: run after validation rules to return 400 on failure â”€â”€
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -15,44 +15,44 @@ const validate = (req, res, next) => {
   next();
 };
 
-// ── Reusable: id param must be a positive integer ──
+// â”€â”€ Reusable: id param must be a positive integer â”€â”€
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID must be a positive integer');
 
-// ── Helper: optional integer FK field ──
+// â”€â”€ Helper: optional integer FK field â”€â”€
 const optionalFk = (field) =>
   body(field).optional({ nullable: true, values: 'falsy' }).isInt({ min: 1 }).withMessage(`${field} must be a positive integer`);
 
-// ── Helper: required integer FK field ──
+// â”€â”€ Helper: required integer FK field â”€â”€
 const requiredFk = (field) =>
   body(field).notEmpty().withMessage(`${field} is required`).isInt({ min: 1 }).withMessage(`${field} must be a positive integer`);
 
-// ── Helper: optional decimal field ──
+// â”€â”€ Helper: optional decimal field â”€â”€
 const optionalDecimal = (field) =>
   body(field).optional({ nullable: true, values: 'falsy' }).isFloat().withMessage(`${field} must be a number`);
 
-// ── Helper: required string with max length ──
+// â”€â”€ Helper: required string with max length â”€â”€
 const requiredStr = (field, max = 255) =>
   body(field)
     .trim()
     .notEmpty().withMessage(`${field} is required`)
     .isLength({ max }).withMessage(`${field} must be at most ${max} characters`);
 
-// ── Helper: optional string with max length ──
+// â”€â”€ Helper: optional string with max length â”€â”€
 const optionalStr = (field, max = 255) =>
   body(field)
     .optional({ values: 'falsy' })
     .trim()
     .isLength({ max }).withMessage(`${field} must be at most ${max} characters`);
 
-// ── Helper: optional date field ──
+// â”€â”€ Helper: optional date field â”€â”€
 const optionalDate = (field) =>
   body(field).optional({ nullable: true, values: 'falsy' }).isISO8601().withMessage(`${field} must be a valid date`);
 
-// ── Helper: required date field ──
+// â”€â”€ Helper: required date field â”€â”€
 const requiredDate = (field) =>
   body(field).notEmpty().withMessage(`${field} is required`).isISO8601().withMessage(`${field} must be a valid date`);
 
-// ── Helper: enum field ──
+// â”€â”€ Helper: enum field â”€â”€
 const enumField = (field, values, required = false) => {
   let chain = body(field);
   if (required) chain = chain.notEmpty().withMessage(`${field} is required`);
@@ -63,6 +63,21 @@ const enumField = (field, values, required = false) => {
 // ============================================================
 // Entity-specific validation rule sets
 // ============================================================
+
+const vendorRules = [
+  requiredStr('name', 120),
+  optionalStr('vendor_number', 80),
+  optionalStr('vendor_type', 80),
+  optionalStr('contact_name', 120),
+  optionalStr('contact_email', 120),
+  optionalStr('contact_phone', 60),
+  optionalStr('country', 120),
+  optionalFk('currency_id'),
+  optionalStr('tier', 60),
+  body('fourth_party_vendor').optional({ nullable: true }).isBoolean(),
+  optionalStr('website', 255),
+  enumField('status', ['Active', 'Inactive']),
+];
 
 const accountRules = [
   requiredFk('vendors_id'),
@@ -228,6 +243,7 @@ const disputeRules = [
 module.exports = {
   validate,
   idParam,
+  vendorRules,
   accountRules,
   contractRules,
   inventoryItemRules,

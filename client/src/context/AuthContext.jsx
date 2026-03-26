@@ -26,9 +26,12 @@ export function AuthProvider({ children }) {
       // Sync DB preferences to localStorage for FOUC and external scripts
       if (userData.preferences.theme) localStorage.setItem('tems-theme', userData.preferences.theme);
       if (userData.preferences.rows_per_page) localStorage.setItem('tems-rows-per-page', userData.preferences.rows_per_page);
-      
+
       setUser(userData);
-    } catch {
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        localStorage.removeItem('tems-demo-user-id');
+      }
       setUser({
         users_id: null,
         email: 'anonymous@dev',

@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, contractRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 function baseQuery() {
   return db('contracts as c')
@@ -29,7 +31,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
-router.post('/', contractRules, validate, auditCreate('contracts', 'contracts_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), contractRules, validate, auditCreate('contracts', 'contracts_id'), async (req, res) => {
   try {
     const {
       vendors_id, contract_number, contract_name, type, subtype, parent_contract_id,
@@ -56,7 +58,7 @@ router.post('/', contractRules, validate, auditCreate('contracts', 'contracts_id
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
-router.put('/:id', idParam, ...contractRules, validate, auditUpdate('contracts', 'contracts_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...contractRules, validate, auditUpdate('contracts', 'contracts_id'), async (req, res) => {
   try {
     const {
       vendors_id, contract_number, contract_name, type, subtype, parent_contract_id,
@@ -106,11 +108,14 @@ router.get('/:id/orders', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('contracts', 'contracts_id'), auditDelete('contracts', 'contracts_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('contracts', 'contracts_id'), auditDelete('contracts', 'contracts_id'), async (req, res) => {
   try {
     await db('contracts').where('contracts_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'contracts'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('contracts', 'contracts_id'));
 
 module.exports = router;

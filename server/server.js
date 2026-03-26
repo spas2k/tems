@@ -80,6 +80,7 @@ app.use('/api/vendors',      require('./routes/vendors'));
 app.use('/api/accounts',     require('./routes/accounts'));
 app.use('/api/locations',    require('./routes/locations'));
 app.use('/api/field-catalog', require('./routes/fieldCatalog'));
+app.use('/api/form-instructions', require('./routes/formInstructions'));
 app.use('/api/vendor-remit', require('./routes/vendorRemit'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/spend-categories', require('./routes/spendCategories'));
@@ -103,6 +104,7 @@ app.use('/api/favorites',      require('./routes/favorites'));
 app.use('/api/tickets',        require('./routes/tickets'));
 app.use('/api/reports',        require('./routes/reports'));
 app.use('/api/notifications',  require('./routes/notifications'));
+app.use('/api/workflows',      require('./routes/workflows'));
 // Dashboard summary
 app.get('/api/dashboard', async (req, res) => {
   try {
@@ -257,3 +259,5 @@ app.use((err, req, res, _next) => {
 
 const PORT = process.env.PORT || 2001;
 app.listen(PORT, () => console.log(`TEMS API server running on port ${PORT}`));
+
+// Nodemon restart trigger

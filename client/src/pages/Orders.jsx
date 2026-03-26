@@ -5,6 +5,8 @@ import { getOrders, createOrder, updateOrder, deleteOrder, getVendors, getContra
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS, LOOKUP_CONTRACTS, LOOKUP_INVENTORY } from '../utils/lookupConfigs';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 
@@ -33,6 +35,7 @@ export default function Orders() {
     related: { vendors: getVendors, contracts: getContracts, inventory: getInventory },
     defaultValues: (rel) => ({ vendors_id: rel.vendors[0]?.vendors_id || '' }),
     beforeSave: form => ({ ...form, inventory_id: form.inventory_id || null }),
+    resourceName: 'orders',
   });
 
   const { vendors, contracts, inventory } = table.related;
@@ -52,15 +55,42 @@ export default function Orders() {
 
   const formFields = [
     { key: 'order_number', label: 'Order Number', half: true },
-    { key: 'vendors_id', label: 'Vendor *', type: 'select',
-      options: vendors.map(v => ({ value: v.vendors_id, label: v.name })), placeholder: 'Select vendor…', half: true },
-    { key: 'contracts_id', label: 'Contract *', type: 'select',
-      options: contracts.map(c => ({ value: c.contracts_id, label: c.contract_number })), placeholder: 'Select contract…', half: true },
+    { key: 'vendors_id', label: 'Vendor *', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Vendor *"
+          {...LOOKUP_VENDORS(vendors)}
+          value={form.vendors_id}
+          onChange={row => setField('vendors_id', row.vendors_id)}
+          onClear={() => setField('vendors_id', '')}
+          displayValue={vendors.find(v => v.vendors_id === Number(form.vendors_id))?.name}
+        />
+      ) },
+    { key: 'contracts_id', label: 'Contract *', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Contract *"
+          {...LOOKUP_CONTRACTS(contracts)}
+          value={form.contracts_id}
+          onChange={row => setField('contracts_id', row.contracts_id)}
+          onClear={() => setField('contracts_id', '')}
+          displayValue={contracts.find(c => c.contracts_id === Number(form.contracts_id))?.contract_number}
+        />
+      ) },
     { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
     { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
     { key: 'description', label: 'Description', placeholder: 'Brief description of this order' },
-    { key: 'inventory_id', label: 'Inventory Item (optional)', type: 'select',
-      options: inventory.map(i => ({ value: i.inventory_id, label: i.inventory_number })), placeholder: 'None' },
+    { key: 'inventory_id', label: 'Inventory Item (optional)',
+      render: (form, setField) => (
+        <LookupField
+          label="Inventory Item (optional)"
+          {...LOOKUP_INVENTORY(inventory)}
+          value={form.inventory_id}
+          onChange={row => setField('inventory_id', row.inventory_id)}
+          onClear={() => setField('inventory_id', '')}
+          displayValue={inventory.find(i => i.inventory_id === Number(form.inventory_id))?.inventory_number}
+        />
+      ) },
     { key: 'order_date', label: 'Order Date', type: 'date', half: true },
     { key: 'due_date', label: 'Due Date', type: 'date', half: true },
     { key: 'notes', label: 'Notes', type: 'textarea' },
@@ -83,6 +113,7 @@ export default function Orders() {
         title="All Orders"
         titleIcon={<ShoppingCart size={15} color="#16a34a" />}
         exportFilename="Orders"
+        bulkUpdateFields={formFields}
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm('Delete ' + rows.length + ' records?'))) return; rows.forEach(r => table.handleDelete(r.orders_id, { skipConfirm: true })); } }
         ] : []}

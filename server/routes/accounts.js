@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, accountRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 function baseQuery() {
   return db('accounts as a')
@@ -29,7 +31,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.post('/', accountRules, validate, auditCreate('accounts', 'accounts_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), accountRules, validate, auditCreate('accounts', 'accounts_id'), async (req, res) => {
   try {
     const {
       vendors_id, name, account_number, subaccount_number, assigned_user_id,
@@ -66,7 +68,7 @@ router.post('/', accountRules, validate, auditCreate('accounts', 'accounts_id'),
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.put('/:id', idParam, ...accountRules, validate, auditUpdate('accounts', 'accounts_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...accountRules, validate, auditUpdate('accounts', 'accounts_id'), async (req, res) => {
   try {
     const {
       vendors_id, name, account_number, subaccount_number, assigned_user_id,
@@ -114,11 +116,14 @@ router.get('/:id/inventory', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('accounts', 'accounts_id'), auditDelete('accounts', 'accounts_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('accounts', 'accounts_id'), auditDelete('accounts', 'accounts_id'), async (req, res) => {
   try {
     await db('accounts').where('accounts_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'accounts'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('accounts', 'accounts_id'));
 
 module.exports = router;

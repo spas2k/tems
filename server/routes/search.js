@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
         .limit(6),
 
       db('invoices as i')
-        .leftJoin('accounts as a', 'i.accounts_id', 'a.vendors_id')
+        .leftJoin('accounts as a', 'i.accounts_id', 'a.accounts_id')
         .select('i.invoices_id', 'i.invoice_number', 'a.name as sub')
         .where('i.invoice_number', matchOperator, like)
         .limit(6),

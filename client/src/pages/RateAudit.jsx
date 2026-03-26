@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getRateValidation } from '../api';
 import { CheckCircle2, AlertTriangle, HelpCircle, Filter, X, Download, ShieldCheck } from 'lucide-react';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
 
 const COMPLIANCE_BADGE = {
   true:  'badge badge-green',
@@ -11,6 +12,7 @@ const COMPLIANCE_BADGE = {
 };
 
 export default function RateAudit() {
+  const { user } = useAuth();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -18,7 +20,7 @@ export default function RateAudit() {
   const [filters, setFilters] = useState({ account_name: '', contract_number: '', usoc_code: '', compliance: '' });
   const [sort, setSort]       = useState({ key: null, dir: 'asc' });
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(() => user?.preferences?.rows_per_page || 26);
   const navigate = useNavigate();
 
   useEffect(() => {

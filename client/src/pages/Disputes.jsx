@@ -5,6 +5,8 @@ import { getDisputes, createDispute, updateDispute, deleteDispute, getVendors, g
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS, LOOKUP_INVOICES } from '../utils/lookupConfigs';
 import { useAuth } from '../context/AuthContext';
 
 const STATUSES = ['Open', 'Under Review', 'Credited', 'Denied', 'Closed'];
@@ -46,6 +48,7 @@ export default function Disputes() {
       credit_amount: form.credit_amount || null,
       line_items_id: form.line_items_id || null,
     }),
+    resourceName: 'disputes',
   });
 
   const { vendors, invoices } = table.related;
@@ -80,10 +83,28 @@ export default function Disputes() {
   ];
 
   const formFields = [
-    { key: 'vendors_id', label: 'Vendor', type: 'select',
-      options: vendors.map(v => ({ value: v.vendors_id, label: v.name })), placeholder: 'Select…' },
-    { key: 'invoices_id', label: 'Invoice', type: 'select',
-      options: invoices.map(i => ({ value: i.invoices_id, label: i.invoice_number })), placeholder: 'Select…', half: true },
+    { key: 'vendors_id', label: 'Vendor',
+      render: (form, setField) => (
+        <LookupField
+          label="Vendor"
+          {...LOOKUP_VENDORS(vendors)}
+          value={form.vendors_id}
+          onChange={row => setField('vendors_id', row.vendors_id)}
+          onClear={() => setField('vendors_id', '')}
+          displayValue={vendors.find(v => v.vendors_id === Number(form.vendors_id))?.name}
+        />
+      ) },
+    { key: 'invoices_id', label: 'Invoice', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Invoice"
+          {...LOOKUP_INVOICES(invoices)}
+          value={form.invoices_id}
+          onChange={row => setField('invoices_id', row.invoices_id)}
+          onClear={() => setField('invoices_id', '')}
+          displayValue={invoices.find(i => i.invoices_id === Number(form.invoices_id))?.invoice_number}
+        />
+      ) },
     { key: 'dispute_type', label: 'Dispute Type', type: 'select', options: TYPES, half: true },
     { key: 'amount', label: 'Amount', type: 'number', step: '0.01', half: true },
     { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
@@ -131,6 +152,7 @@ export default function Disputes() {
         title="Disputes"
         titleIcon={<ShieldAlert size={15} color="#dc2626" />}
         extraActions={[{ icon: Eye, title: 'View', onClick: row => navigate(`/disputes/${row.disputes_id}`) }]}
+        bulkUpdateFields={formFields}
         headerRight={<>
           <button className="btn btn-ghost btn-sm" onClick={exportCsv} title="Export CSV"><Download size={14} /> CSV</button>
           {canCreate && <button className="btn btn-primary btn-sm" onClick={() => navigate('/disputes/new')}><Plus size={14} /> New Dispute</button>}

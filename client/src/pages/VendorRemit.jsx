@@ -5,6 +5,8 @@ import { getVendorRemits, createVendorRemit, updateVendorRemit, deleteVendorRemi
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS } from '../utils/lookupConfigs';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 
@@ -34,9 +36,11 @@ export default function VendorRemit() {
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
     related: { vendors: getVendors },
+    resourceName: 'vendor-remit',
   });
 
-  const vendorOptions = (table.related?.vendors || []).map(v => ({
+  const vendors = table.related?.vendors || [];
+  const vendorOptions = vendors.map(v => ({
     value: String(v.vendors_id), label: v.name,
   }));
 
@@ -53,10 +57,17 @@ export default function VendorRemit() {
 
   const formFields = [
     { key: 'remit_name', label: 'Remit Name *' },
-    { key: 'vendors_id', label: 'Vendor', type: 'select',
-      options: vendorOptions.map(v => v.value),
-      optionLabels: vendorOptions.map(v => v.label),
-      half: true },
+    { key: 'vendors_id', label: 'Vendor', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Vendor"
+          {...LOOKUP_VENDORS(vendors)}
+          value={form.vendors_id}
+          onChange={row => setField('vendors_id', row.vendors_id)}
+          onClear={() => setField('vendors_id', '')}
+          displayValue={vendors.find(v => v.vendors_id === Number(form.vendors_id))?.name}
+        />
+      ) },
     { key: 'remit_code', label: 'Remit Code', half: true },
     { key: 'payment_method', label: 'Payment Method', type: 'select', options: PAYMENT_METHODS, half: true },
     { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], half: true },
@@ -96,6 +107,7 @@ export default function VendorRemit() {
         title="Vendor Remit"
         titleIcon={<CreditCard size={15} color="#7c3aed" />}
         exportFilename="VendorRemit"
+        bulkUpdateFields={formFields}
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true,
             onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.vendor_remit_id, { skipConfirm: true })); } },

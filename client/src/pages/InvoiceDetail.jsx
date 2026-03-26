@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, Trash2, DollarSign, Receipt, SlidersHorizontal, List, Layers, MessageSquare, MoreHorizontal } from 'lucide-react';
@@ -9,6 +9,7 @@ import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import CreateTicketModal from '../components/CreateTicketModal';
+import Pagination from '../components/Pagination';
 import { useConfirm } from '../context/ConfirmContext';
 
 const CHARGE_TYPES = ['MRC', 'NRC', 'Usage', 'Tax/Surcharge', 'Credit', 'Other'];
@@ -75,7 +76,7 @@ export default function InvoiceDetail() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const { setPageTitle } = useContext(PageTitleContext);
-  const { hasPermission } = useAuth();
+  const { hasPermission, user: authUser } = useAuth();
   const canUpdate = hasPermission('invoices', 'update');
   const [invoice, setInvoice]       = useState(null);
   const [lineItems, setLineItems]   = useState([]);
@@ -94,6 +95,14 @@ export default function InvoiceDetail() {
   const [allocModal, setAllocModal] = useState(false);
   const [allocLiId, setAllocLiId]   = useState(null);
   const [allocForm, setAllocForm]   = useState(EMPTY_ALLOC);
+
+  const [liPage, setLiPage]         = useState(1);
+  const [liPageSize, setLiPageSize] = useState(() => authUser?.preferences?.rows_per_page || 26);
+  const paginatedLineItems = useMemo(() => {
+    if (liPageSize === 'all') return lineItems;
+    const start = (liPage - 1) * liPageSize;
+    return lineItems.slice(start, start + liPageSize);
+  }, [lineItems, liPage, liPageSize]);
 
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen]         = useState(false);
@@ -301,7 +310,7 @@ export default function InvoiceDetail() {
               <th>Description</th><th>InventoryItem</th><th>USOC</th><th>Type</th><th>Billed</th><th>MRC</th><th>NRC</th><th>Contracted</th><th>Variance</th><th>Audit</th><th>Actions</th>
             </tr></thead>
             <tbody>
-              {lineItems.map(li => {
+              {paginatedLineItems.map(li => {
                 const v = Number(li.variance);
                 const AUDIT_BADGE = { Validated: 'badge badge-green', Variance: 'badge badge-red', Pending: 'badge badge-orange' };
                 return (
@@ -340,6 +349,15 @@ export default function InvoiceDetail() {
             </tbody>
           </table>
         </div>
+        {lineItems.length > 0 && (
+          <Pagination
+            currentPage={liPage}
+            totalItems={lineItems.length}
+            pageSize={liPageSize}
+            onPageChange={setLiPage}
+            onPageSizeChange={v => { setLiPageSize(v); setLiPage(1); }}
+          />
+        )}
       </div>
 
       {/* Allocations */}

@@ -80,3 +80,47 @@ export const LOOKUP_CURRENCIES = (data = []) => ({
   ],
   placeholder: 'Select currency...',
 });
+
+export const LOOKUP_INVOICES = (data = []) => ({
+  data,
+  idKey: 'invoices_id',
+  displayKey: 'invoice_number',
+  modalTitle: 'Select Invoice',
+  searchableKeys: ['invoice_number', 'status'],
+  columns: [
+    { key: 'invoice_number', label: 'INVOICE #' },
+    { key: 'invoice_date',   label: 'INVOICE DATE' },
+    { key: 'total_amount',   label: 'AMOUNT' },
+    { key: 'status',         label: 'STATUS' },
+  ],
+  placeholder: 'Select invoice...',
+});
+
+export const LOOKUP_INVENTORY = (data = []) => ({
+  data,
+  idKey: 'inventory_id',
+  displayKey: 'inventory_number',
+  modalTitle: 'Select Inventory Item',
+  searchableKeys: ['inventory_number', 'type', 'location', 'status'],
+  columns: [
+    { key: 'inventory_number', label: 'INVENTORY #' },
+    { key: 'type',             label: 'TYPE' },
+    { key: 'location',         label: 'LOCATION' },
+    { key: 'status',           label: 'STATUS' },
+  ],
+  placeholder: 'Select inventory item...',
+});
+
+export const LOOKUP_ORDERS = (data = []) => ({
+  data,
+  idKey: 'orders_id',
+  displayKey: 'order_number',
+  modalTitle: 'Select Order',
+  searchableKeys: ['order_number', 'description', 'status'],
+  columns: [
+    { key: 'order_number', label: 'ORDER #' },
+    { key: 'description',  label: 'DESCRIPTION' },
+    { key: 'status',       label: 'STATUS' },
+  ],
+  placeholder: 'Select order...',
+});

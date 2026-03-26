@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Pencil, Trash2, Filter, X, Download, Copy, Check, Square, CheckSquare, Bookmark, Star } from 'lucide-react';
+import { Pencil, Trash2, Filter, X, Download, Copy, Check, Square, CheckSquare, Bookmark, Star, Columns } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import Pagination from './Pagination';
+import BulkUpdatePanel from './BulkUpdatePanel';
 import { useFavorites } from '../context/FavoritesContext';
+import { useAuth } from '../context/AuthContext';
 
 // ── Filter operator definitions ───────────────────────────────────────────────
 
@@ -191,6 +193,7 @@ function FilterCell({ col, value: filterValue, onChange }) {
  *   summary      – 'sum' | 'count' | 'avg' | function(allValues) => display
  */
 export default function DataTable({
+  preferenceKey,
   columns,
   idKey,
   data,
@@ -219,6 +222,9 @@ export default function DataTable({
   allData,           // full filtered data (not paginated) for export
   // bulk actions
   bulkActions,       // [{ label, icon, onClick(selectedRows), danger? }]
+  // bulk update
+  bulkUpdateFields,  // field config array (same shape as CrudModal fields + optional lookup)
+  onBulkUpdate,      // async (updates) => void — called with dirty field values
   // saved filters
   savedFilters,      // [{ name, filters }]
   onSaveFilter,      // (name, filtersObj) => void
@@ -236,8 +242,46 @@ export default function DataTable({
   const toolbarRef = useRef(null);
   const favModalRef = useRef(null);
   const location = useLocation();
-  const { addFavorite, isFavorited } = useFavorites();
+  const { addFavorite, isFavorited } = useFavorites();  const { user, updatePreferences } = useAuth();
+  const [showColumnsPopover, setShowColumnsPopover] = useState(false);
+  const [showBulkUpdate, setShowBulkUpdate] = useState(false);
+  const columnPopoverRef = useRef(null);
 
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (columnPopoverRef.current && !columnPopoverRef.current.contains(e.target)) {
+        setShowColumnsPopover(false);
+      }
+    };
+    if (showColumnsPopover) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColumnsPopover]);
+
+  const tablePrefKey = preferenceKey || (title ? title.toLowerCase().replace(/\s+/g, '_') : null);
+  
+  const userHiddenColumns = tablePrefKey && user?.preferences?.tableColumns?.[tablePrefKey]
+    ? user.preferences.tableColumns[tablePrefKey].hidden 
+    : columns.filter(c => c.defaultHidden).map(c => c.key);
+
+  const visibleColumns = columns.filter(col => !userHiddenColumns.includes(col.key));
+
+  const toggleColumn = (colKey) => {
+    if (!tablePrefKey) return;
+    const currentHidden = [...(userHiddenColumns || [])];
+    const index = currentHidden.indexOf(colKey);
+    if (index > -1) {
+      currentHidden.splice(index, 1);
+    } else {
+      currentHidden.push(colKey);
+    }
+    updatePreferences({
+      tableColumns: {
+        ...(user?.preferences?.tableColumns || {}),
+        [tablePrefKey]: { hidden: currentHidden }
+      }
+    });
+  };
   const activeFilters = filters && Object.entries(filters).some(([, f]) =>
     typeof f === 'object' ? (f.value !== '' || ['is_empty','not_empty','this_week','this_month','this_quarter','this_year'].includes(f.op)) : !!f
   );
@@ -295,8 +339,8 @@ export default function DataTable({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-  const hasBulk = bulkActions?.length > 0;
-  const hasSummary = columns.some(c => c.summary);
+  const hasBulk = bulkActions?.length > 0 || (bulkUpdateFields?.length > 0 && onBulkUpdate);
+  const hasSummary = visibleColumns.some(c => c.summary);
 
   /* ── copy to clipboard ───────────────────────────────── */
   const handleCopy = useCallback((value, rowId, colKey) => {
@@ -309,7 +353,7 @@ export default function DataTable({
   const handleExport = useCallback((format) => {
     const exportData = allData || data;
     const rows = exportData.map(row =>
-      Object.fromEntries(columns.map(col => [col.label, row[col.key] ?? '']))
+      Object.fromEntries(visibleColumns.map(col => [col.label, row[col.key] ?? '']))
     );
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -323,7 +367,7 @@ export default function DataTable({
       const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       saveAs(new Blob([buf], { type: 'application/octet-stream' }), `${fname}.xlsx`);
     }
-  }, [allData, data, columns, exportFilename, title]);
+  }, [allData, data, visibleColumns, exportFilename, title]);
 
   /* ── bulk selection ──────────────────────────────────── */
   const toggleRow = useCallback((id) => {
@@ -448,8 +492,67 @@ export default function DataTable({
                 </div>
               )}
             </div>
-          )}
-          {exportFilename !== undefined && (
+          )}            {/* ── Columns Popover ── */}
+            {tablePrefKey && (
+              <div style={{ position: 'relative' }} ref={columnPopoverRef}>
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => { setShowColumnsPopover(p => !p); setShowExport(false); setShowSavedFilters(false); }}
+                  title="Customize Columns"
+                >
+                  <Columns size={13} /> Columns
+                </button>
+                {showColumnsPopover && (
+                  <div className="filter-dropdown" style={{ 
+                    minWidth: 320, 
+                    maxWidth: 450, 
+                    padding: '16px', 
+                    position: 'absolute', 
+                    top: '100%', 
+                    right: 0, 
+                    marginTop: '8px', 
+                    zIndex: 1000,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+                  }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 12, textTransform: 'uppercase' }}>
+                      Show/Hide Columns
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: 350, overflowY: 'auto' }}>
+                      {columns.map(col => {
+                        const isVisible = !userHiddenColumns.includes(col.key);
+                        return (
+                          <div
+                            key={col.key}
+                            onClick={() => toggleColumn(col.key)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              transition: 'all 0.15s ease',
+                              border: `1px solid ${isVisible ? '#3b82f6' : '#e2e8f0'}`,
+                              backgroundColor: isVisible ? '#eff6ff' : '#f8fafc',
+                              color: isVisible ? '#1d4ed8' : '#64748b',
+                              boxShadow: isVisible ? '0 1px 2px rgba(59, 130, 246, 0.1)' : 'none'
+                            }}
+                          >
+                            {isVisible ? <Check size={14} style={{ marginRight: 6 }} /> : <Square size={14} style={{ marginRight: 6, opacity: 0.3 }} />}
+                            {col.label || col.key}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}          {exportFilename !== undefined && (
             <div className="export-dropdown-wrap" style={{ position: 'relative' }}>
               <button className="btn btn-outline btn-sm" title="Export data"
                 onClick={() => { setShowExport(p => !p); setShowSavedFilters(false); }}>
@@ -514,17 +617,38 @@ export default function DataTable({
         <div className="bulk-actions-bar">
           <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedRows.size} selected</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            {bulkActions.map((action, i) => (
+            {bulkUpdateFields && onBulkUpdate && (
+              <button className="btn btn-sm btn-outline"
+                onClick={() => setShowBulkUpdate(prev => !prev)}>
+                <Pencil size={14} /> {showBulkUpdate ? 'Hide Edit' : 'Edit'}
+              </button>
+            )}
+            {(bulkActions || []).map((action, i) => (
               <button key={i} className={`btn btn-sm ${action.danger ? 'btn-danger' : 'btn-outline'}`}
                 onClick={() => action.onClick(getSelectedData())}>
                 {action.icon && <action.icon size={14} />} {action.label}
               </button>
             ))}
-            <button className="btn btn-ghost btn-sm" onClick={() => setSelectedRows(new Set())}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedRows(new Set()); setShowBulkUpdate(false); }}>
               <X size={13} /> Clear
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── bulk update panel ───────────────────────────── */}
+      {showBulkUpdate && bulkUpdateFields && onBulkUpdate && selectedRows.size > 0 && (
+        <BulkUpdatePanel
+          fields={bulkUpdateFields}
+          selectedCount={selectedRows.size}
+          onApply={async (updates) => {
+            const ids = [...selectedRows];
+            await onBulkUpdate(ids, updates);
+            setSelectedRows(new Set());
+            setShowBulkUpdate(false);
+          }}
+          onClose={() => setShowBulkUpdate(false)}
+        />
       )}
 
       {/* ── body ────────────────────────────────────────── */}
@@ -542,7 +666,7 @@ export default function DataTable({
                     : <Square size={15} color="#94a3b8" />}
                 </th>
               )}
-              {columns.map(col => (
+              {visibleColumns.map(col => (
                 <th
                   key={col.key}
                   className={col.sortable !== false ? 'sortable' : ''}
@@ -560,7 +684,7 @@ export default function DataTable({
             {showFilters && (
               <tr className="filter-row">
                 {hasBulk && <th />}
-                {columns.map(col => (
+                {visibleColumns.map(col => (
                   <th key={col.key}>
                     {col.filterable !== false && (
                       <FilterCell
@@ -585,7 +709,7 @@ export default function DataTable({
             {data.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + (hasActions ? 1 : 0) + (hasBulk ? 1 : 0)}
+                  colSpan={visibleColumns.length + (hasActions ? 1 : 0) + (hasBulk ? 1 : 0)}
                   style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}
                 >
                   {emptyMessage || 'No records found.'}
@@ -600,7 +724,7 @@ export default function DataTable({
                       : <Square size={15} color="#cbd5e1" />}
                   </td>
                 )}
-                {columns.map(col => (
+                {visibleColumns.map(col => (
                   <td key={col.key} style={col.style}>
                     {renderCell(col, row)}
                   </td>
@@ -638,11 +762,11 @@ export default function DataTable({
             <tfoot>
               <tr className="summary-row">
                 {hasBulk && <td />}
-                {columns.map(col => (
+                {visibleColumns.map(col => (
                   <td key={col.key} style={{ fontWeight: 700, fontSize: 13 }}>
                     {col.summary
                       ? computeSummary(col)
-                      : col === columns[0] ? <span style={{ color: '#64748b', fontStyle: 'italic' }}>Totals</span> : ''}
+                      : col === visibleColumns[0] ? <span style={{ color: '#64748b', fontStyle: 'italic' }}>Totals</span> : ''}
                   </td>
                 ))}
                 {hasActions && <td />}

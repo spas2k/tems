@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, usocCodeRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 // GET all USOC codes (optional filter: ?category=&status=)
 router.get('/', async (req, res) => {
@@ -27,7 +29,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
 });
 
 // POST create USOC code
-router.post('/', usocCodeRules, validate, auditCreate('usoc_codes', 'usoc_codes_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), usocCodeRules, validate, auditCreate('usoc_codes', 'usoc_codes_id'), async (req, res) => {
   try {
     const { usoc_code, description, category, sub_category, default_mrc, default_nrc, unit, status } = req.body;
     const id = await db.insertReturningId('usoc_codes', {
@@ -42,7 +44,7 @@ router.post('/', usocCodeRules, validate, auditCreate('usoc_codes', 'usoc_codes_
 });
 
 // PUT update USOC code
-router.put('/:id', idParam, ...usocCodeRules, validate, auditUpdate('usoc_codes', 'usoc_codes_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...usocCodeRules, validate, auditUpdate('usoc_codes', 'usoc_codes_id'), async (req, res) => {
   try {
     const { usoc_code, description, category, sub_category, default_mrc, default_nrc, unit, status } = req.body;
     await db('usoc_codes').where('usoc_codes_id', req.params.id).update({
@@ -55,11 +57,14 @@ router.put('/:id', idParam, ...usocCodeRules, validate, auditUpdate('usoc_codes'
 });
 
 // DELETE USOC code
-router.delete('/:id', idParam, validate, cascadeGuard('usoc_codes', 'usoc_codes_id'), auditDelete('usoc_codes', 'usoc_codes_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('usoc_codes', 'usoc_codes_id'), auditDelete('usoc_codes', 'usoc_codes_id'), async (req, res) => {
   try {
     await db('usoc_codes').where('usoc_codes_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'usocCodes'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('usoc_codes', 'usoc_codes_id'));
 
 module.exports = router;

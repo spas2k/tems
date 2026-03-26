@@ -23,7 +23,7 @@ db.raw('SELECT 1')
 // PK convention: every table's primary key is `{table_name}_id`
 // Exception: circuits table uses `cir_id` as its PK
 // PostgreSQL returns an object from .returning()
-const PK_OVERRIDES = { circuits: 'cir_id' };
+const PK_OVERRIDES = { circuits: 'cir_id', form_instructions: 'id' };
 db.insertReturningId = async function (table, data) {
   const pkColumn = PK_OVERRIDES[table] || `${table}_id`; // e.g. accounts_id, cir_id
   const result = await this(table).insert(data).returning(pkColumn);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Upload, FileSpreadsheet, FileText, FileCode, CheckCircle, AlertCircle,
   Loader, ArrowRight, ArrowLeft, Save, Play, Trash2, Settings, Eye,
@@ -21,6 +22,7 @@ const FORMAT_COLORS = { Excel: '#0d9488', PDF: '#dc2626', EDI: '#7c3aed' };
 //  Step 4: Process & results
 // ─────────────────────────────────────────────────────────────
 export default function InvoiceReader() {
+  const navigate = useNavigate();
   const [step, setStep]           = useState(1);
   const [file, setFile]           = useState(null);
   const [dragOver, setDragOver]   = useState(false);
@@ -432,26 +434,26 @@ export default function InvoiceReader() {
 
               {/* Column mapping UI */}
               <div style={{
-                border: '1px solid var(--border-color, #e2e8f0)', borderRadius: 10,
+                border: '1px solid var(--border-color, #f8fafc)', borderRadius: 10,
                 overflow: 'hidden', marginBottom: 20,
               }}>
                 <div style={{
                   padding: '12px 18px', fontWeight: 700, fontSize: 14,
-                  background: 'var(--bg-muted, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)',
+                  background: '#1e3a5f', color: '#e2e8f0', borderBottom: '1px solid var(--border-color, #f8fafc)',
                   display: 'flex', justifyContent: 'space-between',
                 }}>
                   <span>Column Mapping — {currentHeaders.length} columns detected</span>
-                  <span style={{ fontSize: 12, color: mappedCount > 0 ? '#10b981' : 'var(--text-muted, #94a3b8)' }}>
+                  <span style={{ fontSize: 12, color: mappedCount > 0 ? '#6ee7b7' : 'rgba(255,255,255,0.5)' }}>
                     {mappedCount} mapped
                   </span>
                 </div>
-                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <div>
+                  <table className="data-table no-stripe" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
-                      <tr style={{ background: 'var(--bg-muted, #f8fafc)' }}>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>Source Column</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>Sample Value</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '1px solid var(--border-color, #e2e8f0)', minWidth: 220 }}>Map To</th>
+                      <tr>
+                        <th>Source Column</th>
+                        <th>Sample Value</th>
+                        <th style={{ minWidth: 220 }}>Map To</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -459,7 +461,7 @@ export default function InvoiceReader() {
                         const sampleVal = currentPreview[0]?.[header] ?? '';
                         const mapped = mappings[header];
                         return (
-                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-color, #f1f5f9)' }}>
+                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-color, #f8fafc)' }}>
                             <td style={{ padding: '10px 14px', fontWeight: 600 }}>{header}</td>
                             <td style={{ padding: '10px 14px', color: 'var(--text-muted, #64748b)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {String(sampleVal ?? '')}
@@ -516,24 +518,21 @@ export default function InvoiceReader() {
               {/* Preview data table */}
               {currentPreview.length > 0 && (
                 <div style={{
-                  border: '1px solid var(--border-color, #e2e8f0)', borderRadius: 10,
+                  border: '1px solid var(--border-color, #f8fafc)', borderRadius: 10,
                   overflow: 'hidden', marginBottom: 20,
                 }}>
                   <div style={{
                     padding: '12px 18px', fontWeight: 700, fontSize: 14,
-                    background: 'var(--bg-muted, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)',
+                    background: '#1e3a5f', color: '#e2e8f0', borderBottom: '1px solid var(--border-color, #f8fafc)',
                   }}>
                     Data Preview (first {currentPreview.length} rows)
                   </div>
-                  <div style={{ overflowX: 'auto', maxHeight: 300 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, whiteSpace: 'nowrap' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, whiteSpace: 'nowrap' }}>
                       <thead>
                         <tr>
                           {currentHeaders.map((h, i) => (
                             <th key={i} style={{
-                              padding: '8px 12px', textAlign: 'left', fontWeight: 600,
-                              background: 'var(--bg-muted, #f1f5f9)',
-                              borderBottom: '1px solid var(--border-color, #e2e8f0)',
                               position: 'sticky', top: 0,
                             }}>
                               {h}
@@ -547,7 +546,7 @@ export default function InvoiceReader() {
                             {currentHeaders.map((h, ci) => (
                               <td key={ci} style={{
                                 padding: '6px 12px',
-                                borderBottom: '1px solid var(--border-color, #f1f5f9)',
+                                borderBottom: '1px solid var(--border-color, #f8fafc)',
                                 maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
                               }}>
                                 {String(row[h] ?? '')}
@@ -617,12 +616,12 @@ export default function InvoiceReader() {
                 }}>
                   Mapping Summary
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <table className="data-table no-stripe" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
-                    <tr style={{ background: 'var(--bg-muted, #f8fafc)' }}>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>Source Column</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>Target Table</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>Target Field</th>
+                    <tr>
+                      <th>Source Column</th>
+                      <th>Target Table</th>
+                      <th>Target Field</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -806,6 +805,41 @@ export default function InvoiceReader() {
                 </div>
               )}
 
+              {/* Created invoices links */}
+              {result.created_invoices?.length > 0 && (
+                <div style={{
+                  border: '1px solid var(--border-color, #e2e8f0)', borderRadius: 10,
+                  overflow: 'hidden', marginBottom: 20,
+                }}>
+                  <div style={{
+                    padding: '10px 16px', fontWeight: 700, fontSize: 13,
+                    background: '#1e3a5f', color: '#e2e8f0',
+                    borderBottom: '1px solid var(--border-color, #f8fafc)',
+                  }}>
+                    Created Invoices ({result.created_invoices.length})
+                  </div>
+                  <div style={{ padding: '8px 16px' }}>
+                    {result.created_invoices.map((inv) => (
+                      <div key={inv.invoices_id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '6px 0', borderBottom: '1px solid var(--border-color, #f8fafc)',
+                      }}>
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>{inv.invoice_number}</span>
+                        <button
+                          onClick={() => navigate(`/invoices/${inv.invoices_id}`)}
+                          style={{
+                            background: 'none', border: 'none', color: 'var(--accent-color, #2563eb)',
+                            cursor: 'pointer', fontSize: 13, fontWeight: 600, textDecoration: 'underline',
+                          }}
+                        >
+                          View Invoice
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 12 }}>
                 <button onClick={handleReset} style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -900,14 +934,11 @@ export default function InvoiceReader() {
             <div style={{
               border: '1px solid var(--border-color, #e2e8f0)', borderRadius: 10, overflow: 'hidden',
             }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-muted, #f8fafc)' }}>
+                  <tr>
                     {['File', 'Format', 'Vendor', 'Template', 'Status', 'Rows', 'Invoices', 'Line Items', 'Errors', 'Date'].map(h => (
-                      <th key={h} style={{
-                        padding: '10px 12px', textAlign: 'left',
-                        borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: 600,
-                      }}>
+                      <th key={h}>
                         {h}
                       </th>
                     ))}

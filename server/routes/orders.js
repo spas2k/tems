@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, orderRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 // Reusable base query for orders with joined names
 function baseQuery() {
@@ -34,7 +36,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.post('/', orderRules, validate, auditCreate('orders', 'orders_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), orderRules, validate, auditCreate('orders', 'orders_id'), async (req, res) => {
   try {
     const { vendors_id, contracts_id, inventory_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
     const id = await db.insertReturningId('orders', {
@@ -55,7 +57,7 @@ router.post('/', orderRules, validate, auditCreate('orders', 'orders_id'), async
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.put('/:id', idParam, ...orderRules, validate, auditUpdate('orders', 'orders_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...orderRules, validate, auditUpdate('orders', 'orders_id'), async (req, res) => {
   try {
     const { vendors_id, contracts_id, inventory_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
     await db('orders').where('orders_id', req.params.id).update({
@@ -89,11 +91,14 @@ router.get('/:id/inventory', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('orders', 'orders_id'), auditDelete('orders', 'orders_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('orders', 'orders_id'), auditDelete('orders', 'orders_id'), async (req, res) => {
   try {
     await db('orders').where('orders_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'orders'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('orders', 'orders_id'));
 
 module.exports = router;

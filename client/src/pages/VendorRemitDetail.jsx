@@ -227,7 +227,7 @@ export default function VendorRemitDetail() {
         </div>
       </div>
 
-      <NoteTimeline entity="vendor_remit" entityId={id} />
+      <NoteTimeline entityType="vendor_remit" entityId={id} />
       <ChangeHistory resource="vendor_remit" resourceId={id} refreshKey={historyKey} />
     </div>
   );

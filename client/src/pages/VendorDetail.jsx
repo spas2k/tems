@@ -159,11 +159,11 @@ export default function VendorDetail() {
     Promise.all([
       getVendor(id),
       getVendorInventory(id),
-      getContracts({ accounts_id: id }),
-      getOrders({ accounts_id: id }),
-      getInvoices({ accounts_id: id }),
-      getDisputes({ accounts_id: id }),
-      getVendorRemits({ accounts_id: id }),
+      getContracts({ vendors_id: id }),
+      getOrders({ vendors_id: id }),
+      getInvoices({ vendors_id: id }),
+      getDisputes({ vendors_id: id }),
+      getVendorRemits({ vendors_id: id }),
     ]).then(([vd, ci, co, or_, inv, dis, rem]) => {
       setVendor(vd.data);
       setPageTitle(vd.data.name);
@@ -538,7 +538,7 @@ export default function VendorDetail() {
 
       {/* ── Notes ── */}
       <div ref={refs.notes} style={{ scrollMarginTop: 80 }}>
-        <NoteTimeline entityType="account" entityId={id} />
+        <NoteTimeline entityType="vendor" entityId={id} />
         <ChangeHistory resource="accounts" resourceId={id} refreshKey={historyKey} />
       </div>
     </div>

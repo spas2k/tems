@@ -5,6 +5,8 @@ import { getInvoices, createInvoice, updateInvoice, deleteInvoice, getAccounts }
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import LookupField from '../components/LookupField';
+import { LOOKUP_ACCOUNTS } from '../utils/lookupConfigs';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 
@@ -31,6 +33,7 @@ export default function Invoices() {
     filterConfig: FILTER_CONFIG,
     related: { accounts: getAccounts },
     defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
+    resourceName: 'invoices',
   });
 
   const accounts = table.related.accounts;
@@ -51,11 +54,23 @@ export default function Invoices() {
       );
     }},
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: STATUSES, badge: STATUS_BADGE },
+    { key: 'period_start', label: 'Period Start', filterType: 'date', format: 'date', defaultHidden: true },
+    { key: 'period_end', label: 'Period End', filterType: 'date', format: 'date', defaultHidden: true },
+    { key: 'created_at', label: 'Imported At', filterType: 'date', format: 'date', defaultHidden: true },
   ];
 
   const formFields = [
-    { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
-      options: accounts.map(a => ({ value: a.accounts_id, label: a.name })), placeholder: 'Select vendor…' },
+    { key: 'accounts_id', label: 'Vendor Account *',
+      render: (form, setField) => (
+        <LookupField
+          label="Vendor Account *"
+          {...LOOKUP_ACCOUNTS(accounts)}
+          value={form.accounts_id}
+          onChange={row => setField('accounts_id', row.accounts_id)}
+          onClear={() => setField('accounts_id', '')}
+          displayValue={accounts.find(a => a.accounts_id === Number(form.accounts_id))?.name}
+        />
+      ) },
     { key: 'invoice_number', label: 'Invoice Number', half: true },
     { key: 'total_amount', label: 'Total Amount ($)', type: 'number', step: '0.01', half: true },
     { key: 'invoice_date', label: 'Invoice Date', type: 'date', half: true },
@@ -85,6 +100,7 @@ export default function Invoices() {
         title="All Invoices"
         titleIcon={<Receipt size={15} color="#d97706" />}
         exportFilename="Invoices"
+        bulkUpdateFields={formFields}
         bulkActions={[
           { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.invoices_id, { skipConfirm: true })); } }
         ]}

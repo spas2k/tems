@@ -27,6 +27,7 @@ export default function UsocCodes() {
     idKey: 'usoc_codes_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
+    resourceName: 'usoc-codes',
   });
 
   const fmt = n => n != null ? `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
@@ -68,6 +69,7 @@ export default function UsocCodes() {
         columns={columns}
         {...table.tableProps}
         title="USOC Code Catalog"
+        bulkUpdateFields={formFields}
         headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/usoc-codes/new')}><Plus size={15} /> New USOC Code</button> : null}
       />
 

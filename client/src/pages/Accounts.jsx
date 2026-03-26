@@ -5,6 +5,8 @@ import { getAccounts, createAccount, updateAccount, deleteAccount, getVendors } 
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS } from '../utils/lookupConfigs';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 
@@ -27,6 +29,7 @@ export default function Accounts() {
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
     related: { vendors: getVendors },
+    resourceName: 'accounts',
   });
 
   const { vendors } = table.related;
@@ -40,11 +43,22 @@ export default function Accounts() {
     { key: 'team', label: 'Team', filterType: 'text' },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: ['Active', 'Inactive'],
       badge: { Active: 'badge badge-green', Inactive: 'badge badge-gray' } },
+    { key: 'created_at', label: 'Created At', filterType: 'date', format: 'date', defaultHidden: true },
+    { key: 'updated_at', label: 'Updated At', filterType: 'date', format: 'date', defaultHidden: true },
   ];
 
   const formFields = [
-    { key: 'vendors_id', label: 'Vendor *', type: 'select',
-      options: vendors.map(v => ({ value: v.vendors_id, label: v.name })), placeholder: 'Select vendor…', half: true },
+    { key: 'vendors_id', label: 'Vendor *', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Vendor *"
+          {...LOOKUP_VENDORS(vendors)}
+          value={form.vendors_id}
+          onChange={row => setField('vendors_id', row.vendors_id)}
+          onClear={() => setField('vendors_id', '')}
+          displayValue={vendors.find(v => v.vendors_id === Number(form.vendors_id))?.name}
+        />
+      ) },
     { key: 'name', label: 'Account Name *', half: true },
     { key: 'account_number', label: 'Account Number', half: true },
     { key: 'subaccount_number', label: 'Sub-Account Number', half: true },
@@ -79,6 +93,7 @@ export default function Accounts() {
         title="All Vendor Accounts"
         titleIcon={<Building2 size={15} color="#475569" />}
         exportFilename="Accounts"
+        bulkUpdateFields={formFields}
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.accounts_id, { skipConfirm: true })); } }
         ] : []}

@@ -3,10 +3,9 @@ import { Shield, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAuditLog } from '../api';
 import { useAuth } from '../context/AuthContext';
 
-const PAGE_SIZE = 25;
-
 export default function AuditLog() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const pageSize = user?.preferences?.rows_per_page || 26;
   const [rows, setRows]     = useState([]);
   const [total, setTotal]   = useState(0);
   const [page, setPage]     = useState(1);
@@ -15,16 +14,16 @@ export default function AuditLog() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await getAuditLog({ page, limit: PAGE_SIZE });
+      const { data } = await getAuditLog({ page, limit: pageSize });
       setRows(data.rows ?? data);
       setTotal(data.total ?? data.length);
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [page]);
+  }, [page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (!isAdmin) return <div style={{ padding: 32, color: '#ef4444' }}>Access denied — Admin role required.</div>;
 
@@ -52,7 +51,7 @@ export default function AuditLog() {
       {/* toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: '#64748b' }}>
-          Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+          Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, total)} of {total}
         </span>
         <button className="btn" onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
           <RefreshCw size={14} /> Refresh

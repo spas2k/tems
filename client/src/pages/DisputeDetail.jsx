@@ -3,6 +3,8 @@ import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, Save, SlidersHorizontal, ClipboardList } from 'lucide-react';
 import { getDispute, updateDispute, getVendors, getInvoices } from '../api';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS, LOOKUP_INVOICES } from '../utils/lookupConfigs';
 import DetailHeader from '../components/DetailHeader';
 import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
@@ -188,16 +190,22 @@ export default function DisputeDetail() {
         <div className="rc-results-count" style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Dispute Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <Field label="Account">
-            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
-              <option value="">Select…</option>
-              {accounts.map(a => <option key={a.vendors_id} value={a.vendors_id}>{a.name}</option>)}
-            </select>
+            <LookupField
+              {...LOOKUP_VENDORS(accounts)}
+              value={form.vendors_id}
+              onChange={row => set('vendors_id', row.vendors_id)}
+              onClear={() => set('vendors_id', '')}
+              displayValue={accounts.find(a => a.vendors_id === Number(form.vendors_id))?.name}
+            />
           </Field>
           <Field label="Invoice">
-            <select className="form-input" value={form.invoices_id} onChange={e => set('invoices_id', e.target.value)}>
-              <option value="">Select…</option>
-              {invoices.map(inv => <option key={inv.invoices_id} value={inv.invoices_id}>{inv.invoice_number}</option>)}
-            </select>
+            <LookupField
+              {...LOOKUP_INVOICES(invoices)}
+              value={form.invoices_id}
+              onChange={row => set('invoices_id', row.invoices_id)}
+              onClear={() => set('invoices_id', '')}
+              displayValue={invoices.find(i => i.invoices_id === Number(form.invoices_id))?.invoice_number}
+            />
           </Field>
           <Field label="Dispute Type">
             <select className="form-input" value={form.dispute_type} onChange={e => set('dispute_type', e.target.value)}>

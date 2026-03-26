@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, allocationRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 // Reusable base query for allocations with joined context
 function baseQuery() {
@@ -40,7 +42,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'allocations'); }
 });
 
-router.post('/', allocationRules, validate, auditCreate('allocations', 'allocations_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), allocationRules, validate, auditCreate('allocations', 'allocations_id'), async (req, res) => {
   try {
     const { line_items_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
     const id = await db.insertReturningId('allocations', {
@@ -52,7 +54,7 @@ router.post('/', allocationRules, validate, auditCreate('allocations', 'allocati
   } catch (err) { safeError(res, err, 'allocations'); }
 });
 
-router.put('/:id', idParam, ...allocationRules, validate, auditUpdate('allocations', 'allocations_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...allocationRules, validate, auditUpdate('allocations', 'allocations_id'), async (req, res) => {
   try {
     const { line_items_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
     await db('allocations').where('allocations_id', req.params.id).update({
@@ -64,11 +66,14 @@ router.put('/:id', idParam, ...allocationRules, validate, auditUpdate('allocatio
   } catch (err) { safeError(res, err, 'allocations'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('allocations', 'allocations_id'), auditDelete('allocations', 'allocations_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('allocations', 'allocations_id'), auditDelete('allocations', 'allocations_id'), async (req, res) => {
   try {
     await db('allocations').where('allocations_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'allocations'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('allocations', 'allocations_id'));
 
 module.exports = router;

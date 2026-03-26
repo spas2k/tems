@@ -11,6 +11,8 @@ import {
   getOrder, updateOrder, getOrderInventory,
   getVendors, getContracts, getInventory, getUsers,
 } from '../api';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS, LOOKUP_CONTRACTS } from '../utils/lookupConfigs';
 import dayjs from 'dayjs';
 
 const STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
@@ -343,10 +345,13 @@ export default function OrderDetail() {
           </Field>
 
           <Field label="Vendor *">
-            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
-              <option value="">Select vendor…</option>
-              {vendors.map(v => <option key={v.vendors_id} value={v.vendors_id}>{v.name}</option>)}
-            </select>
+            <LookupField
+              {...LOOKUP_VENDORS(vendors)}
+              value={form.vendors_id}
+              onChange={row => set('vendors_id', row.vendors_id)}
+              onClear={() => set('vendors_id', '')}
+              displayValue={vendors.find(v => v.vendors_id === Number(form.vendors_id))?.name}
+            />
           </Field>
 
           <Field label="Description">
@@ -354,10 +359,13 @@ export default function OrderDetail() {
           </Field>
 
           <Field label="Contract">
-            <select className="form-input" value={form.contracts_id || ''} onChange={e => set('contracts_id', e.target.value || null)}>
-              <option value="">None</option>
-              {contracts.map(c => <option key={c.contracts_id} value={c.contracts_id}>{c.contract_number}</option>)}
-            </select>
+            <LookupField
+              {...LOOKUP_CONTRACTS(contracts)}
+              value={form.contracts_id}
+              onChange={row => set('contracts_id', row.contracts_id)}
+              onClear={() => set('contracts_id', '')}
+              displayValue={contracts.find(c => c.contracts_id === Number(form.contracts_id))?.contract_number}
+            />
           </Field>
 
           <Field label="Order Date">

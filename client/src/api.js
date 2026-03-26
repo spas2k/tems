@@ -167,11 +167,11 @@ export const parseInvoiceFile   = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
-export const processInvoiceFile = (file, { template_id, accounts_id, mappings, sheet_name } = {}) => {
+export const processInvoiceFile = (file, { template_id, vendors_id, mappings, sheet_name } = {}) => {
   const fd = new FormData();
   fd.append('file', file);
   if (template_id) fd.append('template_id', template_id);
-  if (accounts_id) fd.append('accounts_id', accounts_id);
+  if (vendors_id) fd.append('vendors_id', vendors_id);
   if (mappings) fd.append('mappings', JSON.stringify(mappings));
   if (sheet_name) fd.append('sheet_name', sheet_name);
   return api.post('/invoice-reader/process', fd, {
@@ -206,3 +206,20 @@ export const deleteSavedReport = id       => api.delete(`/reports/${id}`);
 export const getNotifications        = ()  => api.get('/notifications');
 export const markNotificationRead    = id  => api.patch(`/notifications/${id}/read`);
 export const markAllNotificationsRead = () => api.patch('/notifications/read-all');
+
+// ── Form Instructions ──────────────────────────────────────────
+export const getFormInstructions = () => api.get('/form-instructions');
+
+// ── Workflows ──────────────────────────────────────────────
+export const getWorkflowRuns       = ()          => api.get('/workflows');
+export const getWorkflowRun        = id          => api.get(`/workflows/${id}`);
+export const getWorkflowDefinitions = ()         => api.get('/workflows/definitions');
+export const executeWorkflow       = d           => api.post('/workflows/execute', d);
+export const runWorkflowDemo       = (key, d)    => api.post(`/workflows/demo/${key}`, d);
+export const getFormInstructionByFormId = formId => api.get(`/form-instructions/by-form/${formId}`);
+export const createFormInstruction = d => api.post('/form-instructions', d);
+export const updateFormInstruction = (id, d) => api.put(`/form-instructions/${id}`, d);
+export const deleteFormInstruction = id => api.delete(`/form-instructions/${id}`);
+
+// ── Bulk Update (generic) ─────────────────────────────────
+export const bulkUpdate = (resource, ids, updates) => api.patch(`/${resource}/bulk`, { ids, updates });

@@ -67,7 +67,10 @@ router.get('/me', async (req, res) => {
       .where('u.users_id', req.user.users_id)
       .first();
 
-    if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user) {
+        require('../middleware/auth').resetDevUserCache();
+        return res.status(404).json({ error: 'User not found' });
+      }
 
     // Load permissions
     const perms = await db('role_permissions as rp')

@@ -3,6 +3,7 @@ import LookupField from './LookupField';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import DetailHeader from './DetailHeader';
+import FormInstructionBanner from './FormInstructionBanner';
 
 /**
  * Full-page form layout for creating new records.
@@ -249,7 +250,7 @@ export default function FormPage({
           </button>
         </div>
       </DetailHeader>
-
+      {backPath && <FormInstructionBanner formId={backPath.replace(/^\//, '')} />}
       {/* Validation errors */}
       {errors.length > 0 && (
         <div className="form-page-errors">

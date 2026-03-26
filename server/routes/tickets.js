@@ -8,6 +8,8 @@ const { body } = require('express-validator');
 const safeError = require('./_safeError');
 const { validate, idParam } = require('./_validators');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 const CATEGORIES = [
   'Enhancement', 'System Issue', 'Bug Report',
@@ -84,7 +86,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
 });
 
 // ── POST /api/tickets ────────────────────────────────────
-router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), ticketRules, validate, auditCreate('tickets', 'tickets_id'), async (req, res) => {
   try {
     const {
       title, description, category, priority, status,
@@ -171,7 +173,7 @@ router.post('/', ticketRules, validate, auditCreate('tickets', 'tickets_id'), as
 });
 
 // ── PUT /api/tickets/:id ─────────────────────────────────
-router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'tickets_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager', 'Analyst'), idParam, ...ticketRules, validate, auditUpdate('tickets', 'tickets_id'), async (req, res) => {
   try {
     const {
       title, description, category, priority, status,
@@ -269,7 +271,7 @@ router.put('/:id', idParam, ...ticketRules, validate, auditUpdate('tickets', 'ti
 });
 
 // ── DELETE /api/tickets/:id ──────────────────────────────
-router.delete('/:id', idParam, validate, auditDelete('tickets', 'tickets_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('tickets', 'tickets_id'), async (req, res) => {
   try {
     // Delete child comments first within a transaction
     await db.transaction(async trx => {
@@ -301,7 +303,7 @@ router.post('/:id/comments', idParam, validate, async (req, res) => {
 });
 
 // ── DELETE /api/tickets/:id/comments/:commentId ──────────
-router.delete('/:id/comments/:commentId', async (req, res) => {
+router.delete('/:id/comments/:commentId', requireRole('Admin'), async (req, res) => {
   try {
     const commentId = parseInt(req.params.commentId, 10);
     if (!Number.isInteger(commentId) || commentId < 1) {
@@ -322,5 +324,8 @@ router.delete('/:id/comments/:commentId', async (req, res) => {
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'tickets'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('tickets', 'tickets_id'));
 
 module.exports = router;

@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, contractRateRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 // Reusable base query with USOC code + contract info
 function baseQuery() {
@@ -14,7 +16,7 @@ function baseQuery() {
     .leftJoin('vendors as a', 'c.vendors_id', 'a.vendors_id')
     .select(
       'cr.*',
-      'c.contract_number', 'c.name as contract_name',
+      'c.contract_number', 'c.contract_name',
       'u.usoc_code', 'u.description as usoc_description', 'u.category as usoc_category',
       'a.name as account_name'
     );
@@ -41,7 +43,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
 });
 
 // POST create contract rate
-router.post('/', contractRateRules, validate, auditCreate('contract_rates', 'contract_rates_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), contractRateRules, validate, auditCreate('contract_rates', 'contract_rates_id'), async (req, res) => {
   try {
     const { contracts_id, usoc_codes_id, mrc, nrc, effective_date, expiration_date, notes } = req.body;
     const id = await db.insertReturningId('contract_rates', {
@@ -55,7 +57,7 @@ router.post('/', contractRateRules, validate, auditCreate('contract_rates', 'con
 });
 
 // PUT update contract rate
-router.put('/:id', idParam, ...contractRateRules, validate, auditUpdate('contract_rates', 'contract_rates_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...contractRateRules, validate, auditUpdate('contract_rates', 'contract_rates_id'), async (req, res) => {
   try {
     const { contracts_id, usoc_codes_id, mrc, nrc, effective_date, expiration_date, notes } = req.body;
     await db('contract_rates').where('contract_rates_id', req.params.id).update({
@@ -68,11 +70,14 @@ router.put('/:id', idParam, ...contractRateRules, validate, auditUpdate('contrac
 });
 
 // DELETE contract rate
-router.delete('/:id', idParam, validate, cascadeGuard('contract_rates', 'contract_rates_id'), auditDelete('contract_rates', 'contract_rates_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('contract_rates', 'contract_rates_id'), auditDelete('contract_rates', 'contract_rates_id'), async (req, res) => {
   try {
     await db('contract_rates').where('contract_rates_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'contractRates'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('contract_rates', 'contract_rates_id'));
 
 module.exports = router;

@@ -222,3 +222,5 @@ function resetDevUserCache() {
 }
 
 module.exports = { authenticate, requirePermission, requireRole, resetDevUserCache };
+
+// nodemon trigger

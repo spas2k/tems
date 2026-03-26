@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   getContract, updateContract, getContractInventory, getContractOrders, getVendors,
   getContractRates, getUsocCodes, createContractRate, updateContractRate, deleteContractRate,
+  getContracts,
 } from '../api';
 import DetailHeader from '../components/DetailHeader';
 import NoteTimeline from '../components/NoteTimeline';
@@ -13,6 +14,8 @@ import ChangeHistory from '../components/ChangeHistory';
 import Modal from '../components/Modal';
 import dayjs from 'dayjs';
 import { useConfirm } from '../context/ConfirmContext';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS, LOOKUP_CONTRACTS, LOOKUP_CURRENCIES } from '../utils/lookupConfigs';
 
 const STATUSES = ['Active', 'Pending', 'Expired', 'Terminated'];
 const STATUS_BADGE = {
@@ -78,6 +81,7 @@ export default function ContractDetail() {
   const [inventory, setInventory] = useState([]);
   const [orders,   setOrders]   = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [contractsList, setContractsList] = useState([]);
   const [rates,    setRates]    = useState([]);
   const [usocCodes, setUsocCodes] = useState([]);
 
@@ -107,19 +111,23 @@ export default function ContractDetail() {
       getContractInventory(id),
       getContractOrders(id),
       getVendors(),
+      getContracts().catch(() => ({ data: [] })),
       getContractRates({ contracts_id: id }).catch(() => ({ data: [] })),
       getUsocCodes().catch(() => ({ data: [] })),
-    ]).then(([co, ci, or_, v, rt, uc]) => {
+    ]).then(([co, ci, or_, v, conList, rt, uc]) => {
       const c = co.data;
       setContract(c);
       setPageTitle(c.contract_number || c.contract_name);
       setInventory(ci.data);
       setOrders(or_.data);
       setVendors(v.data);
+      setContractsList(conList.data);
       setRates(rt.data);
       setUsocCodes(uc.data);
       setForm({
         vendors_id:      c.vendors_id      || '',
+        parent_contract_id: c.parent_contract_id || '',
+        currency_id:     c.currency_id     || '',
         contract_name:   c.contract_name   || '',
         contract_number: c.contract_number || '',
         type:            c.type            || '',
@@ -328,10 +336,13 @@ export default function ContractDetail() {
           </Field>
 
           <Field label="Vendor *">
-            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
-              <option value="">Select vendor…</option>
-              {vendors.map(v => <option key={v.vendors_id} value={v.vendors_id}>{v.name}</option>)}
-            </select>
+            <LookupField
+              {...LOOKUP_VENDORS(vendors)}
+              value={form.vendors_id}
+              onChange={row => set('vendors_id', row.vendors_id)}
+              onClear={() => set('vendors_id', '')}
+              displayValue={vendors.find(v => v.vendors_id === form.vendors_id)?.name}
+            />
           </Field>
 
           <Field label="Status">
@@ -346,6 +357,26 @@ export default function ContractDetail() {
 
           <Field label="Subtype">
             <input className="form-input" value={form.subtype} onChange={e => set('subtype', e.target.value)} placeholder="e.g. Telecommunications" />
+          </Field>
+
+          <Field label="Parent Contract">
+            <LookupField
+              {...LOOKUP_CONTRACTS(contractsList)}
+              value={form.parent_contract_id}
+              onChange={row => set('parent_contract_id', row.contracts_id)}
+              onClear={() => set('parent_contract_id', '')}
+              displayValue={contractsList.find(c => c.contracts_id === form.parent_contract_id)?.contract_number}
+            />
+          </Field>
+
+          <Field label="Currency">
+            <LookupField
+              {...LOOKUP_CURRENCIES([])}
+              value={form.currency_id}
+              onChange={row => set('currency_id', row.currency_id)}
+              onClear={() => set('currency_id', '')}
+              displayValue={form.currency_id}
+            />
           </Field>
 
           <Field label="Start Date">

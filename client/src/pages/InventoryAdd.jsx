@@ -72,7 +72,7 @@ export default function InventoryAdd() {
       })}
       onSubmit={d => createInventoryItem(d)}
       backPath="/inventory"
-      redirectOnSave={res => /inventory/ + res.data.inventory_id}
+      redirectOnSave={res => `/inventory/${res.data.inventory_id}`}
     />
   );
 }

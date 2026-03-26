@@ -6,6 +6,7 @@ const { requireRole } = require('../middleware/auth');
 
 const ALLOWED_ENTITY_TYPES = new Set([
   'account', 'contract', 'inventoryItem', 'order', 'invoice', 'dispute', 'cost_saving',
+  'vendor', 'vendor_remit', 'location',
 ]);
 
 // GET /notes?entity_type=account&entity_id=123

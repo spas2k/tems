@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { bulkUpdate as bulkUpdateApi } from '../api';
 
 // ── Filter engine ─────────────────────────────────────────────────────────────
 
@@ -125,6 +127,7 @@ function applyFilter(cell, op, value, type) {
  * @param {Object}   related       - { accounts: getAccountsFn, ... }
  * @param {Function} defaultValues - (related) => overrides for openNew
  * @param {Function} beforeSave    - (form, editing) => transformed payload
+ * @param {string}   resourceName  - API resource path segment, e.g. 'vendors' — enables bulk update
  */
 export default function useCrudTable({
   api,
@@ -134,9 +137,11 @@ export default function useCrudTable({
   related = {},
   defaultValues,
   beforeSave,
+  resourceName,
 }) {
   /* ── confirm dialog ───────────────────────────────────── */
   const confirm = useConfirm();
+  const { user } = useAuth();
 
   /* ── core data ───────────────────────────────────────── */
   const [data, setData] = useState([]);
@@ -198,7 +203,7 @@ export default function useCrudTable({
 
   /* ── pagination ──────────────────────────────────────── */
   const [page, setPage]         = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(() => user?.preferences?.rows_per_page || 26);
 
   /* ── processed data (filter → sort) ──────────────────── */
   const processedData = useMemo(() => {
@@ -306,6 +311,18 @@ export default function useCrudTable({
     }
   };
 
+  /* ── bulk update handler ────────────────────────────── */
+  const handleBulkUpdate = async (ids, updates) => {
+    if (!resourceName) return;
+    try {
+      const res = await bulkUpdateApi(resourceName, ids, updates);
+      load();
+      showToast(`Updated ${res.data.updated} record${res.data.updated !== 1 ? 's' : ''}.`);
+    } catch {
+      showToast('Bulk update failed.', false);
+    }
+  };
+
   /* ── toast renderer ──────────────────────────────────── */
   const renderToast = () =>
     toast
@@ -361,6 +378,7 @@ export default function useCrudTable({
     onSaveFilter: saveFilter,
     onDeleteFilter: deleteFilter,
     onLoadFilter: loadFilter,
+    onBulkUpdate: resourceName ? handleBulkUpdate : undefined,
   };
 
   return {
@@ -375,7 +393,7 @@ export default function useCrudTable({
     // CRUD
     modal, setModal, editing,
     form, setField,
-    openNew, openEdit, handleSave, handleDelete,
+    openNew, openEdit, handleSave, handleDelete, handleBulkUpdate,
     // toast
     toast, showToast, renderToast,
     // misc

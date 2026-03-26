@@ -68,7 +68,7 @@ export default function OrderAdd() {
       beforeSave={form => ({ ...form, inventory_id: form.inventory_id || null })}
       onSubmit={d => createOrder(d)}
       backPath="/orders"
-      redirectOnSave={res => /orders/ + res.data.orders_id}
+      redirectOnSave={res => `/orders/${res.data.orders_id}`}
     />
   );
 }

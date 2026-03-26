@@ -5,6 +5,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, costSavingsRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 function baseQuery() {
   return db('cost_savings as cs')
@@ -37,7 +39,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
-router.post('/', costSavingsRules, validate, auditCreate('cost_savings', 'cost_savings_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), costSavingsRules, validate, auditCreate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
     const { vendors_id, inventory_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
     const id = await db.insertReturningId('cost_savings', {
@@ -54,7 +56,7 @@ router.post('/', costSavingsRules, validate, auditCreate('cost_savings', 'cost_s
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
-router.put('/:id', idParam, ...costSavingsRules, validate, auditUpdate('cost_savings', 'cost_savings_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...costSavingsRules, validate, auditUpdate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
     const { vendors_id, inventory_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
     await db('cost_savings').where('cost_savings_id', req.params.id).update({
@@ -70,11 +72,14 @@ router.put('/:id', idParam, ...costSavingsRules, validate, auditUpdate('cost_sav
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('cost_savings', 'cost_savings_id'), auditDelete('cost_savings', 'cost_savings_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('cost_savings', 'cost_savings_id'), auditDelete('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
     await db('cost_savings').where('cost_savings_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('cost_savings', 'cost_savings_id'));
 
 module.exports = router;

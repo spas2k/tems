@@ -5,6 +5,8 @@ import { getInventory, createInventoryItem, updateInventoryItem, deleteInventory
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import LookupField from '../components/LookupField';
+import { LOOKUP_ACCOUNTS, LOOKUP_CONTRACTS, LOOKUP_ORDERS } from '../utils/lookupConfigs';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 
@@ -32,6 +34,7 @@ export default function Inventory() {
     filterConfig: FILTER_CONFIG,
     related: { accounts: getAccounts, contracts: getContracts, orders: getOrders },
     defaultValues: (rel) => ({ accounts_id: rel.accounts[0]?.accounts_id || '' }),
+    resourceName: 'inventory',
   });
 
   const { accounts, contracts, orders } = table.related;
@@ -44,21 +47,50 @@ export default function Inventory() {
     { key: 'bandwidth', label: 'Bandwidth' },
     { key: 'contracted_rate', label: 'Monthly Cost', format: 'currency', summary: 'sum', style: { fontWeight: 700 } },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: STATUSES, badge: STATUS_BADGE },
+    { key: 'install_date', label: 'Install Date', filterType: 'date', format: 'date', defaultHidden: true },
+    { key: 'disconnect_date', label: 'Disconnect Date', filterType: 'date', format: 'date', defaultHidden: true },
   ];
 
   const formFields = [
     { key: 'inventory_number', label: 'Inventory Number *', half: true },
-    { key: 'accounts_id', label: 'Account *', type: 'select',
-      options: accounts.map(a => ({ value: a.accounts_id, label: a.name })), placeholder: 'Select account…', half: true },
+    { key: 'accounts_id', label: 'Account *', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Account *"
+          {...LOOKUP_ACCOUNTS(accounts)}
+          value={form.accounts_id}
+          onChange={row => setField('accounts_id', row.accounts_id)}
+          onClear={() => setField('accounts_id', '')}
+          displayValue={accounts.find(a => a.accounts_id === Number(form.accounts_id))?.name}
+        />
+      ) },
     { key: 'location', label: 'Location' },
     { key: 'type', label: 'Type', type: 'select', options: TYPES, half: true },
     { key: 'bandwidth', label: 'Bandwidth', placeholder: 'e.g. 100 Mbps', half: true },
     { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
     { key: 'install_date', label: 'Install Date', type: 'date', half: true },
-    { key: 'contracts_id', label: 'Contract *', type: 'select',
-      options: contracts.map(c => ({ value: c.contracts_id, label: c.contract_number })), placeholder: 'Select contract…', half: true },
-    { key: 'orders_id', label: 'Order (optional)', type: 'select',
-      options: orders.map(o => ({ value: o.orders_id, label: o.order_number })), placeholder: 'None', half: true },
+    { key: 'contracts_id', label: 'Contract *', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Contract *"
+          {...LOOKUP_CONTRACTS(contracts)}
+          value={form.contracts_id}
+          onChange={row => setField('contracts_id', row.contracts_id)}
+          onClear={() => setField('contracts_id', '')}
+          displayValue={contracts.find(c => c.contracts_id === Number(form.contracts_id))?.contract_number}
+        />
+      ) },
+    { key: 'orders_id', label: 'Order (optional)', half: true,
+      render: (form, setField) => (
+        <LookupField
+          label="Order (optional)"
+          {...LOOKUP_ORDERS(orders)}
+          value={form.orders_id}
+          onChange={row => setField('orders_id', row.orders_id)}
+          onClear={() => setField('orders_id', '')}
+          displayValue={orders.find(o => o.orders_id === Number(form.orders_id))?.order_number}
+        />
+      ) },
     { key: 'disconnect_date', label: 'Disconnect Date', type: 'date', half: true },
     { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
   ];
@@ -72,7 +104,7 @@ export default function Inventory() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         <div className="kpi-card purple"><div className="kpi-label">Total Inventory</div><div className="kpi-value">{table.data.length}</div><div className="kpi-icon"><Network size={40} /></div></div>
         <div className="kpi-card green"><div className="kpi-label">Active Inventory</div><div className="kpi-value">{table.data.filter(d => d.status === 'Active').length}</div></div>
-        <div className="kpi-card blue"><div className="kpi-label">Monthly MRC</div><div className="kpi-value">{$}{totalMRC.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div><div className="kpi-sub">Active inventory only</div></div>
+        <div className="kpi-card blue"><div className="kpi-label">Monthly MRC</div><div className="kpi-value">${totalMRC.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div><div className="kpi-sub">Active inventory only</div></div>
       </div>
 
       <DataTable
@@ -81,6 +113,7 @@ export default function Inventory() {
         title="Inventory"
         titleIcon={<Network size={15} color="#7c3aed" />}
         exportFilename="Inventory"
+        bulkUpdateFields={formFields}
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm('Delete ' + rows.length + ' records?'))) return; rows.forEach(r => table.handleDelete(r.inventory_id, { skipConfirm: true })); } }
         ] : []}

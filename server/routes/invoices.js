@@ -6,6 +6,8 @@ const safeError = require('./_safeError');
 const { validate, idParam, invoiceRules } = require('./_validators');
 const cascadeGuard = require('./_cascadeGuard');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
+const bulkUpdate = require('./_bulkUpdate');
 
 // Reusable base query for invoices with account name and assigned user
 function baseQuery() {
@@ -39,7 +41,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'invoices'); }
 });
 
-router.post('/', invoiceRules, validate, auditCreate('invoices', 'invoices_id'), async (req, res) => {
+router.post('/', requireRole('Admin', 'Manager'), invoiceRules, validate, auditCreate('invoices', 'invoices_id'), async (req, res) => {
   try {
     const { accounts_id, invoice_number, invoice_date, due_date, period_start, period_end, total_amount, status, payment_date, assigned_users_id } = req.body;
     const id = await db.insertReturningId('invoices', {
@@ -54,7 +56,7 @@ router.post('/', invoiceRules, validate, auditCreate('invoices', 'invoices_id'),
   } catch (err) { safeError(res, err, 'invoices'); }
 });
 
-router.put('/:id', idParam, ...invoiceRules, validate, auditUpdate('invoices', 'invoices_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...invoiceRules, validate, auditUpdate('invoices', 'invoices_id'), async (req, res) => {
   try {
     const { accounts_id, invoice_number, invoice_date, due_date, period_start, period_end, total_amount, status, payment_date, assigned_users_id } = req.body;
 
@@ -88,11 +90,14 @@ router.put('/:id', idParam, ...invoiceRules, validate, auditUpdate('invoices', '
   } catch (err) { safeError(res, err, 'invoices'); }
 });
 
-router.delete('/:id', idParam, validate, cascadeGuard('invoices', 'invoices_id'), auditDelete('invoices', 'invoices_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('invoices', 'invoices_id'), auditDelete('invoices', 'invoices_id'), async (req, res) => {
   try {
     await db('invoices').where('invoices_id', req.params.id).del();
     res.json({ success: true });
   } catch (err) { safeError(res, err, 'invoices'); }
 });
+
+// ── PATCH /bulk ─────────────────────────────────────────
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('invoices', 'invoices_id'));
 
 module.exports = router;

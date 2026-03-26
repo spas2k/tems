@@ -5,6 +5,8 @@ import { PageTitleContext } from '../PageTitleContext';
 import { useAuth } from '../context/AuthContext';
 import { getTicket, updateTicket, deleteTicket, addTicketComment, deleteTicketComment, getUsers } from '../api';
 import { useConfirm } from '../context/ConfirmContext';
+import LookupField from '../components/LookupField';
+import { LOOKUP_USERS } from '../utils/lookupConfigs';
 import DetailHeader from '../components/DetailHeader';
 import ChangeHistory from '../components/ChangeHistory';
 
@@ -429,10 +431,14 @@ export default function TicketDetail() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div>
                   <label className="form-label">Assigned To</label>
-                  <select className="form-input" value={form.assigned_users_id} onChange={e => set('assigned_users_id', e.target.value)} style={{ width: '100%' }}>
-                    <option value="">Unassigned</option>
-                    {users.map(u => <option key={u.users_id} value={u.users_id}>{u.display_name || u.username}</option>)}
-                  </select>
+                  <LookupField
+                    {...LOOKUP_USERS(users)}
+                    value={form.assigned_users_id}
+                    onChange={row => set('assigned_users_id', row.users_id)}
+                    onClear={() => set('assigned_users_id', '')}
+                    displayValue={users.find(u => u.users_id === Number(form.assigned_users_id))?.display_name}
+                    style={{ width: '100%' }}
+                  />
                 </div>
                 <div>
                   <label className="form-label">Due Date</label>

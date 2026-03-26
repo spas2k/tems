@@ -5,6 +5,7 @@ const safeError = require('./_safeError');
 const { validate, idParam } = require('./_validators');
 const { body } = require('express-validator');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
 
 const catalogRules = [
   body('category').trim().notEmpty().withMessage('Category is required').isLength({ max: 80 }),
@@ -41,7 +42,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'field_catalog'); }
 });
 
-router.post('/', catalogRules, validate, auditCreate('field_catalog', 'field_catalog_id'), async (req, res) => {
+router.post('/', requireRole('Admin'), catalogRules, validate, auditCreate('field_catalog', 'field_catalog_id'), async (req, res) => {
   try {
     const { category, label, value, sort_order, is_active, description } = req.body;
     const id = await db.insertReturningId('field_catalog', {
@@ -55,7 +56,7 @@ router.post('/', catalogRules, validate, auditCreate('field_catalog', 'field_cat
   } catch (err) { safeError(res, err, 'field_catalog'); }
 });
 
-router.put('/:id', idParam, catalogRules, validate, auditUpdate('field_catalog', 'field_catalog_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin'), idParam, catalogRules, validate, auditUpdate('field_catalog', 'field_catalog_id'), async (req, res) => {
   try {
     const { category, label, value, sort_order, is_active, description } = req.body;
     await db('field_catalog').where('field_catalog_id', req.params.id).update({
@@ -66,7 +67,7 @@ router.put('/:id', idParam, catalogRules, validate, auditUpdate('field_catalog',
   } catch (err) { safeError(res, err, 'field_catalog'); }
 });
 
-router.delete('/:id', idParam, validate, auditDelete('field_catalog', 'field_catalog_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('field_catalog', 'field_catalog_id'), async (req, res) => {
   try {
     await db('field_catalog').where('field_catalog_id', req.params.id).del();
     res.json({ success: true });

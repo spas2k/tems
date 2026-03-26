@@ -23,6 +23,14 @@ router.get('/', requireRole('Admin'), async (req, res) => {
   } catch (err) { safeError(res, err, 'roles'); }
 });
 
+// GET /api/permissions — list all permissions (Admin+)
+router.get('/permissions/all', requireRole('Admin'), async (req, res) => {
+  try {
+    const rows = await db('permissions').orderBy('resource').orderBy('action');
+    res.json(rows);
+  } catch (err) { safeError(res, err, 'permissions'); }
+});
+
 // GET /api/roles/:id — role detail with permissions
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
@@ -36,14 +44,6 @@ router.get('/:id', idParam, validate, async (req, res) => {
     role.permissions = permissions;
     res.json(role);
   } catch (err) { safeError(res, err, 'roles'); }
-});
-
-// GET /api/permissions — list all permissions (Admin+)
-router.get('/permissions/all', requireRole('Admin'), async (req, res) => {
-  try {
-    const rows = await db('permissions').orderBy('resource').orderBy('action');
-    res.json(rows);
-  } catch (err) { safeError(res, err, 'permissions'); }
 });
 
 // POST /api/roles — Admin only

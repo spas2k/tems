@@ -48,7 +48,8 @@ export default function Tickets() {
   const table = useCrudTable({
     api: { list: getTickets },
     idKey: 'tickets_id',
-    filterConfig: FILTER_CONFIG
+    filterConfig: FILTER_CONFIG,
+    resourceName: 'tickets',
   });
 
   // KPI counts

@@ -28,6 +28,7 @@ export default function Vendors() {
     idKey: 'vendors_id',
     emptyForm: EMPTY,
     filterConfig: FILTER_CONFIG,
+    resourceName: 'vendors',
   });
 
   const columns = [
@@ -78,6 +79,7 @@ export default function Vendors() {
         title="All Vendors"
         titleIcon={<Landmark size={15} color="#2563eb" />}
         exportFilename="Vendors"
+        bulkUpdateFields={formFields}
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.vendors_id, { skipConfirm: true })); } }
         ] : []}

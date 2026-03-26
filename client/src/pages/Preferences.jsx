@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Monitor as MonitorIcon, Bell, Palette, Globe, Monitor, Clock, Smartphone } from 'lucide-react';
+import { Sun, Moon, Monitor as MonitorIcon, Bell, Palette, Globe, Monitor, Clock, Smartphone, BookOpen, List } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 /* ── Theme helper ────────────────────────── */
@@ -49,7 +49,7 @@ const SECTIONS = [
 ];
 
 export default function Preferences() {
-  const { user } = useAuth();
+  const { user, updatePreferences } = useAuth();
   const [mode, setMode] = useState(() => localStorage.getItem(THEME_KEY) || 'light');
   const [virtualMobile, setVirtualMobileState] = useState(
     () => localStorage.getItem('tems-virtual-mobile') === 'true'
@@ -60,6 +60,25 @@ export default function Preferences() {
     setVirtualMobileState(next);
     localStorage.setItem('tems-virtual-mobile', String(next));
     window.dispatchEvent(new CustomEvent('tems-virtual-mobile-change'));
+  };
+
+  const [showInstructions, setShowInstructions] = useState(
+    () => user?.preferences?.show_form_instructions !== false
+  );
+
+  const toggleInstructions = () => {
+    const next = !showInstructions;
+    setShowInstructions(next);
+    if (updatePreferences) updatePreferences({ show_form_instructions: next });
+  };
+
+  const [rowsPerPage, setRowsPerPage] = useState(
+    () => user?.preferences?.rows_per_page || 25
+  );
+
+  const updateRowsPerPage = (value) => {
+    setRowsPerPage(value);
+    if (updatePreferences) updatePreferences({ rows_per_page: value });
   };
 
   /* apply on mount + whenever mode changes */
@@ -124,6 +143,34 @@ export default function Preferences() {
         </div>
       </div>
 
+      {/* ── Default Items Per Page ── */}
+      <div className="card" style={{ padding: '24px 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <List size={18} className="pref-icon" />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15 }} className="pref-title">Default Items Per Page</div>
+            <div style={{ fontSize: 12, marginTop: 1 }} className="pref-sub">Set the default number of items shown in data tables</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {[10, 25, 50, 100].map(val => {
+            const active = rowsPerPage === val;
+            return (
+              <button
+                key={val}
+                onClick={() => updateRowsPerPage(val)}
+                className={`theme-card${active ? ' theme-card-active' : ''}`}
+                style={{ padding: '16px 12px' }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{val}</div>
+                <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>items</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── Virtual Mobile Mode ── */}
       <div className="card" style={{ padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 18 }}>
         <div className="pref-icon-box" style={{
@@ -150,6 +197,38 @@ export default function Preferences() {
         >
           <span className="toggle-knob" style={{
             position: 'absolute', top: 3, left: virtualMobile ? 23 : 3,
+            width: 18, height: 18, borderRadius: '50%',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s',
+          }} />
+        </button>
+      </div>
+
+      {/* ── Form Instructions ── */}
+      <div className="card" style={{ padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 18 }}>
+        <div className="pref-icon-box" style={{
+          width: 42, height: 42, borderRadius: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          background: showInstructions ? '#dbeafe' : undefined,
+        }}>
+          <BookOpen size={20} color={showInstructions ? '#2563eb' : undefined} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }} className="pref-title">Show Form Instructions</div>
+          <div style={{ fontSize: 12, marginTop: 2 }} className="pref-sub">
+            Display helpful instructions at the top of forms when available.
+          </div>
+        </div>
+        <button
+          onClick={toggleInstructions}
+          style={{
+            width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0,
+            background: showInstructions ? '#2563eb' : '#cbd5e1',
+            position: 'relative', transition: 'background 0.2s',
+          }}
+          title={showInstructions ? 'Hide form instructions' : 'Show form instructions'}
+        >
+          <span className="toggle-knob" style={{
+            position: 'absolute', top: 3, left: showInstructions ? 23 : 3,
             width: 18, height: 18, borderRadius: '50%',
             boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s',
           }} />

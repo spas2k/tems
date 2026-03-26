@@ -12,6 +12,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const safeError = require('./_safeError');
+const { requireRole } = require('../middleware/auth');
 
 // ══════════════════════════════════════════════════════════════
 //  Field Catalog — defines all reportable tables and their fields
@@ -828,7 +829,7 @@ async function runMultiTable(req, res) {
 // ══════════════════════════════════════════════════════════════
 //  POST /run  — execute a report query (legacy + multi-table)
 // ══════════════════════════════════════════════════════════════
-router.post('/run', async (req, res) => {
+router.post('/run', requireRole('Admin', 'Manager', 'Analyst'), async (req, res) => {
   try {
     // Multi-table mode: linkedTables present
     if (Array.isArray(req.body.linkedTables)) {
@@ -1046,7 +1047,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /  — save a new report
-router.post('/save', async (req, res) => {
+router.post('/save', requireRole('Admin', 'Manager', 'Analyst'), async (req, res) => {
   try {
     const { name, description, config } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
@@ -1067,7 +1068,7 @@ router.post('/save', async (req, res) => {
 });
 
 // PUT /:id  — update saved report
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('Admin', 'Manager'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
@@ -1089,7 +1090,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('Admin'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });

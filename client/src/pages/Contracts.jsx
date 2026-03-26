@@ -33,6 +33,7 @@ export default function Contracts() {
     filterConfig: FILTER_CONFIG,
     related: { vendors: getVendors },
     defaultValues: (rel) => ({ vendors_id: rel.vendors[0]?.vendors_id || '' }),
+    resourceName: 'contracts',
   });
 
   const vendors = table.related.vendors;
@@ -56,6 +57,9 @@ export default function Contracts() {
       filterOptions: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
       render: v => v ? <span className="badge badge-teal">Yes</span> : <span className="badge badge-gray">No</span> },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: STATUSES, badge: STATUS_BADGE },
+    { key: 'description', label: 'Description', defaultHidden: true, style: { fontSize: 12, color: '#64748b' } },
+    { key: 'created_at', label: 'Created At', filterType: 'date', format: 'date', defaultHidden: true },
+    { key: 'updated_at', label: 'Updated At', filterType: 'date', format: 'date', defaultHidden: true },
   ];
 
   const formFields = [
@@ -110,6 +114,7 @@ export default function Contracts() {
         title="All Contracts"
         titleIcon={<FileText size={15} color="#0d9488" />}
         exportFilename="Contracts"
+        bulkUpdateFields={formFields}
         bulkActions={canDelete ? [
           { label: 'Delete', icon: Trash2, danger: true, onClick: async rows => { if (!(await confirm(`Delete ${rows.length} records?`))) return; rows.forEach(r => table.handleDelete(r.contracts_id, { skipConfirm: true })); } }
         ] : []}

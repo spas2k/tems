@@ -5,6 +5,8 @@ import { getCostSavings, createCostSaving, updateCostSaving, deleteCostSaving, g
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS, LOOKUP_INVENTORY } from '../utils/lookupConfigs';
 import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rate Negotiation', 'Duplicate', 'Other'];
@@ -30,6 +32,7 @@ export default function CostSavings() {
     related: { vendors: getVendors, inventory: getInventory },
     defaultValues: (rel) => ({ vendors_id: rel.vendors[0]?.vendors_id || '' }),
     beforeSave: form => ({ ...form, inventory_id: form.inventory_id || null }),
+    resourceName: 'cost-savings',
   });
 
   const { vendors, inventory } = table.related;
@@ -50,8 +53,17 @@ export default function CostSavings() {
   ];
 
   const formFields = [
-    { key: 'vendors_id', label: 'Vendor Account *', type: 'select',
-      options: vendors.map(v => ({ value: v.vendors_id, label: v.name })), placeholder: 'Select vendor…' },
+    { key: 'vendors_id', label: 'Vendor Account *',
+      render: (form, setField) => (
+        <LookupField
+          label="Vendor Account *"
+          {...LOOKUP_VENDORS(vendors)}
+          value={form.vendors_id}
+          onChange={row => setField('vendors_id', row.vendors_id)}
+          onClear={() => setField('vendors_id', '')}
+          displayValue={vendors.find(v => v.vendors_id === Number(form.vendors_id))?.name}
+        />
+      ) },
     { key: 'category', label: 'Category', type: 'select', options: CATEGORIES, half: true },
     { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
     { key: 'description', label: 'Description', type: 'textarea' },
@@ -59,8 +71,17 @@ export default function CostSavings() {
     { key: 'realized_savings', label: 'Realized Savings ($)', type: 'number', step: '0.01', half: true },
     { key: 'identified_date', label: 'Identified Date', type: 'date', half: true },
     { key: 'resolved_date', label: 'Resolved Date', type: 'date', half: true },
-    { key: 'inventory_id', label: 'Related InventoryItem (optional)', type: 'select',
-      options: inventory.map(i => ({ value: i.inventory_id, label: `${i.inventory_number} — ${i.location}` })), placeholder: 'None' },
+    { key: 'inventory_id', label: 'Related InventoryItem (optional)',
+      render: (form, setField) => (
+        <LookupField
+          label="Related InventoryItem (optional)"
+          {...LOOKUP_INVENTORY(inventory)}
+          value={form.inventory_id}
+          onChange={row => setField('inventory_id', row.inventory_id)}
+          onClear={() => setField('inventory_id', '')}
+          displayValue={inventory.find(i => i.inventory_id === Number(form.inventory_id))?.inventory_number}
+        />
+      ) },
     { key: 'notes', label: 'Notes', type: 'textarea' },
   ];
 
@@ -83,6 +104,7 @@ export default function CostSavings() {
         {...table.tableProps}
         title="Savings Pipeline"
         titleIcon={<Zap size={15} color="#16a34a" />}
+        bulkUpdateFields={formFields}
         headerRight={canCreate ? <button className="btn btn-primary" onClick={() => navigate('/cost-savings/new')}><Plus size={15} /> New Opportunity</button> : null}
       />
 

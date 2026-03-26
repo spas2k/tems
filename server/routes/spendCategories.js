@@ -5,6 +5,7 @@ const safeError = require('./_safeError');
 const { validate, idParam } = require('./_validators');
 const { body } = require('express-validator');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
+const { requireRole } = require('../middleware/auth');
 
 const categoryRules = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 120 }),
@@ -31,7 +32,7 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'spend_categories'); }
 });
 
-router.post('/', categoryRules, validate, auditCreate('spend_categories', 'spend_categories_id'), async (req, res) => {
+router.post('/', requireRole('Admin'), categoryRules, validate, auditCreate('spend_categories', 'spend_categories_id'), async (req, res) => {
   try {
     const { name, code, description, parent_id, is_active } = req.body;
     const id = await db.insertReturningId('spend_categories', {
@@ -44,7 +45,7 @@ router.post('/', categoryRules, validate, auditCreate('spend_categories', 'spend
   } catch (err) { safeError(res, err, 'spend_categories'); }
 });
 
-router.put('/:id', idParam, categoryRules, validate, auditUpdate('spend_categories', 'spend_categories_id'), async (req, res) => {
+router.put('/:id', requireRole('Admin'), idParam, categoryRules, validate, auditUpdate('spend_categories', 'spend_categories_id'), async (req, res) => {
   try {
     const { name, code, description, parent_id, is_active } = req.body;
     await db('spend_categories').where('spend_categories_id', req.params.id).update({
@@ -57,7 +58,7 @@ router.put('/:id', idParam, categoryRules, validate, auditUpdate('spend_categori
   } catch (err) { safeError(res, err, 'spend_categories'); }
 });
 
-router.delete('/:id', idParam, validate, auditDelete('spend_categories', 'spend_categories_id'), async (req, res) => {
+router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('spend_categories', 'spend_categories_id'), async (req, res) => {
   try {
     const children = await db('spend_categories').where('parent_id', req.params.id).count('* as cnt').first();
     if (Number(children.cnt) > 0) {

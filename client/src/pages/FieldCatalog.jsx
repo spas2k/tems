@@ -7,12 +7,11 @@ import DataTable from '../components/DataTable';
 import CrudModal from '../components/CrudModal';
 import { useAuth } from '../context/AuthContext';
 
-const EMPTY = { category: '', label: '', value: '', sort_order: 0, is_active: true, description: '' };
+const EMPTY = { category: '', label: '', sort_order: 0, is_active: true, description: '' };
 
 const formFields = [
   { key: 'category',    label: 'Category',      required: true, placeholder: 'e.g. Bandwidth, InventoryItem Type…' },
-  { key: 'label',       label: 'Display Label', required: true, half: true },
-  { key: 'value',       label: 'Stored Value',  required: true, half: true },
+  { key: 'label',       label: 'Label',         required: true, half: true },
   { key: 'sort_order',  label: 'Sort Order',    type: 'number', half: true },
   { key: 'is_active',   label: 'Active',        type: 'select', options: ['true', 'false'], half: true },
   { key: 'description', label: 'Description',   type: 'textarea' },
@@ -27,6 +26,7 @@ export default function FieldCatalog() {
     api: { list: getFieldCatalog, create: createFieldCatalog },
     idKey:     'field_catalog_id',
     emptyForm: EMPTY,
+    beforeSave: form => ({ ...form, value: form.label, is_active: form.is_active === true || form.is_active === 'true' }),
   });
 
   // Aggregate raw entries into one row per category
@@ -49,7 +49,7 @@ export default function FieldCatalog() {
     { key: 'total',  label: 'Options', style: { textAlign: 'center', width: 120 } },
     {
       key: 'active', label: 'Active', style: { textAlign: 'center', width: 120 },
-      render: row => <span className="badge badge-green">{row.active}</span>,
+      render: val => <span className="badge badge-green">{val}</span>,
     },
   ];
 
