@@ -53,7 +53,7 @@ export default function Dashboard() {
   );
 
   if (error) return (
-    <div style={{ background: '#fee2e2', color: '#dc2626', padding: '16px 20px', borderRadius: 12, fontWeight: 600 }}>
+    <div style={{ background: 'var(--bg-error)', color: 'var(--text-error)', padding: '16px 20px', borderRadius: 12, fontWeight: 600 }}>
       Error loading dashboard: {error}
     </div>
   );

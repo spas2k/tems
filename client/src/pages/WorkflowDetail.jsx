@@ -35,7 +35,7 @@ export default function WorkflowDetail() {
 
   if (loading) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-faint)' }}>
         Loading workflow…
       </div>
     );
@@ -44,7 +44,7 @@ export default function WorkflowDetail() {
   if (!data) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <div style={{ color: '#dc2626', marginBottom: 12 }}>Workflow run not found.</div>
+        <div style={{ color: 'var(--text-error)', marginBottom: 12 }}>Workflow run not found.</div>
         <button className="btn btn-primary" onClick={() => navigate('/workflows')}>
           <ArrowLeft size={15} /> Back to Workflows
         </button>
@@ -78,7 +78,7 @@ export default function WorkflowDetail() {
               {runCfg.label}
             </span>
           </div>
-          <div style={{ fontSize: 13, color: '#64748b', marginTop: 4, display: 'flex', gap: 16 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, display: 'flex', gap: 16 }}>
             <span>Run #{run.workflow_runs_id}</span>
             <span>Started: {started.toLocaleString()}</span>
             {finished && <span>Finished: {finished.toLocaleString()}</span>}
@@ -153,25 +153,25 @@ export default function WorkflowDetail() {
               <div className="wf-step-type-badge">{activeStep.type}</div>
 
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
                   Instruction
                 </div>
-                <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.6, background: '#f8fafc', borderRadius: 8, padding: 12, border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, background: 'var(--bg-subtle)', borderRadius: 8, padding: 12, border: '1px solid var(--border-color)' }}>
                   {activeStep.instruction || 'No instruction provided.'}
                 </div>
               </div>
 
               {activeStep.status_detail && (
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
                     Result Detail
                   </div>
                   <div style={{
                     fontSize: 13, lineHeight: 1.5, borderRadius: 8, padding: 12,
                     border: '1px solid',
-                    borderColor: activeStep.status === 'failed' ? '#fecaca' : '#e2e8f0',
-                    background: activeStep.status === 'failed' ? '#fef2f2' : '#f8fafc',
-                    color: activeStep.status === 'failed' ? '#991b1b' : '#334155',
+                    borderColor: activeStep.status === 'failed' ? 'var(--bg-error-border)' : 'var(--border-color)',
+                    background: activeStep.status === 'failed' ? 'var(--bg-error)' : 'var(--bg-subtle)',
+                    color: activeStep.status === 'failed' ? 'var(--text-error)' : 'var(--text-secondary)',
                   }}>
                     {activeStep.status_detail}
                   </div>
@@ -179,21 +179,21 @@ export default function WorkflowDetail() {
               )}
 
               {activeStep.executed_at && (
-                <div style={{ marginTop: 16, fontSize: 12, color: '#94a3b8' }}>
+                <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text-faint)' }}>
                   Executed: {new Date(activeStep.executed_at).toLocaleString()}
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-faint)' }}>
               <Info size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
               <div style={{ fontSize: 14 }}>Click a step in the flowchart to view its details.</div>
             </div>
           )}
 
           {/* Steps Summary */}
-          <div style={{ borderTop: '1px solid #e2e8f0', padding: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ borderTop: '1px solid var(--border-color)', padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>
               All Steps
             </div>
             {steps.map(s => {

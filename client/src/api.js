@@ -167,13 +167,14 @@ export const parseInvoiceFile   = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
-export const processInvoiceFile = (file, { template_id, vendors_id, mappings, sheet_name } = {}) => {
+export const processInvoiceFile = (file, { template_id, vendors_id, mappings, sheet_name, profile_id } = {}) => {
   const fd = new FormData();
   fd.append('file', file);
   if (template_id) fd.append('template_id', template_id);
   if (vendors_id) fd.append('vendors_id', vendors_id);
   if (mappings) fd.append('mappings', JSON.stringify(mappings));
   if (sheet_name) fd.append('sheet_name', sheet_name);
+  if (profile_id) fd.append('profile_id', profile_id);
   return api.post('/invoice-reader/process', fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -182,6 +183,27 @@ export const getReaderTemplates  = (params) => api.get('/invoice-reader/template
 export const createReaderTemplate = d => api.post('/invoice-reader/templates', d);
 export const deleteReaderTemplate = id => api.delete(`/invoice-reader/templates/${id}`);
 export const getReaderUploads    = (params) => api.get('/invoice-reader/uploads', { params });
+
+// ── Invoice Reader Profiles ────────────────────────────────
+export const getReaderProfiles   = (params) => api.get('/invoice-reader/profiles', { params });
+export const getReaderProfile    = id => api.get(`/invoice-reader/profiles/${id}`);
+export const createReaderProfile = d => api.post('/invoice-reader/profiles', d);
+export const updateReaderProfile = (id, d) => api.put(`/invoice-reader/profiles/${id}`, d);
+export const deleteReaderProfile = id => api.delete(`/invoice-reader/profiles/${id}`);
+export const testProfileMatch    = (file) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return api.post('/invoice-reader/profiles/test-match', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+// ── Invoice Reader Exceptions ──────────────────────────────
+export const getReaderExceptions    = (params) => api.get('/invoice-reader/exceptions', { params });
+export const getReaderExceptionStats = () => api.get('/invoice-reader/exceptions/stats');
+export const getReaderException     = id => api.get(`/invoice-reader/exceptions/${id}`);
+export const resolveReaderException = (id, d) => api.put(`/invoice-reader/exceptions/${id}/resolve`, d);
+export const updateReaderException  = (id, d) => api.put(`/invoice-reader/exceptions/${id}`, d);
 
 // ── Tickets ─────────────────────────────────────────────
 export const getTickets          = (params)     => api.get('/tickets', { params });

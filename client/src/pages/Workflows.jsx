@@ -95,10 +95,10 @@ export default function Workflows() {
                   </div>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{def.name}</div>
-                    <div style={{ fontSize: 12, color: '#64748b' }}>{def.stepCount} steps</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{def.stepCount} steps</div>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: '#475569', marginBottom: 12, lineHeight: 1.5 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
                   {def.description}
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -132,7 +132,7 @@ export default function Workflows() {
               </div>
             ))}
             {definitions.length === 0 && !loading && (
-              <div style={{ color: '#94a3b8', fontStyle: 'italic', padding: 20 }}>
+              <div style={{ color: 'var(--text-faint)', fontStyle: 'italic', padding: 20 }}>
                 No workflow definitions found.
               </div>
             )}
@@ -150,9 +150,9 @@ export default function Workflows() {
         </div>
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Loading…</div>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-faint)' }}>Loading…</div>
         ) : runs.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-faint)' }}>
             No workflow runs yet. Use the demo buttons above to generate sample runs.
           </div>
         ) : (
@@ -189,7 +189,7 @@ export default function Workflows() {
                     </td>
                     <td>
                       <div style={{ fontWeight: 500 }}>{run.workflow_name}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8' }}>{run.workflow_key}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{run.workflow_key}</div>
                     </td>
                     <td>
                       <span className="wf-status-badge" style={{ color: cfg.color, background: cfg.bg }}>
@@ -197,11 +197,11 @@ export default function Workflows() {
                         {cfg.label}
                       </span>
                     </td>
-                    <td style={{ color: '#64748b' }}>{run.triggered_by_name || '—'}</td>
-                    <td style={{ color: '#64748b', fontSize: 13 }}>
+                    <td style={{ color: 'var(--text-muted)' }}>{run.triggered_by_name || '—'}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                       {started.toLocaleDateString()} {started.toLocaleTimeString()}
                     </td>
-                    <td style={{ color: '#64748b', fontSize: 13 }}>{durationStr}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{durationStr}</td>
                   </tr>
                 );
               })}

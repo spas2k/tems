@@ -206,8 +206,8 @@ export default function InvoiceDetail() {
     await deleteAllocation(allocId); load(); showToast('Allocation removed.');
   };
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: '#94a3b8' }}>Loading…</div>;
-  if (!invoice) return <div style={{ background: '#fee2e2', color: '#dc2626', padding: '16px 20px', borderRadius: 12 }}>Invoice not found.</div>;
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: 'var(--text-muted)' }}>Loading…</div>;
+  if (!invoice) return <div style={{ background: 'var(--bg-error)', color: 'var(--text-error)', padding: '16px 20px', borderRadius: 12 }}>Invoice not found.</div>;
 
   const totalVariance  = lineItems.reduce((s, l) => s + (Number(l.variance) || 0), 0);
   const totalAllocated = allocations.reduce((s, a) => s + Number(a.allocated_amount || 0), 0);
@@ -224,7 +224,7 @@ export default function InvoiceDetail() {
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--icon-bg-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Receipt size={18} color="#3b82f6" />
             </div>
             <div>

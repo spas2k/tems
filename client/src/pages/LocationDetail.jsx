@@ -98,8 +98,8 @@ export default function LocationDetail() {
       {toast && (
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 9999,
-          background: toast.ok ? '#dcfce7' : '#fee2e2',
-          color: toast.ok ? '#15803d' : '#dc2626',
+          background: toast.ok ? 'var(--bg-success)' : 'var(--bg-error)',
+          color: toast.ok ? 'var(--text-success)' : 'var(--text-error)',
           padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 13,
           boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
         }}>{toast.msg}</div>
@@ -113,7 +113,7 @@ export default function LocationDetail() {
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dcfce7',
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--icon-bg-green)',
               display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <MapPin size={18} color="#16a34a" />
             </div>

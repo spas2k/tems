@@ -110,7 +110,7 @@ export default function CreateTicketModal({
       <div className="ctm-panel" style={PANEL}>
         {/* Header */}
         <div className="ctm-header" style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <LifeBuoy size={18} color="#2563eb" />
           </div>
           <div style={{ flex: 1 }}>
@@ -122,9 +122,9 @@ export default function CreateTicketModal({
 
         {/* Context banner */}
         {sourceLabel && (
-          <div style={{ margin: '12px 24px 0', padding: '10px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ margin: '12px 24px 0', padding: '10px 14px', background: 'var(--bg-info)', border: '1px solid var(--bg-info-border)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Link2 size={14} color="#0284c7" style={{ flexShrink: 0 }} />
-            <div style={{ fontSize: 12, color: '#0369a1' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-info)' }}>
               <span style={{ fontWeight: 600 }}>Linked to:</span>{' '}
               {sourceEntityType && <span style={{ textTransform: 'capitalize' }}>{sourceEntityType} </span>}
               <span style={{ fontWeight: 600 }}>{sourceLabel}</span>
@@ -136,7 +136,7 @@ export default function CreateTicketModal({
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 8px' }}>
           {error && (
-            <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, fontSize: 13, color: '#dc2626' }}>
+            <div style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-error)', border: '1px solid var(--bg-error-border)', borderRadius: 6, fontSize: 13, color: 'var(--text-error)' }}>
               {error}
             </div>
           )}
@@ -192,7 +192,7 @@ export default function CreateTicketModal({
                 <button
                   type="button"
                   onClick={() => set('console_errors', formatted())}
-                  style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}
+                  style={{ background: 'var(--bg-error)', border: '1px solid var(--bg-error-border)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--text-error)', display: 'flex', alignItems: 'center', gap: 4 }}
                 >
                   <Terminal size={11} /> Attach {consoleErrors.length} error{consoleErrors.length !== 1 ? 's' : ''}
                 </button>

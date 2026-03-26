@@ -35,7 +35,9 @@ DROP TABLE IF EXISTS contract_rates     CASCADE;
 DROP TABLE IF EXISTS usoc_codes         CASCADE;
 DROP TABLE IF EXISTS contracts          CASCADE;
 DROP TABLE IF EXISTS accounts           CASCADE;
+DROP TABLE IF EXISTS invoice_reader_exceptions CASCADE;
 DROP TABLE IF EXISTS invoice_reader_uploads    CASCADE;
+DROP TABLE IF EXISTS invoice_reader_profiles   CASCADE;
 DROP TABLE IF EXISTS invoice_reader_templates  CASCADE;
 DROP TABLE IF EXISTS vendor_remit       CASCADE;
 DROP TABLE IF EXISTS vendors            CASCADE;
@@ -306,9 +308,39 @@ CREATE TABLE invoice_reader_uploads (
     inserted_line_items INTEGER DEFAULT 0,
     error_count       INTEGER DEFAULT 0,
     errors            JSONB,
+    invoice_reader_profiles_id INTEGER REFERENCES invoice_reader_profiles(invoice_reader_profiles_id) ON DELETE SET NULL,
     completed_at      TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE invoice_reader_profiles (
+    invoice_reader_profiles_id   SERIAL PRIMARY KEY,
+    name                         VARCHAR(120) NOT NULL,
+    vendors_id                   INTEGER REFERENCES vendors(vendors_id) ON DELETE SET NULL,
+    format_type                  VARCHAR(20) NOT NULL,
+    invoice_reader_templates_id  INTEGER REFERENCES invoice_reader_templates(invoice_reader_templates_id) ON DELETE SET NULL,
+    match_rules                  JSONB NOT NULL DEFAULT '{}',
+    defaults                     JSONB NOT NULL DEFAULT '{}',
+    error_handling               JSONB NOT NULL DEFAULT '{}',
+    status                       VARCHAR(20) NOT NULL DEFAULT 'Active',
+    created_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE invoice_reader_exceptions (
+    invoice_reader_exceptions_id SERIAL PRIMARY KEY,
+    invoice_reader_uploads_id    INTEGER REFERENCES invoice_reader_uploads(invoice_reader_uploads_id) ON DELETE CASCADE,
+    invoice_reader_profiles_id   INTEGER REFERENCES invoice_reader_profiles(invoice_reader_profiles_id) ON DELETE SET NULL,
+    type                         VARCHAR(40) NOT NULL,
+    severity                     VARCHAR(20) NOT NULL DEFAULT 'blocking',
+    context                      JSONB NOT NULL DEFAULT '{}',
+    resolution                   JSONB,
+    status                       VARCHAR(20) NOT NULL DEFAULT 'open',
+    resolved_by                  INTEGER REFERENCES users(users_id) ON DELETE SET NULL,
+    resolved_at                  TIMESTAMPTZ,
+    created_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ── Accounts ────────────────────────────────────────────────

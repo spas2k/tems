@@ -132,7 +132,7 @@ function SectionHeader({ label, icon: Icon, count = 0, expanded, onToggle, color
       <span style={{ flex: 1, fontWeight: 700, fontSize: 12, textAlign: 'left', letterSpacing: 0.5 }}>
         {label}
         {count > 0 && (
-          <span style={{ marginLeft: 6, background: color, color: '#0f172a', borderRadius: 10, padding: '1px 7px', fontSize: 10 }}>
+          <span style={{ marginLeft: 6, background: color, color: 'var(--text-color)', borderRadius: 10, padding: '1px 7px', fontSize: 10 }}>
             {count}
           </span>
         )}
@@ -148,7 +148,7 @@ function FilterValueInput({ field, op, value, onChange }) {
   const BETWEEN = op === 'between';
   const IN_SET  = op === 'in_set' || op === 'not_in_set';
   const [p1, p2] = String(value || '').split('|');
-  if (NO_VAL) return <span style={{ fontSize: 11, color: '#475569', fontStyle: 'italic', padding: '4px 0' }}>no value needed</span>;
+  if (NO_VAL) return <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic', padding: '4px 0' }}>no value needed</span>;
   if (BETWEEN) {
     const isDate = field?.type === 'date';
     return (
@@ -156,7 +156,7 @@ function FilterValueInput({ field, op, value, onChange }) {
         <input className="form-input" type={isDate ? 'date' : 'number'} value={p1 || ''} placeholder="From"
           style={{ fontSize: 12, padding: '4px 8px' }}
           onChange={e => onChange(`${e.target.value}|${p2 || ''}`)} />
-        <span style={{ fontSize: 11, color: '#64748b' }}>–</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>–</span>
         <input className="form-input" type={isDate ? 'date' : 'number'} value={p2 || ''} placeholder="To"
           style={{ fontSize: 12, padding: '4px 8px' }}
           onChange={e => onChange(`${p1 || ''}|${e.target.value}`)} />
@@ -824,14 +824,14 @@ export default function CreateReport() {
   // ── Render guards ─────────────────────────────────────────
   if (catalogErr) return (
     <div className="page-card" style={{ padding: 40, textAlign: 'center' }}>
-      <AlertCircle size={36} color="#dc2626" style={{ marginBottom: 12 }} />
-      <p style={{ color: '#dc2626', fontSize: 14 }}>{catalogErr}</p>
+      <AlertCircle size={36} color="var(--text-error)" style={{ marginBottom: 12 }} />
+      <p style={{ color: 'var(--text-error)', fontSize: 14 }}>{catalogErr}</p>
     </div>
   );
   if (!catalog) return (
     <div className="page-card" style={{ padding: 40, textAlign: 'center' }}>
-      <RefreshCw size={32} color="#94a3b8" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-      <p style={{ color: '#64748b' }}>Loading report builder…</p>
+      <RefreshCw size={32} color="var(--text-faint)" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+      <p style={{ color: 'var(--text-muted)' }}>Loading report builder…</p>
     </div>
   );
 
@@ -843,9 +843,9 @@ export default function CreateReport() {
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
-          background: toast.type === 'error' ? '#fee2e2' : '#dcfce7',
-          color: toast.type === 'error' ? '#dc2626' : '#15803d',
-          border: `1px solid ${toast.type === 'error' ? '#fca5a5' : '#86efac'}`,
+          background: toast.type === 'error' ? 'var(--bg-error)' : 'var(--bg-success)',
+          color: toast.type === 'error' ? 'var(--text-error)' : 'var(--text-success)',
+          border: `1px solid ${toast.type === 'error' ? 'var(--bg-error-border)' : 'var(--bg-success-border)'}`,
           padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13,
           boxShadow: '0 4px 16px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: 8,
         }}>
@@ -895,7 +895,7 @@ export default function CreateReport() {
           </>
         )}
         <button onClick={handleRun} disabled={!canRun || running}
-          style={{ background: canRun && !running ? '#2563eb' : '#334155', border: 'none', borderRadius: 8, padding: '7px 16px', color: '#fff', cursor: canRun && !running ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', flexShrink: 0 }}>
+          style={{ background: canRun && !running ? 'var(--accent-color)' : '#334155', border: 'none', borderRadius: 8, padding: '7px 16px', color: '#fff', cursor: canRun && !running ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', flexShrink: 0 }}>
           {running
             ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Running…</>
             : <><Play size={13} fill="currentColor" /> Run Report</>}
@@ -907,7 +907,7 @@ export default function CreateReport() {
         <div className="rc-flyout" style={{ position: 'absolute', top: 54, right: 16, zIndex: 300, borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', width: 370, maxHeight: 520, overflowY: 'auto' }}>
           <div className="rc-flyout-header" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0 }}>
             <span className="rc-flyout-title" style={{ fontWeight: 700, fontSize: 14 }}><BookOpen size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Report Templates</span>
-            <button onClick={() => setShowTemplates(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={15} /></button>
+            <button onClick={() => setShowTemplates(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={15} /></button>
           </div>
           {TEMPLATES.map(t => (
             <div key={t.name} className="rc-flyout-item" onClick={() => { applyConfig(t.config); setCurrentSavedId(null); setShowTemplates(false); showToast(`Template loaded: ${t.name}`); }}
@@ -924,9 +924,9 @@ export default function CreateReport() {
         <div className="rc-flyout" style={{ position: 'absolute', top: 54, right: 16, zIndex: 300, borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', width: 370, maxHeight: 520, overflowY: 'auto' }}>
           <div className="rc-flyout-header" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0 }}>
             <span className="rc-flyout-title" style={{ fontWeight: 700, fontSize: 14 }}><FolderOpen size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Saved Reports</span>
-            <button onClick={() => setShowSaved(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={15} /></button>
+            <button onClick={() => setShowSaved(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={15} /></button>
           </div>
-          {savedReports.length === 0 && <div style={{ padding: 28, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No saved reports yet.</div>}
+          {savedReports.length === 0 && <div style={{ padding: 28, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>No saved reports yet.</div>}
           {savedReports.map(r => (
             <div key={r.saved_reports_id} className="rc-flyout-item" style={{ padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <div style={{ flex: 1, cursor: 'pointer' }}
@@ -937,12 +937,12 @@ export default function CreateReport() {
                 }}>
                 <div className="rc-flyout-item-title" style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
                 {r.description && <div className="rc-flyout-item-desc" style={{ fontSize: 12, marginTop: 1 }}>{r.description}</div>}
-                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 3 }}>
                   {r.updated_at ? new Date(r.updated_at).toLocaleDateString() : ''}{r.created_by_name ? ` · ${r.created_by_name}` : ''}
                 </div>
               </div>
               <button onClick={() => handleDeleteSaved(r.saved_reports_id)}
-                style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
+                style={{ background: 'none', border: 'none', color: 'var(--text-error)', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
                 <Trash2 size={13} />
               </button>
             </div>
@@ -1090,7 +1090,7 @@ export default function CreateReport() {
                         </>
                       )}
                       {availableLinkCount === 0 && linkedTables.length > 0 && (
-                        <div style={{ fontSize: 11, color: '#334155', padding: '6px 0', textAlign: 'center' }}>All reachable tables linked</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', padding: '6px 0', textAlign: 'center' }}>All reachable tables linked</div>
                       )}
                     </div>
                   )}
@@ -1173,7 +1173,7 @@ export default function CreateReport() {
                   {/* Selected columns */}
                   {fields.length > 0 && (
                     <div style={{ marginTop: 10, borderTop: '1px solid #1e293b', paddingTop: 8 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 }}>
                         Selected ({fields.length}) — drag to reorder
                       </div>
                       {selectedFieldDefs.map((f, idx) => {
@@ -1266,7 +1266,7 @@ export default function CreateReport() {
                         </select>
                         <FilterValueInput field={fd} op={f.op} value={f.value} onChange={v => updateFilter(f.id, { value: v })} />
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 5 }}>
-                          <button onClick={() => removeFilter(f.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <button onClick={() => removeFilter(f.id)} style={{ background: 'none', border: 'none', color: 'var(--text-error)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
                             <Trash2 size={11} /> Remove
                           </button>
                         </div>
@@ -1302,7 +1302,7 @@ export default function CreateReport() {
                         style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 5, padding: '4px 7px', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}>
                         {s.direction === 'asc' ? <SortAsc size={12} /> : <SortDesc size={12} />}
                       </button>
-                      <button onClick={() => removeSort(s.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 3 }}><X size={11} /></button>
+                      <button onClick={() => removeSort(s.id)} style={{ background: 'none', border: 'none', color: 'var(--text-error)', cursor: 'pointer', padding: 3 }}><X size={11} /></button>
                     </div>
                   ))}
                   <button onClick={addSort} disabled={!allFields.length}
@@ -1366,7 +1366,7 @@ export default function CreateReport() {
                               );
                             })}
                           </select>
-                          <button onClick={() => removeAggregation(ag.id)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 2 }}><X size={11} /></button>
+                          <button onClick={() => removeAggregation(ag.id)} style={{ background: 'none', border: 'none', color: 'var(--text-error)', cursor: 'pointer', padding: 2 }}><X size={11} /></button>
                         </div>
                       ))}
                       <button onClick={addAggregation}
@@ -1416,10 +1416,10 @@ export default function CreateReport() {
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                 <span className="rc-chips-title" style={{ fontSize: 13, fontWeight: 700 }}>Selected Report Columns</span>
-                <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 2 }}>({fields.length})</span>
-                <button onClick={clearFields} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 10 }}>Clear all</button>
+                <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 2 }}>({fields.length})</span>
+                <button onClick={clearFields} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 10 }}>Clear all</button>
               </div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Order the report columns by drag and dropping the icons.</div>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 8 }}>Order the report columns by drag and dropping the icons.</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                 {selectedFieldDefs.map((f, idx) => {
                   const color = tables[f.table]?.color || '#64748b';
@@ -1436,7 +1436,7 @@ export default function CreateReport() {
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         background: color,
                         border: `1.5px solid ${color}`,
-                        borderLeft: isDragOver ? '3px solid #0f172a' : `1.5px solid ${color}`,
+                        borderLeft: isDragOver ? '3px solid var(--bg-primary)' : `1.5px solid ${color}`,
                         borderRadius: 14, padding: '5px 6px 5px 9px',
                         fontSize: 12, fontWeight: 600, color: '#fff',
                         cursor: 'grab', userSelect: 'none', whiteSpace: 'nowrap',
@@ -1458,11 +1458,11 @@ export default function CreateReport() {
           )}
 
           {!tableKey && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 32, color: '#94a3b8' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 32, color: 'var(--text-faint)' }}>
               <BarChart2 size={60} strokeWidth={1} color="#cbd5e1" />
               <div style={{ textAlign: 'center' }}>
                 <div className="rc-results-count" style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>Build a Custom Report</div>
-                <div style={{ fontSize: 14, color: '#64748b', maxWidth: 460, lineHeight: 1.7 }}>
+                <div style={{ fontSize: 14, color: 'var(--text-muted)', maxWidth: 460, lineHeight: 1.7 }}>
                   Select a data source, link related tables to pull fields across your data, add columns and filters, then run the report. Or load a template to get started!
                 </div>
               </div>
@@ -1470,7 +1470,7 @@ export default function CreateReport() {
                 <button className="btn btn-primary" onClick={() => setShowTemplates(true)}>
                   <BookOpen size={14} /> Browse Templates
                 </button>
-                <button className="btn btn-ghost" onClick={() => { toggleSection('source'); setSidebarCollapsed(false); }} style={{ border: '1.5px solid #cbd5e1' }}>
+                <button className="btn btn-ghost" onClick={() => { toggleSection('source'); setSidebarCollapsed(false); }} style={{ border: '1.5px solid var(--border-strong)' }}>
                   <Database size={14} /> Choose Data Source
                 </button>
               </div>
@@ -1484,7 +1484,7 @@ export default function CreateReport() {
                 <div className="rc-empty-title" style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>
                   {tables[tableKey]?.label}
                 </div>
-                <div style={{ fontSize: 13, color: '#64748b', marginBottom: 6 }}>{tables[tableKey]?.description}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>{tables[tableKey]?.description}</div>
                 {linkedTables.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap', margin: '8px 0' }}>
                     {linkedTables.map(lt => (
@@ -1494,10 +1494,10 @@ export default function CreateReport() {
                     ))}
                   </div>
                 )}
-                <div style={{ display: 'inline-flex', gap: 16, fontSize: 13, color: '#94a3b8', margin: '10px 0 20px' }}>
-                  <span><strong style={{ color: '#334155' }}>{fields.length}</strong> column{fields.length !== 1 ? 's' : ''}</span>
-                  <span><strong style={{ color: '#334155' }}>{filters.length}</strong> filter{filters.length !== 1 ? 's' : ''}</span>
-                  <span><strong style={{ color: '#334155' }}>{linkedTables.length}</strong> link{linkedTables.length !== 1 ? 's' : ''}</span>
+                <div style={{ display: 'inline-flex', gap: 16, fontSize: 13, color: 'var(--text-faint)', margin: '10px 0 20px' }}>
+                  <span><strong style={{ color: 'var(--text-secondary)' }}>{fields.length}</strong> column{fields.length !== 1 ? 's' : ''}</span>
+                  <span><strong style={{ color: 'var(--text-secondary)' }}>{filters.length}</strong> filter{filters.length !== 1 ? 's' : ''}</span>
+                  <span><strong style={{ color: 'var(--text-secondary)' }}>{linkedTables.length}</strong> link{linkedTables.length !== 1 ? 's' : ''}</span>
                 </div>
                 <button className="btn btn-primary" onClick={handleRun} disabled={!canRun} style={{ fontSize: 14, padding: '9px 24px' }}>
                   <Play size={14} fill="currentColor" /> {canRun ? 'Run Report' : 'Select at least one column'}
@@ -1507,7 +1507,7 @@ export default function CreateReport() {
           )}
 
           {running && (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#64748b' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text-muted)' }}>
               <RefreshCw size={26} style={{ animation: 'spin 1s linear infinite' }} />
               <span style={{ fontSize: 15, fontWeight: 600 }}>Executing query…</span>
             </div>
@@ -1516,8 +1516,8 @@ export default function CreateReport() {
           {runError && !running && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
               <div className="rc-error-card" style={{ borderRadius: 14, padding: 28, maxWidth: 500, textAlign: 'center' }}>
-                <AlertCircle size={36} color="#dc2626" style={{ margin: '0 auto 12px' }} />
-                <div style={{ fontWeight: 700, color: '#dc2626', marginBottom: 8, fontSize: 16 }}>Query Error</div>
+                <AlertCircle size={36} color="var(--text-error)" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontWeight: 700, color: 'var(--text-error)', marginBottom: 8, fontSize: 16 }}>Query Error</div>
                 <div className="rc-error-msg" style={{ fontSize: 13, fontFamily: 'monospace', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>{runError}</div>
                 <button className="btn btn-ghost" onClick={() => setRunError(null)}>Dismiss</button>
               </div>
@@ -1531,22 +1531,22 @@ export default function CreateReport() {
                   {results.total.toLocaleString()} row{results.total !== 1 ? 's' : ''}
                 </span>
                 {results.total > PREVIEW_SIZE && (
-                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     showing {((previewPage - 1) * PREVIEW_SIZE) + 1}–{Math.min(previewPage * PREVIEW_SIZE, results.total)}
                   </span>
                 )}
                 {linkedTables.length > 0 && (
-                  <span style={{ fontSize: 11, color: '#0ea5e9', background: '#e0f2fe', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-info)', background: 'var(--bg-info)', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>
                     {linkedTables.length + 1} tables
                   </span>
                 )}
                 {filters.length > 0 && (
-                  <span style={{ fontSize: 11, color: '#2563eb', background: '#dbeafe', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>
+                  <span style={{ fontSize: 11, color: 'var(--accent-color)', background: 'var(--icon-bg-blue)', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>
                     {filters.length} filter{filters.length !== 1 ? 's' : ''}
                   </span>
                 )}
                 {isGrouped && (
-                  <span style={{ fontSize: 11, color: '#7c3aed', background: '#ede9fe', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>Grouped</span>
+                  <span style={{ fontSize: 11, color: '#7c3aed', background: 'var(--icon-bg-purple)', borderRadius: 10, padding: '2px 9px', fontWeight: 600 }}>Grouped</span>
                 )}
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                   <button className="btn btn-sm btn-ghost" onClick={handleRun} style={{ fontSize: 12 }}><RefreshCw size={12} /> Refresh</button>
@@ -1557,7 +1557,7 @@ export default function CreateReport() {
 
               <div style={{ flex: 1, overflow: 'auto' }}>
                 {results.data.length === 0 ? (
-                  <div style={{ padding: 56, textAlign: 'center', color: '#94a3b8' }}>
+                  <div style={{ padding: 56, textAlign: 'center', color: 'var(--text-faint)' }}>
                     <Info size={36} style={{ margin: '0 auto 14px', opacity: 0.5 }} />
                     <div className="rc-empty-title" style={{ fontWeight: 600, marginBottom: 6 }}>No records match your filters</div>
                     <div style={{ fontSize: 13 }}>Try adjusting or removing some filters</div>
@@ -1584,7 +1584,7 @@ export default function CreateReport() {
                             const isNum = col.type === 'number' || fm.format === 'currency';
                             const isNeg = isNum && Number(raw) < 0;
                             return (
-                              <td key={col.key} style={{ textAlign: isNum ? 'right' : 'left', color: isNeg ? '#dc2626' : undefined, whiteSpace: 'nowrap' }}>
+                              <td key={col.key} style={{ textAlign: isNum ? 'right' : 'left', color: isNeg ? 'var(--text-error)' : undefined, whiteSpace: 'nowrap' }}>
                                 {formatCell(raw, fm)}
                               </td>
                             );
@@ -1599,7 +1599,7 @@ export default function CreateReport() {
                             const fm  = { ...col, format: ov.format || col.format };
                             const isNum = col.type === 'number' || fm.format === 'currency';
                             return (
-                              <td key={col.key} style={{ fontWeight: 800, background: '#0f172a', color: has ? '#60a5fa' : '#334155', textAlign: isNum ? 'right' : 'left', whiteSpace: 'nowrap', borderTop: '2px solid #1e3a5f' }}>
+                              <td key={col.key} style={{ fontWeight: 800, background: 'var(--bg-primary)', color: has ? '#60a5fa' : 'var(--text-secondary)', textAlign: isNum ? 'right' : 'left', whiteSpace: 'nowrap', borderTop: '2px solid var(--border-color)' }}>
                                 {ci === 0 && !has ? 'TOTALS' : (has ? formatCell(summaryRow[col.key], fm) : '')}
                               </td>
                             );
@@ -1615,7 +1615,7 @@ export default function CreateReport() {
                 <div className="rc-pagination" style={{ padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(1)} disabled={previewPage === 1}>«</button>
                   <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(p => Math.max(1, p - 1))} disabled={previewPage === 1}>‹</button>
-                  <span style={{ fontSize: 13, color: '#64748b', flex: 1, textAlign: 'center' }}>Page {previewPage} of {totalPages}</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)', flex: 1, textAlign: 'center' }}>Page {previewPage} of {totalPages}</span>
                   <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(p => Math.min(totalPages, p + 1))} disabled={previewPage === totalPages}>›</button>
                   <button className="btn btn-sm btn-ghost" onClick={() => setPreviewPage(totalPages)} disabled={previewPage === totalPages}>»</button>
                 </div>
@@ -1631,7 +1631,7 @@ export default function CreateReport() {
           <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title"><Save size={17} style={{ verticalAlign: 'middle', marginRight: 7 }} />Save Report</span>
-              <button onClick={() => setSaveModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+              <button onClick={() => setSaveModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div className="modal-body">
               <div>
@@ -1644,7 +1644,7 @@ export default function CreateReport() {
                   placeholder="What does this report show?" style={{ resize: 'vertical' }} />
               </div>
               {saveError && (
-                <div style={{ background: '#fee2e2', color: '#dc2626', borderRadius: 8, padding: '8px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} className="rc-error-msg">
+                <div style={{ background: 'var(--bg-error)', color: 'var(--text-error)', borderRadius: 8, padding: '8px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} className="rc-error-msg">
                   <AlertCircle size={14} />{saveError}
                 </div>
               )}

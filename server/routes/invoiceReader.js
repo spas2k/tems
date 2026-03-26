@@ -673,13 +673,14 @@ router.delete('/templates/:id', requireRole('Admin', 'Manager'), async (req, res
 router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-  const { template_id, vendors_id, mappings, sheet_name } = (() => {
+  const { template_id, vendors_id, mappings, sheet_name, profile_id } = (() => {
     try {
       return {
         template_id: req.body.template_id ? Number(req.body.template_id) : null,
         vendors_id: req.body.vendors_id ? Number(req.body.vendors_id) : null,
         mappings: req.body.mappings ? JSON.parse(req.body.mappings) : null,
         sheet_name: req.body.sheet_name || null,
+        profile_id: req.body.profile_id ? Number(req.body.profile_id) : null,
       };
     } catch {
       return req.body;
@@ -690,11 +691,29 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     const { originalname, buffer } = req.file;
     const format = detectFormat(originalname, buffer);
 
-    // Resolve mappings — from template or request body
+    // ── Profile resolution: explicit, auto-matched, or none ──
+    let profile = null;
+    let profileDefaults = {};
+    let errorPolicy = {};
+    if (profile_id) {
+      profile = await db('invoice_reader_profiles').where('invoice_reader_profiles_id', profile_id).first();
+      if (!profile) return res.status(404).json({ error: 'Profile not found' });
+    } else if (!template_id && !mappings) {
+      // No explicit mappings — try auto-match
+      const fileIds = extractFileIdentifiers(buffer, format, originalname);
+      profile = await matchProfile(fileIds);
+    }
+    if (profile) {
+      profileDefaults = typeof profile.defaults === 'string' ? JSON.parse(profile.defaults) : (profile.defaults || {});
+      errorPolicy = typeof profile.error_handling === 'string' ? JSON.parse(profile.error_handling) : (profile.error_handling || {});
+    }
+
+    // Resolve mappings — from profile→template, explicit template, or request body
     let columnMappings;
-    if (template_id) {
+    const effectiveTemplateId = template_id || (profile ? profile.invoice_reader_templates_id : null);
+    if (effectiveTemplateId) {
       const templateRecord = await db('invoice_reader_templates')
-        .where('invoice_reader_templates_id', template_id).first();
+        .where('invoice_reader_templates_id', effectiveTemplateId).first();
       if (!templateRecord) return res.status(404).json({ error: 'Template not found' });
       const cfg = typeof templateRecord.config === 'string'
         ? JSON.parse(templateRecord.config) : templateRecord.config;
@@ -745,8 +764,9 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
 
     // Create upload tracking record (outside transaction so it persists even if import fails)
     const uploadId = await db.insertReturningId('invoice_reader_uploads', {
-      invoice_reader_templates_id: template_id || null,
-      vendors_id: vendors_id || null,
+      invoice_reader_templates_id: effectiveTemplateId || null,
+      invoice_reader_profiles_id: profile ? profile.invoice_reader_profiles_id : null,
+      vendors_id: vendors_id || (profileDefaults.vendors_id ? Number(profileDefaults.vendors_id) : null),
       file_name: originalname,
       format_type: format,
       status: 'Processing',
@@ -793,7 +813,8 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     const autoCreatedVendors = []; // track for admin notifications
     const autoCreatedAccounts = []; // track for admin notifications
     const autoCreatedInventory = []; // track for admin notifications
-    let resolvedVendorsId = vendors_id || null;
+    const exceptionsToCreate = []; // structured exceptions for the queue
+    let resolvedVendorsId = vendors_id || (profileDefaults.vendors_id ? Number(profileDefaults.vendors_id) : null);
     const vendorNameCol = Object.entries(invoiceMappings).find(([, m]) => m.field === 'vendor_name')?.[0];
     if (vendorNameCol) {
       const allVendors = await db('vendors').select('vendors_id', 'name');
@@ -819,6 +840,15 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     async function ensureVendor(vendorName) {
       const lookupKey = vendorName.toLowerCase().trim();
       if (vendorCache[lookupKey]) return vendorCache[lookupKey];
+      // Check error policy for unknown vendors
+      const vendorPolicy = errorPolicy.on_unknown_vendor || 'create';
+      if (vendorPolicy === 'queue_exception') {
+        exceptionsToCreate.push({ type: 'no_vendor', severity: 'blocking',
+          context: { vendor_name: vendorName.trim(), file_name: originalname } });
+        return null;
+      }
+      if (vendorPolicy === 'skip') return null;
+      // Default: auto-create
       const newId = await db.insertReturningId('vendors', {
         name: vendorName.trim(),
         status: 'Active',
@@ -832,6 +862,14 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     async function ensureAccount(accountNumber, vendorsId) {
       if (accountCache[accountNumber]) return accountCache[accountNumber];
       if (!vendorsId) return null;
+      const accountPolicy = errorPolicy.on_no_account || 'create';
+      if (accountPolicy === 'queue_exception') {
+        exceptionsToCreate.push({ type: 'no_account', severity: 'blocking',
+          context: { account_number: accountNumber, vendors_id: vendorsId, file_name: originalname } });
+        return null;
+      }
+      if (accountPolicy === 'skip') return null;
+      // Default: auto-create
       const newId = await db.insertReturningId('accounts', {
         account_number: accountNumber,
         vendors_id: vendorsId,
@@ -847,6 +885,13 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     async function ensureInventory(inventoryNumber, accountsId) {
       if (inventoryItemCache[inventoryNumber]) return inventoryItemCache[inventoryNumber];
       if (!accountsId) return null;
+      const invPolicy = errorPolicy.on_unknown_inventory || 'create';
+      if (invPolicy === 'queue_exception') {
+        exceptionsToCreate.push({ type: 'no_inventory', severity: 'warning',
+          context: { inventory_number: inventoryNumber, accounts_id: accountsId, file_name: originalname } });
+        return null;
+      }
+      if (invPolicy === 'skip') return null;
       const newId = await db.insertReturningId('inventory', {
         inventory_number: inventoryNumber,
         accounts_id: accountsId,
@@ -857,12 +902,12 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
       return newId;
     }
 
-    // Resolve default accounts_id from vendor if not mapped
-    let defaultAccountsId = null;
+    // Resolve default accounts_id from profile defaults, vendor, or first-account fallback
+    let defaultAccountsId = profileDefaults.accounts_id ? Number(profileDefaults.accounts_id) : null;
     const accountsMapped = Object.values(invoiceMappings).some(m => m.field === 'accounts_id' || m.field === 'account_number');
-    if (!accountsMapped && vendors_id) {
+    if (!defaultAccountsId && !accountsMapped && (vendors_id || resolvedVendorsId)) {
       const firstAccount = await db('accounts')
-        .where('vendors_id', vendors_id)
+        .where('vendors_id', vendors_id || resolvedVendorsId)
         .orderBy('accounts_id', 'asc')
         .first();
       if (firstAccount) defaultAccountsId = firstAccount.accounts_id;
@@ -969,7 +1014,12 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
           }
           // Validate required accounts_id
           if (!invoiceRecord.accounts_id) {
+            const noAcctPolicy = errorPolicy.on_no_account || 'error';
             errors.push(`Invoice "${invNum}": No account could be resolved. Map an account_number or select a vendor/account.`);
+            if (noAcctPolicy === 'queue_exception' || profile) {
+              exceptionsToCreate.push({ type: 'no_account', severity: 'blocking',
+                context: { invoice_number: invNum, file_name: originalname, vendors_id: resolvedVendorsId } });
+            }
             invoiceRecords.push(null);
             batchMeta.push({ invNum, group });
             continue;
@@ -1075,21 +1125,6 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
       }
     });
 
-    // Update upload record (include resolved vendors_id if it was discovered from the file)
-    const finalStatus = errors.length ? (insertedInvoices > 0 ? 'Completed' : 'Failed') : 'Completed';
-    const uploadUpdate = {
-      status: finalStatus,
-      inserted_invoices: insertedInvoices,
-      inserted_line_items: insertedLineItems,
-      error_count: errors.length,
-      errors: errors.length ? JSON.stringify(errors.slice(0, 200)) : null,
-      completed_at: db.raw('CURRENT_TIMESTAMP'),
-    };
-    if (resolvedVendorsId && !vendors_id) uploadUpdate.vendors_id = resolvedVendorsId;
-    await db('invoice_reader_uploads')
-      .where('invoice_reader_uploads_id', uploadId)
-      .update(uploadUpdate);
-
     // Notify admins about auto-created vendors and accounts
     if (autoCreatedVendors.length || autoCreatedAccounts.length || autoCreatedInventory.length) {
       try {
@@ -1144,6 +1179,48 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
       }
     }
 
+    // ── Persist structured exceptions for the exception queue ──
+    if (exceptionsToCreate.length) {
+      try {
+        // Deduplicate by type+context key
+        const seen = new Set();
+        const unique = exceptionsToCreate.filter(e => {
+          const key = `${e.type}:${JSON.stringify(e.context)}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        await db('invoice_reader_exceptions').insert(unique.map(e => ({
+          invoice_reader_uploads_id: uploadId,
+          invoice_reader_profiles_id: profile ? profile.invoice_reader_profiles_id : null,
+          type: e.type,
+          severity: e.severity,
+          context: JSON.stringify(e.context),
+          status: 'open',
+        })));
+      } catch (excErr) {
+        // Non-critical — don't fail the import over exception logging errors
+      }
+    }
+
+    // Update final status — "Needs Attention" if there are open exceptions, else normal
+    const hasBlockingExceptions = exceptionsToCreate.some(e => e.severity === 'blocking');
+    const finalStatus = hasBlockingExceptions
+      ? 'Needs Attention'
+      : (errors.length ? (insertedInvoices > 0 ? 'Completed' : 'Failed') : 'Completed');
+    const uploadUpdate = {
+      status: finalStatus,
+      inserted_invoices: insertedInvoices,
+      inserted_line_items: insertedLineItems,
+      error_count: errors.length,
+      errors: errors.length ? JSON.stringify(errors.slice(0, 200)) : null,
+      completed_at: db.raw('CURRENT_TIMESTAMP'),
+    };
+    if (resolvedVendorsId && !vendors_id) uploadUpdate.vendors_id = resolvedVendorsId;
+    await db('invoice_reader_uploads')
+      .where('invoice_reader_uploads_id', uploadId)
+      .update(uploadUpdate);
+
     res.json({
       success: true,
       upload_id: uploadId,
@@ -1153,10 +1230,12 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
       line_items_created: insertedLineItems,
       error_count: errors.length,
       errors: errors.slice(0, 50),
+      exceptions_created: exceptionsToCreate.length,
       auto_created_vendors: autoCreatedVendors.length,
       auto_created_accounts: autoCreatedAccounts.length,
       auto_created_inventory: autoCreatedInventory.length,
       created_invoices: createdInvoices,
+      profile_used: profile ? { id: profile.invoice_reader_profiles_id, name: profile.name } : null,
     });
   } catch (err) {
     safeError(res, err, 'invoice-reader/process');
@@ -1201,5 +1280,272 @@ function coerceDate(val) {
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
+
+// ── Extract identifiers from a file for profile auto-matching ─
+function extractFileIdentifiers(buffer, format, fileName) {
+  const ids = { format, fileName };
+  if (format === 'EDI') {
+    const raw = buffer.toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    if (raw.startsWith('ISA') && raw.length > 3) {
+      const elemDelim = raw[3];
+      const isaElems = raw.split(elemDelim, 17);
+      if (isaElems.length >= 7) {
+        ids.edi_sender_id = (isaElems[6] || '').trim();        // ISA06
+        ids.edi_sender_qualifier = (isaElems[5] || '').trim();  // ISA05
+        ids.edi_receiver_id = (isaElems[8] || '').trim();       // ISA08
+      }
+    }
+  } else if (format === 'Excel' || format === 'CSV') {
+    // Extract column headers for fingerprinting
+    try {
+      const wb = XLSX.read(buffer, { type: 'buffer', sheetRows: 1 });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      if (sheet) {
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        if (rows[0]) ids.headers = rows[0].map(h => String(h).trim());
+      }
+    } catch { /* ignore parse errors during identification */ }
+  }
+  return ids;
+}
+
+// ── Match a file against reader profiles ───────────────────
+async function matchProfile(fileIds) {
+  const profiles = await db('invoice_reader_profiles')
+    .where('status', 'Active')
+    .where('format_type', fileIds.format);
+
+  for (const profile of profiles) {
+    const rules = typeof profile.match_rules === 'string'
+      ? JSON.parse(profile.match_rules) : profile.match_rules;
+    if (!rules || Object.keys(rules).length === 0) continue;
+
+    let matched = true;
+    if (rules.edi_sender_id && fileIds.edi_sender_id) {
+      if (rules.edi_sender_id.toUpperCase() !== fileIds.edi_sender_id.toUpperCase()) matched = false;
+    } else if (rules.edi_sender_id) {
+      matched = false;
+    }
+    if (matched && rules.filename_pattern && fileIds.fileName) {
+      const re = new RegExp(rules.filename_pattern, 'i');
+      if (!re.test(fileIds.fileName)) matched = false;
+    }
+    if (matched && rules.header_fingerprint && fileIds.headers) {
+      const fp = fileIds.headers.join('|').toLowerCase();
+      if (fp !== rules.header_fingerprint.toLowerCase()) matched = false;
+    }
+    if (matched) return profile;
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── Reader Profiles CRUD ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+router.get('/profiles', requireRole('Admin', 'Manager'), async (req, res) => {
+  try {
+    let query = db('invoice_reader_profiles as p')
+      .leftJoin('vendors as v', 'p.vendors_id', 'v.vendors_id')
+      .leftJoin('invoice_reader_templates as t', 'p.invoice_reader_templates_id', 't.invoice_reader_templates_id')
+      .select('p.*', 'v.name as vendor_name', 't.name as template_name');
+    if (req.query.vendors_id)   query = query.where('p.vendors_id', req.query.vendors_id);
+    if (req.query.format_type)  query = query.where('p.format_type', req.query.format_type);
+    if (req.query.status)       query = query.where('p.status', req.query.status);
+    const rows = await query.orderBy('p.name');
+    res.json(rows.map(r => ({
+      ...r,
+      match_rules: typeof r.match_rules === 'string' ? JSON.parse(r.match_rules) : r.match_rules,
+      defaults: typeof r.defaults === 'string' ? JSON.parse(r.defaults) : r.defaults,
+      error_handling: typeof r.error_handling === 'string' ? JSON.parse(r.error_handling) : r.error_handling,
+    })));
+  } catch (err) { safeError(res, err, 'invoice-reader/profiles'); }
+});
+
+router.get('/profiles/:id', requireRole('Admin', 'Manager'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid profile ID' });
+  try {
+    const row = await db('invoice_reader_profiles as p')
+      .leftJoin('vendors as v', 'p.vendors_id', 'v.vendors_id')
+      .leftJoin('invoice_reader_templates as t', 'p.invoice_reader_templates_id', 't.invoice_reader_templates_id')
+      .select('p.*', 'v.name as vendor_name', 't.name as template_name')
+      .where('p.invoice_reader_profiles_id', id).first();
+    if (!row) return res.status(404).json({ error: 'Profile not found' });
+    row.match_rules = typeof row.match_rules === 'string' ? JSON.parse(row.match_rules) : row.match_rules;
+    row.defaults = typeof row.defaults === 'string' ? JSON.parse(row.defaults) : row.defaults;
+    row.error_handling = typeof row.error_handling === 'string' ? JSON.parse(row.error_handling) : row.error_handling;
+    res.json(row);
+  } catch (err) { safeError(res, err, 'invoice-reader/profiles'); }
+});
+
+router.post('/profiles', requireRole('Admin', 'Manager'), async (req, res) => {
+  try {
+    const { name, vendors_id, format_type, invoice_reader_templates_id, match_rules, defaults, error_handling, status } = req.body;
+    if (!name || !format_type) return res.status(400).json({ error: 'name and format_type are required' });
+
+    const id = await db.insertReturningId('invoice_reader_profiles', {
+      name,
+      vendors_id: vendors_id || null,
+      format_type,
+      invoice_reader_templates_id: invoice_reader_templates_id || null,
+      match_rules: JSON.stringify(match_rules || {}),
+      defaults: JSON.stringify(defaults || {}),
+      error_handling: JSON.stringify(error_handling || {}),
+      status: status || 'Active',
+    });
+
+    const row = await db('invoice_reader_profiles').where('invoice_reader_profiles_id', id).first();
+    row.match_rules = typeof row.match_rules === 'string' ? JSON.parse(row.match_rules) : row.match_rules;
+    row.defaults = typeof row.defaults === 'string' ? JSON.parse(row.defaults) : row.defaults;
+    row.error_handling = typeof row.error_handling === 'string' ? JSON.parse(row.error_handling) : row.error_handling;
+    res.status(201).json(row);
+  } catch (err) { safeError(res, err, 'invoice-reader/profiles'); }
+});
+
+router.put('/profiles/:id', requireRole('Admin', 'Manager'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid profile ID' });
+  try {
+    const { name, vendors_id, format_type, invoice_reader_templates_id, match_rules, defaults, error_handling, status } = req.body;
+    const update = { updated_at: new Date().toISOString().slice(0, 10) };
+    if (name !== undefined)        update.name = name;
+    if (vendors_id !== undefined)  update.vendors_id = vendors_id || null;
+    if (format_type !== undefined)  update.format_type = format_type;
+    if (invoice_reader_templates_id !== undefined) update.invoice_reader_templates_id = invoice_reader_templates_id || null;
+    if (match_rules !== undefined)  update.match_rules = JSON.stringify(match_rules);
+    if (defaults !== undefined)     update.defaults = JSON.stringify(defaults);
+    if (error_handling !== undefined) update.error_handling = JSON.stringify(error_handling);
+    if (status !== undefined)       update.status = status;
+
+    await db('invoice_reader_profiles').where('invoice_reader_profiles_id', id).update(update);
+    const row = await db('invoice_reader_profiles').where('invoice_reader_profiles_id', id).first();
+    if (!row) return res.status(404).json({ error: 'Profile not found' });
+    row.match_rules = typeof row.match_rules === 'string' ? JSON.parse(row.match_rules) : row.match_rules;
+    row.defaults = typeof row.defaults === 'string' ? JSON.parse(row.defaults) : row.defaults;
+    row.error_handling = typeof row.error_handling === 'string' ? JSON.parse(row.error_handling) : row.error_handling;
+    res.json(row);
+  } catch (err) { safeError(res, err, 'invoice-reader/profiles'); }
+});
+
+router.delete('/profiles/:id', requireRole('Admin', 'Manager'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid profile ID' });
+  try {
+    await db('invoice_reader_profiles').where('invoice_reader_profiles_id', id).del();
+    res.json({ success: true });
+  } catch (err) { safeError(res, err, 'invoice-reader/profiles'); }
+});
+
+// ── Test profile match against a file ─────────────────────
+router.post('/profiles/test-match', requireRole('Admin', 'Manager'), upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  try {
+    const { originalname, buffer } = req.file;
+    const format = detectFormat(originalname, buffer);
+    const fileIds = extractFileIdentifiers(buffer, format, originalname);
+    const profile = await matchProfile(fileIds);
+    res.json({ matched: !!profile, profile: profile || null, file_identifiers: fileIds });
+  } catch (err) { safeError(res, err, 'invoice-reader/profiles/test-match'); }
+});
+
+// ═══════════════════════════════════════════════════════════
+// ── Reader Exceptions CRUD ────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+router.get('/exceptions', requireRole('Admin', 'Manager'), async (req, res) => {
+  try {
+    let query = db('invoice_reader_exceptions as e')
+      .leftJoin('invoice_reader_uploads as u', 'e.invoice_reader_uploads_id', 'u.invoice_reader_uploads_id')
+      .leftJoin('invoice_reader_profiles as p', 'e.invoice_reader_profiles_id', 'p.invoice_reader_profiles_id')
+      .leftJoin('users as usr', 'e.resolved_by', 'usr.users_id')
+      .select(
+        'e.*',
+        'u.file_name', 'u.format_type as upload_format', 'u.status as upload_status',
+        'p.name as profile_name',
+        'usr.display_name as resolved_by_name'
+      );
+    if (req.query.status)  query = query.where('e.status', req.query.status);
+    if (req.query.type)    query = query.where('e.type', req.query.type);
+    if (req.query.severity) query = query.where('e.severity', req.query.severity);
+    if (req.query.invoice_reader_uploads_id) query = query.where('e.invoice_reader_uploads_id', req.query.invoice_reader_uploads_id);
+    const rows = await query.orderBy('e.created_at', 'desc');
+    res.json(rows.map(r => ({
+      ...r,
+      context: typeof r.context === 'string' ? JSON.parse(r.context) : r.context,
+      resolution: r.resolution ? (typeof r.resolution === 'string' ? JSON.parse(r.resolution) : r.resolution) : null,
+    })));
+  } catch (err) { safeError(res, err, 'invoice-reader/exceptions'); }
+});
+
+router.get('/exceptions/stats', requireRole('Admin', 'Manager'), async (req, res) => {
+  try {
+    const stats = await db('invoice_reader_exceptions')
+      .select('status')
+      .count('* as count')
+      .groupBy('status');
+    const byType = await db('invoice_reader_exceptions')
+      .where('status', 'open')
+      .select('type')
+      .count('* as count')
+      .groupBy('type');
+    res.json({ by_status: stats, open_by_type: byType });
+  } catch (err) { safeError(res, err, 'invoice-reader/exceptions'); }
+});
+
+router.get('/exceptions/:id', requireRole('Admin', 'Manager'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid exception ID' });
+  try {
+    const row = await db('invoice_reader_exceptions as e')
+      .leftJoin('invoice_reader_uploads as u', 'e.invoice_reader_uploads_id', 'u.invoice_reader_uploads_id')
+      .leftJoin('invoice_reader_profiles as p', 'e.invoice_reader_profiles_id', 'p.invoice_reader_profiles_id')
+      .leftJoin('users as usr', 'e.resolved_by', 'usr.users_id')
+      .select('e.*', 'u.file_name', 'u.format_type as upload_format', 'p.name as profile_name', 'usr.display_name as resolved_by_name')
+      .where('e.invoice_reader_exceptions_id', id).first();
+    if (!row) return res.status(404).json({ error: 'Exception not found' });
+    row.context = typeof row.context === 'string' ? JSON.parse(row.context) : row.context;
+    row.resolution = row.resolution ? (typeof row.resolution === 'string' ? JSON.parse(row.resolution) : row.resolution) : null;
+    res.json(row);
+  } catch (err) { safeError(res, err, 'invoice-reader/exceptions'); }
+});
+
+router.put('/exceptions/:id/resolve', requireRole('Admin', 'Manager'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid exception ID' });
+  try {
+    const { resolution, status } = req.body;
+    await db('invoice_reader_exceptions')
+      .where('invoice_reader_exceptions_id', id)
+      .update({
+        status: status || 'resolved',
+        resolution: resolution ? JSON.stringify(resolution) : null,
+        resolved_by: req.user?.users_id || null,
+        resolved_at: db.raw('CURRENT_TIMESTAMP'),
+        updated_at: db.raw('CURRENT_TIMESTAMP'),
+      });
+    const row = await db('invoice_reader_exceptions').where('invoice_reader_exceptions_id', id).first();
+    if (!row) return res.status(404).json({ error: 'Exception not found' });
+    row.context = typeof row.context === 'string' ? JSON.parse(row.context) : row.context;
+    row.resolution = row.resolution ? (typeof row.resolution === 'string' ? JSON.parse(row.resolution) : row.resolution) : null;
+    res.json(row);
+  } catch (err) { safeError(res, err, 'invoice-reader/exceptions'); }
+});
+
+router.put('/exceptions/:id', requireRole('Admin', 'Manager'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid exception ID' });
+  try {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'status is required' });
+    const update = { status, updated_at: db.raw('CURRENT_TIMESTAMP') };
+    if (status === 'resolved' || status === 'ignored') {
+      update.resolved_by = req.user?.users_id || null;
+      update.resolved_at = db.raw('CURRENT_TIMESTAMP');
+    }
+    await db('invoice_reader_exceptions').where('invoice_reader_exceptions_id', id).update(update);
+    res.json({ success: true });
+  } catch (err) { safeError(res, err, 'invoice-reader/exceptions'); }
+});
 
 module.exports = router;

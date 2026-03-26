@@ -5,6 +5,36 @@
 body {
   font-family: 'Inter', 'Segoe UI', sans-serif;
   background: #f1f5f9;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-muted: #f1f5f9;
+  --bg-subtle: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-error: #fee2e2;
+  --bg-error-border: #fecaca;
+  --bg-success: #dcfce7;
+  --bg-success-border: #bbf7d0;
+  --bg-info: #eff6ff;
+  --bg-info-border: #bfdbfe;
+  --bg-warn: #fef3c7;
+  --bg-warn-border: #fde68a;
+  --text-color: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --text-error: #dc2626;
+  --text-success: #15803d;
+  --border-color: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --accent-color: #2563eb;
+  --accent-bg: rgba(37, 99, 235, 0.08);
+  --icon-bg-blue: #dbeafe;
+  --icon-bg-purple: #ede9fe;
+  --icon-bg-green: #dcfce7;
+  --icon-bg-teal: #ccfbf1;
+  --icon-bg-amber: #fef3c7;
+  --icon-bg-red: #fee2e2;
+  --pre-bg: #f1f5f9;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -576,6 +606,36 @@ html.dark body {
     radial-gradient(ellipse at 80% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 100%, rgba(6, 182, 212, 0.04) 0%, transparent 40%);
   color: #676cf2;
+  --bg-primary: rgba(15, 23, 42, 0.8);
+  --bg-secondary: rgba(30, 41, 59, 0.5);
+  --bg-muted: rgba(30, 41, 59, 0.5);
+  --bg-subtle: rgba(15, 23, 42, 0.35);
+  --bg-surface: rgba(30, 41, 59, 0.35);
+  --bg-error: rgba(69, 10, 10, 0.4);
+  --bg-error-border: rgba(127, 29, 29, 0.4);
+  --bg-success: rgba(5, 46, 22, 0.35);
+  --bg-success-border: rgba(22, 101, 52, 0.35);
+  --bg-info: rgba(23, 37, 84, 0.4);
+  --bg-info-border: rgba(30, 64, 175, 0.3);
+  --bg-warn: rgba(69, 26, 3, 0.4);
+  --bg-warn-border: rgba(120, 53, 15, 0.4);
+  --text-color: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --text-error: #f87171;
+  --text-success: #4ade80;
+  --border-color: rgba(148, 163, 184, 0.07);
+  --border-strong: rgba(71, 85, 105, 0.35);
+  --accent-color: #3b82f6;
+  --accent-bg: rgba(59, 130, 246, 0.12);
+  --icon-bg-blue: rgba(30, 58, 95, 0.5);
+  --icon-bg-purple: rgba(46, 16, 101, 0.45);
+  --icon-bg-green: rgba(5, 46, 22, 0.45);
+  --icon-bg-teal: rgba(4, 47, 46, 0.45);
+  --icon-bg-amber: rgba(69, 26, 3, 0.45);
+  --icon-bg-red: rgba(69, 10, 10, 0.45);
+  --pre-bg: rgba(15, 23, 42, 0.45);
 }
 html.dark ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 3px; }
 html.dark ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.35); }

@@ -50,6 +50,8 @@ import Projects     from './pages/Projects';
 import Milestones      from './pages/Milestones';
 import InvoiceApprovers from './pages/InvoiceApprovers';
 import InvoiceReader   from './pages/InvoiceReader';
+import ReaderProfiles  from './pages/ReaderProfiles';
+import ReaderExceptions from './pages/ReaderExceptions';
 import Tickets         from './pages/Tickets';
 import TicketDetail    from './pages/TicketDetail';
 import TicketAdd       from './pages/TicketAdd';
@@ -442,6 +444,8 @@ const NAV = [
       { path: '/allocations',       icon: PieChart,  label: 'Allocations' },
       { path: '/invoice-approvers', icon: UserCheck, label: 'Invoice Approvers' },
       { path: '/invoice-reader',    icon: Upload,    label: 'Invoice Reader' },
+      { path: '/reader-profiles',     icon: Settings,  label: 'Reader Profiles' },
+      { path: '/reader-exceptions',   icon: AlertTriangle, label: 'Reader Exceptions' },
     ],
   },
   { path: '/tickets', icon: LifeBuoy, label: 'Tickets & Issues',
@@ -510,6 +514,8 @@ const PAGE_META = {
   '/rate-audit':   { label: 'Rate Audit',  sub: 'Contract rate compliance validation' },
   '/allocations':  { label: 'Allocations', sub: 'Cost center allocations' },
   '/invoice-reader': { label: 'Invoice Reader', sub: 'Dynamic invoice parsing & batch import' },
+  '/reader-profiles':  { label: 'Reader Profiles', sub: 'Automated processing profiles & match rules' },
+  '/reader-exceptions': { label: 'Reader Exceptions', sub: 'Processing exceptions & resolution queue' },
   '/cost-savings': { label: 'Cost Savings',sub: 'Billing errors & savings pipeline' },
   '/cost-savings/new': { label: 'New Savings', sub: 'Record a new savings opportunity' },
   '/projects':           { label: 'Projects',          sub: 'Manage telecom projects' },
@@ -562,18 +568,18 @@ class ErrorBoundary extends React.Component {
     if (this.state.error) {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, padding: 40, gap: 16 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AlertTriangle size={28} color="#dc2626" />
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--bg-error)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertTriangle size={28} color="var(--text-error)" />
           </div>
           <div style={{ textAlign: 'center' }}>
             <div className="rc-results-count" style={{ fontWeight: 800, fontSize: 18, marginBottom: 6 }}>Something went wrong</div>
-            <div style={{ fontSize: 13, color: '#64748b', maxWidth: 480, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 480, lineHeight: 1.6 }}>
               {this.state.error?.message || 'An unexpected error occurred.'}
             </div>
           </div>
-          <details style={{ fontSize: 11, color: '#94a3b8', maxWidth: 600, width: '100%' }}>
+          <details style={{ fontSize: 11, color: 'var(--text-faint)', maxWidth: 600, width: '100%' }}>
             <summary style={{ cursor: 'pointer', marginBottom: 8 }}>Stack trace</summary>
-            <pre style={{ overflowX: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, lineHeight: 1.5 }}>
+            <pre style={{ overflowX: 'auto', background: 'var(--pre-bg)', border: '1px solid var(--border-color)', borderRadius: 8, padding: 12, lineHeight: 1.5 }}>
               {this.state.error?.stack}
             </pre>
           </details>
@@ -618,6 +624,8 @@ function AppShell() {
     '/allocations':        'allocations',
     '/invoice-approvers':  'invoices',
     '/invoice-reader':     'invoices',
+    '/reader-profiles':    'invoices',
+    '/reader-exceptions':  'invoices',
     '/batch-upload':       'users',
     '/users':              'users',
     '/role-permissions':   'roles',
@@ -1109,6 +1117,8 @@ function AppShell() {
             <Route path="/invoices/new" element={<InvoiceAdd />} />
             <Route path="/invoices/:id" element={<InvoiceDetail />} />
             <Route path="/invoice-reader" element={<InvoiceReader />} />
+            <Route path="/reader-profiles" element={<ReaderProfiles />} />
+            <Route path="/reader-exceptions" element={<ReaderExceptions />} />
             <Route path="/usoc-codes"     element={<UsocCodes />} />
             <Route path="/usoc-codes/new" element={<UsocCodeAdd />} />
             <Route path="/usoc-codes/:id" element={<UsocCodeDetail />} />

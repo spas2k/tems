@@ -237,7 +237,7 @@ export default function ContractDetail() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
-              background: '#ccfbf1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--icon-bg-teal)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <FileText size={18} color="#0d9488" />
             </div>
@@ -257,12 +257,12 @@ export default function ContractDetail() {
             </span>
           )}
           {expiringSoon && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#c2410c', background: '#ffedd5', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-color)', background: 'var(--bg-warn)', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
               <AlertTriangle size={11} /> Expires in {daysToExpiry}d
             </span>
           )}
           {expired && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#dc2626', background: '#fee2e2', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-error)', background: 'var(--bg-error)', padding: '3px 10px', borderRadius: 20, fontWeight: 700 }}>
               <AlertTriangle size={11} /> Expired
             </span>
           )}

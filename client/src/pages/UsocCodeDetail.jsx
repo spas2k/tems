@@ -80,7 +80,7 @@ export default function UsocCodeDetail() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {toast && <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? '#dcfce7' : '#fee2e2', color: toast.ok ? '#15803d' : '#dc2626', padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 13, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>{toast.msg}</div>}
+      {toast && <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? 'var(--bg-success)' : 'var(--bg-error)', color: toast.ok ? 'var(--text-success)' : 'var(--text-error)', padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 13, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>{toast.msg}</div>}
 
       {/* Header bar */}
       <DetailHeader>
@@ -88,7 +88,7 @@ export default function UsocCodeDetail() {
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/usoc-codes')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ArrowLeft size={15} /> Back</button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--icon-bg-purple)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Tag size={18} color="#7c3aed" />
             </div>
             <div>

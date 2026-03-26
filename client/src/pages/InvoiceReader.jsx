@@ -8,7 +8,7 @@ import {
 import {
   parseInvoiceFile, processInvoiceFile, getReaderFields,
   getReaderTemplates, createReaderTemplate, deleteReaderTemplate,
-  getReaderUploads, getVendors,
+  getReaderUploads, getVendors, getReaderProfiles,
 } from '../api';
 
 const FORMAT_ICONS = { Excel: FileSpreadsheet, PDF: FileText, EDI: FileCode };
@@ -35,6 +35,8 @@ export default function InvoiceReader() {
   const [uploads, setUploads]     = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [selectedVendor, setSelectedVendor]   = useState('');
+  const [selectedProfile, setSelectedProfile]  = useState('');
+  const [profiles, setProfiles]   = useState([]);
   const [selectedSheet, setSelectedSheet]       = useState('');
   const [mappings, setMappings]   = useState({});     // { sourceCol: { field, table, type } }
   const [result, setResult]       = useState(null);
@@ -48,6 +50,7 @@ export default function InvoiceReader() {
     getReaderFields().then(r => setFields(r.data)).catch(() => {});
     getReaderTemplates().then(r => setTemplates(r.data)).catch(() => {});
     getVendors().then(r => setVendors(r.data)).catch(() => {});
+    getReaderProfiles().then(r => setProfiles(r.data)).catch(() => {});
     getReaderUploads().then(r => setUploads(r.data)).catch(() => {});
   }, []);
 
@@ -141,6 +144,7 @@ export default function InvoiceReader() {
         sheet_name: selectedSheet || null,
       };
       if (selectedTemplate) opts.template_id = selectedTemplate.invoice_reader_templates_id;
+      if (selectedProfile) opts.profile_id = Number(selectedProfile);
 
       const res = await processInvoiceFile(file, opts);
       setResult(res.data);
@@ -234,8 +238,8 @@ export default function InvoiceReader() {
       {error && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px',
-          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
-          color: '#991b1b', marginBottom: 16, fontSize: 14,
+          background: 'var(--bg-error)', border: '1px solid var(--bg-error-border)', borderRadius: 8,
+          color: 'var(--text-error)', marginBottom: 16, fontSize: 14,
         }}>
           <AlertCircle size={16} />
           <span style={{ flex: 1 }}>{error}</span>
@@ -295,6 +299,34 @@ export default function InvoiceReader() {
                   ))}
                 </select>
               </div>
+
+              {/* Profile selector */}
+              {profiles.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6, fontSize: 14 }}>
+                    Processing Profile (Optional)
+                  </label>
+                  <select
+                    value={selectedProfile}
+                    onChange={e => setSelectedProfile(e.target.value)}
+                    style={{
+                      width: '100%', maxWidth: 400, padding: '10px 12px', borderRadius: 8,
+                      border: '1px solid var(--border-color, #d1d5db)', fontSize: 14,
+                      background: 'var(--input-bg, #fff)', color: 'var(--text-color, #1e293b)',
+                    }}
+                  >
+                    <option value="">— Auto-detect / None —</option>
+                    {profiles.filter(p => p.status === 'Active').map(p => (
+                      <option key={p.invoice_reader_profiles_id} value={p.invoice_reader_profiles_id}>
+                        {p.name} ({p.format_type}{p.vendor_name ? ` · ${p.vendor_name}` : ''})
+                      </option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                    Profiles apply default values and error handling policies. Leave blank for auto-detection.
+                  </p>
+                </div>
+              )}
 
               {/* Drop zone */}
               <div
@@ -759,7 +791,9 @@ export default function InvoiceReader() {
                   <AlertCircle size={40} style={{ color: '#ef4444', marginBottom: 12 }} />
                 )}
                 <h3 style={{ margin: '0 0 8px', fontSize: 20 }}>
-                  {result.invoices_created > 0 ? 'Import Complete' : 'Import Failed'}
+                  {result.exceptions_created > 0 && result.invoices_created > 0
+                    ? 'Import Needs Attention'
+                    : result.invoices_created > 0 ? 'Import Complete' : 'Import Failed'}
                 </h3>
                 <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted, #64748b)' }}>
                   Processed {result.total_rows} rows from file
@@ -802,6 +836,30 @@ export default function InvoiceReader() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Profile & exceptions info */}
+              {(result.profile_used || result.exceptions_created > 0) && (
+                <div style={{
+                  border: '1px solid var(--border-color, #e2e8f0)', borderRadius: 10,
+                  padding: 16, marginBottom: 20, background: 'var(--bg-muted, #f8fafc)',
+                }}>
+                  {result.profile_used && (
+                    <p style={{ margin: '0 0 4px', fontSize: 13 }}>
+                      <strong>Profile used:</strong> {result.profile_used.name}
+                    </p>
+                  )}
+                  {result.exceptions_created > 0 && (
+                    <p style={{ margin: 0, fontSize: 13, color: '#856404' }}>
+                      <AlertCircle size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      <strong>{result.exceptions_created}</strong> exception{result.exceptions_created > 1 ? 's' : ''} created —{' '}
+                      <button onClick={() => navigate('/reader-exceptions')}
+                        style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', fontSize: 13, fontWeight: 600, padding: 0 }}>
+                        Review exceptions
+                      </button>
+                    </p>
+                  )}
                 </div>
               )}
 

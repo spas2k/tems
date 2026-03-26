@@ -253,7 +253,7 @@ export default function TicketDetail() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: '#94a3b8' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--text-muted)' }}>
         Loading ticket…
       </div>
     );
@@ -261,7 +261,7 @@ export default function TicketDetail() {
 
   if (error && !ticket) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#dc2626' }}>{error}</div>
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-error)' }}>{error}</div>
     );
   }
 
@@ -277,7 +277,7 @@ export default function TicketDetail() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, padding: '10px 20px', background: '#0f172a', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
+        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, padding: '10px 20px', background: 'var(--bg-surface)', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
           {toast}
         </div>
       )}
@@ -295,7 +295,7 @@ export default function TicketDetail() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
-              background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--icon-bg-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <LifeBuoy size={18} color="#2563eb" />
             </div>
@@ -329,7 +329,7 @@ export default function TicketDetail() {
               <MoreHorizontal size={15} />
             </button>
             {menuOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 200, zIndex: 9000, padding: '6px 0' }}>
+              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 200, zIndex: 9000, padding: '6px 0' }}>
                 <MenuItem 
                   label={<><Trash2 size={14} style={{ marginRight: 6 }} /> Delete</>} 
                   onClick={handleDelete} 
@@ -342,7 +342,7 @@ export default function TicketDetail() {
       </DetailHeader>
 
       {error && (
-        <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#dc2626' }}>{error}</div>
+        <div style={{ padding: '10px 14px', background: 'var(--bg-error)', border: '1px solid var(--bg-error-border)', borderRadius: 8, fontSize: 13, color: 'var(--text-error)' }}>{error}</div>
       )}
 
       {/* Two-column layout — activity panel is larger now */}
@@ -559,7 +559,7 @@ export default function TicketDetail() {
           </div>
 
           {/* New comment input — pinned above feed */}
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-subtle)' }}>
             <textarea
               className="form-input"
               value={newComment}
@@ -597,12 +597,12 @@ export default function TicketDetail() {
                   <Avatar name={c.author} system={isSystem} size={36} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: isSystem ? '#0284c7' : '#1e293b' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: isSystem ? 'var(--text-info)' : 'var(--text-color)' }}>
                         {isSystem ? 'System' : c.author}
                       </span>
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{relativeTime(c.created_at)}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{relativeTime(c.created_at)}</span>
                       {c.comment_type === 'note' && (
-                        <span style={{ fontSize: 10, background: '#fef3c7', color: '#92400e', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>NOTE</span>
+                        <span style={{ fontSize: 10, background: 'var(--bg-warn)', color: 'var(--text-color)', borderRadius: 4, padding: '1px 6px', fontWeight: 600 }}>NOTE</span>
                       )}
                     </div>
                     <div style={{

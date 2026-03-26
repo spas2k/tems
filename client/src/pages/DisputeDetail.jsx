@@ -115,7 +115,7 @@ export default function DisputeDetail() {
     </div>
   );
   if (dispute === undefined) return (
-    <div style={{ background: '#fee2e2', color: '#dc2626', padding: '16px 20px', borderRadius: 12, fontWeight: 600 }}>
+    <div style={{ background: 'var(--bg-error)', color: 'var(--text-error)', padding: '16px 20px', borderRadius: 12, fontWeight: 600 }}>
       Dispute not found. <button className="btn btn-ghost btn-sm" onClick={() => navigate('/disputes')} style={{ marginLeft: 8 }}>Back to Disputes</button>
     </div>
   );
@@ -131,7 +131,7 @@ export default function DisputeDetail() {
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/disputes')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ArrowLeft size={16} /> Back</button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--icon-bg-red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ShieldAlert size={18} color="#ef4444" />
             </div>
             <div>
@@ -161,8 +161,8 @@ export default function DisputeDetail() {
 
       {/* Summary banner */}
       <div style={{
-        background: '#1e293b', borderRadius: 12, padding: '20px 24px', marginTop: 16, marginBottom: 16,
-        display: 'flex', gap: 32, alignItems: 'center', border: '1px solid #334155',
+        background: 'var(--bg-secondary)', borderRadius: 12, padding: '20px 24px', marginTop: 16, marginBottom: 16,
+        display: 'flex', gap: 32, alignItems: 'center', border: '1px solid var(--border-color)',
       }}>
         <div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600, textTransform: 'uppercase' }}>Disputed Amount</div>

@@ -115,7 +115,7 @@ export default function UserSwitcher() {
               <Avatar name={user.display_name} role={user.role_name} size={38} />
               <div>
                 <div className="rc-results-count" style={{ fontWeight: 700, fontSize: 13 }}>{user.display_name}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{user.email}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{user.email}</div>
                 <div style={{ marginTop: 3, display: 'flex', gap: 4 }}>
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99,
@@ -148,9 +148,9 @@ export default function UserSwitcher() {
                   autoFocus
                   style={{
                     width: '100%', padding: '5px 8px 5px 28px', fontSize: 12,
-                    borderRadius: 7, border: '1px solid #e2e8f0',
+                    borderRadius: 7, border: '1px solid var(--border-color)',
                     outline: 'none', boxSizing: 'border-box',
-                    background: '#f8fafc', color: '#1e293b',
+                    background: 'var(--bg-subtle)', color: 'var(--text-color)',
                   }}
                 />
               </div>
@@ -194,7 +194,7 @@ export default function UserSwitcher() {
 
           {/* End Impersonation */}
           {isImpersonating && (
-            <div style={{ borderTop: '1px solid #f1f5f9' }}>
+            <div style={{ borderTop: '1px solid var(--border-color)' }}>
               <div
                 onClick={() => { endImpersonation(); setOpen(false); }}
                 style={{
@@ -202,7 +202,7 @@ export default function UserSwitcher() {
                   padding: '9px 16px', cursor: 'pointer', color: '#ef4444',
                   transition: 'background 0.12s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-error)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <LogOut size={14} />
@@ -212,15 +212,15 @@ export default function UserSwitcher() {
           )}
 
           {/* Preferences link */}
-          <div style={{ borderTop: '1px solid #f1f5f9' }}>
+          <div style={{ borderTop: '1px solid var(--border-color)' }}>
             <div
               onClick={() => { navigate('/preferences'); setOpen(false); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 16px', cursor: 'pointer', color: '#475569',
+                padding: '9px 16px', cursor: 'pointer', color: 'var(--text-secondary)',
                 transition: 'background 0.12s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-subtle)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
               <Settings size={14} />
