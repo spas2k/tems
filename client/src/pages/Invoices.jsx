@@ -1,3 +1,9 @@
+/**
+ * @file Invoice list page with CRUD modal and account lookup.
+ * @module Invoices
+ *
+ * CRUD list page for invoices.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Eye, Receipt, Trash2 } from 'lucide-react';

@@ -1,3 +1,9 @@
+/**
+ * @file Interactive report builder with save/load support.
+ * @module CreateReport
+ *
+ * Full report builder: select type, pick columns, add filters, choose sort, preview results, export to Excel/CSV, and save/load configurations.
+ */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
@@ -7,14 +13,17 @@ import {
   ChevronRight, ChevronLeft, BarChart2, Info, Search, Link,
   Network, Receipt, Building2, ShoppingCart, DollarSign, ShieldAlert,
   PieChart, ChevronsUpDown, List, Tag, CreditCard, MapPin, Ticket, Coins,
+  Mail, Clock, CheckCircle, Loader, FileDown,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import {
   getReportCatalog, runReport,
   getSavedReports, getSavedReport, saveReport, updateSavedReport, deleteSavedReport,
+  createReportJob, getReportJobs, getReportJob, downloadReportJob, deleteReportJob,
 } from '../api';
 import { useConfirm } from '../context/ConfirmContext';
+import { useAuth } from '../context/AuthContext';
 
 // ── Operator sets ─────────────────────────────────────────────────────────────
 const TEXT_OPS = [
@@ -393,6 +402,10 @@ export default function CreateReport() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('reports', 'create');
+  const canUpdate = hasPermission('reports', 'update');
+  const canDelete = hasPermission('reports', 'delete');
 
   // Catalog: { tables: {}, relationships: {} }
   const [catalog, setCatalog]       = useState(null);
@@ -434,6 +447,15 @@ export default function CreateReport() {
   const [saveLoading, setSaveLoading]       = useState(false);
   const [currentSavedId, setCurrentSavedId] = useState(null);
   const [saveError, setSaveError]           = useState('');
+
+  // Export job modal
+  const [exportModal, setExportModal]       = useState(false);
+  const [exportFormat, setExportFormat]     = useState('csv');
+  const [exportEmail, setExportEmail]       = useState('');
+  const [exportSending, setExportSending]   = useState(false);
+  const [exportJobs, setExportJobs]         = useState([]);
+  const [showExportHistory, setShowExportHistory] = useState(false);
+  const exportPollRef = useRef(null);
 
   // Templates & toast
   const [showTemplates, setShowTemplates] = useState(false);
@@ -633,7 +655,7 @@ export default function CreateReport() {
     }
     setFields(all);
   };
-  const clearFields = () => setFields([]);
+  const clearFields = () => { setFields([]); setResults(null); setRunError(null); };
   const removeField = (table, field) => {
     const fuid = `${table}__${field}`;
     setFields(p => p.filter(f => `${f.table}__${f.field}` !== fuid));
@@ -707,23 +729,66 @@ export default function CreateReport() {
   }, [tableKey, linkedTables, fields, filters, filterLogic, sorts, groupBy, aggregations, limit, distinct, isGrouped]);
 
   // ── Export ────────────────────────────────────────────────
-  const handleExport = useCallback((fmt) => {
+  const handleExport = useCallback(async (fmt) => {
     if (!results?.data?.length) return;
     const cols = results.fields || [];
+    const headers = cols.map(c => colOverrides[c.key]?.label || c.label);
     const rows = results.data.map(row =>
-      Object.fromEntries(cols.map(c => [(colOverrides[c.key]?.label || c.label), formatCell(row[c.key], { ...c, format: colOverrides[c.key]?.format || c.format })]))
+      cols.map(c => formatCell(row[c.key], { ...c, format: colOverrides[c.key]?.format || c.format }))
     );
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Report');
     const fname = reportName || 'Report';
     if (fmt === 'csv') {
-      saveAs(new Blob([XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv' }), `${fname}.csv`);
+      const escape = v => { const s = String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
+      const csv = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
+      saveAs(new Blob([csv], { type: 'text/csv' }), `${fname}.csv`);
     } else {
-      const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Report');
+      ws.addRow(headers);
+      rows.forEach(r => ws.addRow(r));
+      const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf], { type: 'application/octet-stream' }), `${fname}.xlsx`);
     }
   }, [results, reportName, colOverrides]);
+
+  // ── Export All (background job) ───────────────────────────
+  const loadExportJobs = useCallback(async () => {
+    try { const res = await getReportJobs(); setExportJobs(res.data || []); } catch {}
+  }, []);
+
+  const handleExportAll = useCallback(async () => {
+    setExportSending(true);
+    try {
+      const cfg = buildConfig();
+      await createReportJob({
+        name: reportName || 'Report Export',
+        config: cfg,
+        format: exportFormat,
+        emailTo: exportEmail.trim() || undefined,
+      });
+      showToast('Export job started — check Export History for progress');
+      setExportModal(false);
+      setExportEmail('');
+      loadExportJobs();
+    } catch (e) {
+      showToast(e.response?.data?.error || 'Export failed', 'error');
+    } finally { setExportSending(false); }
+  }, [buildConfig, reportName, exportFormat, exportEmail, showToast, loadExportJobs]);
+
+  const handleDeleteJob = useCallback(async (id) => {
+    try { await deleteReportJob(id); loadExportJobs(); } catch {}
+  }, [loadExportJobs]);
+
+  // Poll running jobs
+  useEffect(() => {
+    if (!showExportHistory) return;
+    loadExportJobs();
+    const hasRunning = exportJobs.some(j => j.status === 'queued' || j.status === 'running');
+    if (hasRunning) {
+      exportPollRef.current = setInterval(loadExportJobs, 3000);
+    }
+    return () => { if (exportPollRef.current) clearInterval(exportPollRef.current); };
+  }, [showExportHistory, exportJobs.length, loadExportJobs]);
 
   // ── Save ──────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -877,7 +942,7 @@ export default function CreateReport() {
         {[
           { label: 'Templates', icon: BookOpen, onClick: () => setShowTemplates(p => !p) },
           { label: `Saved${savedReports.length ? ` (${savedReports.length})` : ''}`, icon: FolderOpen, onClick: () => setShowSaved(p => !p) },
-          { label: 'Save', icon: Save, onClick: () => setSaveModal(true), disabled: !tableKey },
+          { label: 'Save', icon: Save, onClick: () => setSaveModal(true), disabled: !tableKey || !(currentSavedId ? canUpdate : canCreate) },
         ].map(({ label, icon: Icon, onClick, disabled }) => (
           <button key={label} onClick={onClick} disabled={disabled}
             style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '5px 11px', color: disabled ? '#475569' : '#e2e8f0', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
@@ -892,8 +957,14 @@ export default function CreateReport() {
             <button onClick={() => handleExport('xlsx')} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '5px 11px', color: '#e2e8f0', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
               <Download size={13} /> XLSX
             </button>
+            <button onClick={() => setExportModal(true)} title="Export all rows (up to 100k) in the background" style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 7, padding: '5px 11px', color: '#4ade80', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+              <FileDown size={13} /> Export All
+            </button>
           </>
         )}
+        <button onClick={() => { setShowExportHistory(p => !p); }} title="Export History" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, padding: '5px 11px', color: '#e2e8f0', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+          <Clock size={13} /> Exports
+        </button>
         <button onClick={handleRun} disabled={!canRun || running}
           style={{ background: canRun && !running ? 'var(--accent-color)' : '#334155', border: 'none', borderRadius: 8, padding: '7px 16px', color: '#fff', cursor: canRun && !running ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', flexShrink: 0 }}>
           {running
@@ -941,10 +1012,10 @@ export default function CreateReport() {
                   {r.updated_at ? new Date(r.updated_at).toLocaleDateString() : ''}{r.created_by_name ? ` · ${r.created_by_name}` : ''}
                 </div>
               </div>
-              <button onClick={() => handleDeleteSaved(r.saved_reports_id)}
+              {canDelete && <button onClick={() => handleDeleteSaved(r.saved_reports_id)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-error)', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
                 <Trash2 size={13} />
-              </button>
+              </button>}
             </div>
           ))}
         </div>
@@ -1657,6 +1728,113 @@ export default function CreateReport() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Export All Modal ───────────────────────────────────── */}
+      {exportModal && (
+        <div className="modal-overlay" onClick={() => setExportModal(false)}>
+          <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title"><FileDown size={17} style={{ verticalAlign: 'middle', marginRight: 7 }} />Export All Rows</span>
+              <button onClick={() => setExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#93c5fd' }}>
+                This will export <strong>all matching rows</strong> (up to 100,000) in the background.
+                {results?.total != null && results.total > 0 && (
+                  <span> Current query matches <strong>{results.total.toLocaleString()}</strong> rows.</span>
+                )}
+                {results?.total > 100000 && (
+                  <div style={{ marginTop: 6, color: '#fbbf24' }}>
+                    <AlertCircle size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                    Results exceed 100,000 row limit. The export will be capped.
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="form-label">Format</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['csv', 'xlsx'].map(fmt => (
+                    <label key={fmt} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}>
+                      <input type="radio" name="exportFmt" value={fmt} checked={exportFormat === fmt} onChange={() => setExportFormat(fmt)} />
+                      {fmt.toUpperCase()}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="form-label">Email when ready (optional)</label>
+                <input className="form-input" type="email" value={exportEmail} onChange={e => setExportEmail(e.target.value)}
+                  placeholder="user@example.com" />
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  <Mail size={11} style={{ verticalAlign: 'middle', marginRight: 3 }} />
+                  Leave blank to download manually from Export History.
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setExportModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleExportAll} disabled={exportSending || !tableKey}>
+                {exportSending ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Starting…</> : <><FileDown size={13} /> Start Export</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Export History Panel ────────────────────────────────── */}
+      {showExportHistory && (
+        <div className="rc-flyout" style={{ position: 'absolute', top: 54, right: 16, zIndex: 310, borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', width: 440, maxHeight: 520, overflowY: 'auto' }}>
+          <div className="rc-flyout-header" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0 }}>
+            <span className="rc-flyout-title" style={{ fontWeight: 700, fontSize: 14 }}><Clock size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Export History</span>
+            <button onClick={() => setShowExportHistory(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={15} /></button>
+          </div>
+          {exportJobs.length === 0 && (
+            <div style={{ padding: 28, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>No exports yet. Use "Export All" to start one.</div>
+          )}
+          {exportJobs.map(job => (
+            <div key={job.report_jobs_id} style={{ padding: '11px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{job.name}</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, borderRadius: 6, padding: '2px 8px',
+                  background: job.status === 'completed' ? 'rgba(34,197,94,0.15)' : job.status === 'failed' ? 'rgba(239,68,68,0.15)' : job.status === 'running' ? 'rgba(59,130,246,0.15)' : 'rgba(250,204,21,0.15)',
+                  color: job.status === 'completed' ? '#4ade80' : job.status === 'failed' ? '#f87171' : job.status === 'running' ? '#60a5fa' : '#facc15',
+                }}>
+                  {job.status === 'running' && <Loader size={10} style={{ verticalAlign: 'middle', marginRight: 3, animation: 'spin 1s linear infinite' }} />}
+                  {job.status === 'completed' && <CheckCircle size={10} style={{ verticalAlign: 'middle', marginRight: 3 }} />}
+                  {job.status}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                <span>{job.format?.toUpperCase()}</span>
+                {job.total_rows != null && <span>{job.total_rows.toLocaleString()} rows</span>}
+                {job.file_size != null && <span>{(job.file_size / 1024).toFixed(0)} KB</span>}
+                <span>{new Date(job.created_at).toLocaleString()}</span>
+              </div>
+              {job.error_message && (
+                <div style={{ fontSize: 12, color: '#f87171', background: 'rgba(239,68,68,0.08)', borderRadius: 6, padding: '4px 8px' }}>{job.error_message}</div>
+              )}
+              <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                {job.status === 'completed' && job.file_path && (
+                  <a href={downloadReportJob(job.report_jobs_id)} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 12, color: '#60a5fa', display: 'flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}>
+                    <Download size={12} /> Download
+                  </a>
+                )}
+                {job.email_sent && (
+                  <span style={{ fontSize: 11, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <Mail size={11} /> Emailed
+                  </span>
+                )}
+                <button onClick={() => handleDeleteJob(job.report_jobs_id)}
+                  style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'inherit' }}>
+                  <Trash2 size={11} /> Delete
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -28,8 +28,8 @@
 
 ## 2. Database Tables (Recreate on Domain)
 
-These 5 tables are created by migration `20260301000000_auth_audit_tables.js`.
-They must be recreated on the production database alongside the 11 existing tables.
+These 5 tables are created by migration `20260324000000_core_schema.js`.
+They must be recreated on the production database alongside the other 40 tables.
 
 ### 2.1 `roles`
 | Column | Type | Notes |
@@ -127,7 +127,7 @@ CORS_ORIGINS=https://tems.yourdomain.com
 DB_HOST=...
 DB_USER=...
 DB_PASSWORD=...
-DB_NAME=doctore
+DB_NAME=tems
 ```
 
 ### 4.4 Uncomment SSO Code in `server/middleware/auth.js`
@@ -189,31 +189,17 @@ Two options:
 
 ## 5. All TEMS Database Tables (Full List)
 
-For domain migration, all 16 tables must be recreated:
+TEMS has **45 tables** across 16 migration files. For the full current schema, see [DATABASE_SCHEMA_recreated.md](DATABASE_SCHEMA_recreated.md).
 
-### Original Tables (11)
-| # | Table | Migration |
-|---|-------|-----------|
-| 1 | accounts | 20250101000000_initial_schema |
-| 2 | contracts | 20250101000000_initial_schema |
-| 3 | circuits | 20250101000000_initial_schema |
-| 4 | orders | 20250101000000_initial_schema |
-| 5 | invoices | 20250101000000_initial_schema |
-| 6 | line_items | 20250101000000_initial_schema |
-| 7 | allocations | 20250101000000_initial_schema |
-| 8 | cost_savings | 20250101000000_initial_schema |
-| 9 | usoc_codes | 20250201000000_phase_a_usoc_rates |
-| 10 | contract_rates | 20250201000000_phase_a_usoc_rates |
-| 11 | disputes | 20250301000000_phase_bcd_disputes |
+The auth/audit tables most relevant to SSO are:
 
-### Auth/Audit Tables (5)
-| # | Table | Migration |
-|---|-------|-----------|
-| 12 | roles | 20260301000000_auth_audit_tables |
-| 13 | permissions | 20260301000000_auth_audit_tables |
-| 14 | role_permissions | 20260301000000_auth_audit_tables |
-| 15 | users | 20260301000000_auth_audit_tables |
-| 16 | audit_log | 20260301000000_auth_audit_tables |
+| Table | Purpose |
+|-------|--------|
+| roles | Role definitions (Admin, Manager, Analyst, Viewer) |
+| permissions | Resource + action pairs (52 seed rows) |
+| role_permissions | Junction table linking roles to permissions |
+| users | User accounts with SSO fields (sso_subject, sso_provider) |
+| audit_log | CRUD audit trail with user attribution |
 
 ### Recreating on a New Database
 ```bash
@@ -224,10 +210,6 @@ npx knex migrate:latest
 
 # 3. Seed reference data (roles, permissions, role matrix)
 npx knex seed:run
-
-# 4. (Optional) Load sample data
-mysql -u user -p database < seed.sql
-mysql -u user -p database < seed_extra.sql
 ```
 
 ---
@@ -236,14 +218,14 @@ mysql -u user -p database < seed_extra.sql
 
 | File | Purpose |
 |------|---------|
-| `server/migrations/20260301000000_auth_audit_tables.js` | Creates auth/audit tables |
+| `server/migrations/20260324000000_core_schema.js` | Creates core + auth/audit tables |
 | `server/seeds/02_auth_seed.js` | Seeds roles, permissions, role-permission matrix, dev admin |
 | `server/middleware/auth.js` | Authentication + authorization middleware (dev bypass + SSO placeholder) |
 | `server/middleware/audit.js` | Audit logging middleware for all CRUD routes |
 | `server/routes/users.js` | User management API (CRUD + /me) |
 | `server/routes/roles.js` | Role, permission, and audit-log API |
 | `client/src/context/AuthContext.jsx` | React auth context provider |
-| `client/src/pages/UserManagement.jsx` | User management UI (Admin only) |
+| `client/src/pages/Users.jsx` | User management UI (Admin only) |
 | `client/src/pages/AuditLog.jsx` | Audit log viewer (Admin only) |
 | `client/src/api.js` | API client (auth endpoints at bottom) |
 

@@ -1,3 +1,10 @@
+/**
+ * @file notifications.js — Notifications API Routes — /api/notifications
+ * In-app notification management for the authenticated user.
+ * Notifications are created by the notification service and consumed here.
+ *
+ * @module routes/notifications
+ */
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
@@ -5,6 +12,11 @@ const safeError = require('./_safeError');
 const { idParam, validate } = require('./_validators');
 
 // GET /api/notifications — fetch current user's notifications (most recent 50)
+/**
+ * GET /
+ * List notifications for the current user (last 50), most recent first.
+ * @returns Array of notification objects
+ */
 router.get('/', async (req, res) => {
   try {
     const userId = req.user?.users_id;

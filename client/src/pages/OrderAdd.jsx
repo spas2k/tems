@@ -1,7 +1,14 @@
+/**
+ * @file New service order creation form.
+ * @module OrderAdd
+ *
+ * Uses FormPage with vendor, contract, and inventory lookups.
+ */
 ﻿import React from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { createOrder, getVendors, getContracts, getInventory } from '../api';
 import FormPage from '../components/FormPage';
+import { LOOKUP_VENDORS, LOOKUP_CONTRACTS } from '../utils/lookupConfigs';
 
 const STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
 
@@ -17,12 +24,8 @@ const SECTIONS = [
     description: 'Core order information and vendor assignment',
     fields: (rel) => [
       { key: 'order_number', label: 'Order Number', half: true },
-      { key: 'vendors_id', label: 'Vendor *', type: 'select',
-        options: (rel.vendors || []).map(v => ({ value: v.vendors_id, label: v.name })),
-        placeholder: 'Select vendor…', half: true },
-      { key: 'contracts_id', label: 'Contract *', type: 'select',
-        options: (rel.contracts || []).map(c => ({ value: c.contracts_id, label: c.contract_number })),
-        placeholder: 'Select contract…', half: true },
+      { key: 'vendors_id', label: 'Vendor *', type: 'lookup', ...LOOKUP_VENDORS(rel.vendors), half: true },
+      { key: 'contracts_id', label: 'Contract *', type: 'lookup', ...LOOKUP_CONTRACTS(rel.contracts), half: true },
       { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
       { key: 'contracted_rate', label: 'Contracted Rate ($)', type: 'number', step: '0.01', half: true },
     ],

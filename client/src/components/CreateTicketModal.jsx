@@ -1,3 +1,15 @@
+/**
+ * @file Modal form for creating a support ticket with optional entity linking.
+ * @module CreateTicketModal
+ *
+ * @param {boolean} props.open - Whether the modal is visible
+ * @param {Function} props.onClose - Callback when the modal is dismissed
+ * @param {Function} props.onCreated - Callback after successful ticket creation
+ * @param {string|null} props.sourceEntityType - Optional linked entity type
+ * @param {number|null} props.sourceEntityId - Optional linked entity ID
+ * @param {string|null} props.sourceLabel - Optional display label for the linked entity
+ * @param {string} props.defaultCategory - Default ticket category (default "Other")
+ */
 import React, { useState } from 'react';
 import { LifeBuoy, Link2, Terminal } from 'lucide-react';
 import { createTicket } from '../api';

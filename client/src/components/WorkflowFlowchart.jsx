@@ -1,3 +1,14 @@
+/**
+ * @file SVG-based workflow flowchart renderer.
+ * @module WorkflowFlowchart
+ *
+ * Lays out nodes in a 2D grid from steps/edges, rendering decision diamonds, status-colored nodes, and connecting paths with labels.
+ *
+ * @param {Array} props.steps - Array of workflow step objects (name, type, status, col, row)
+ * @param {Array} props.edges - Array of { from, to, label } edge definitions
+ * @param {number|null} props.selectedStep - Currently highlighted step index
+ * @param {Function} props.onSelectStep - Callback when a step node is clicked
+ */
 import React, { useMemo } from 'react';
 import {
   CheckCircle2, XCircle, MinusCircle, Play, Flag, Square, Diamond, Circle,

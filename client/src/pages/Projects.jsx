@@ -1,3 +1,9 @@
+/**
+ * @file Placeholder page for project management (coming soon).
+ * @module Projects
+ *
+ * Renders a "Coming Soon" placeholder.
+ */
 import React from 'react';
 import { FolderKanban } from 'lucide-react';
 

@@ -1,3 +1,9 @@
+/**
+ * @file Vendor list page with CRUD modal, filtering, sorting, and export.
+ * @module Vendors
+ *
+ * CRUD list page for managing telecom vendors. Uses useCrudTable for data loading, DataTable for display.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Landmark, Trash2 } from 'lucide-react';
@@ -39,7 +45,7 @@ export default function Vendors() {
     { key: 'contact_email', label: 'Email', style: { color: '#3b82f6' } },
     { key: 'contact_phone', label: 'Phone' },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: ['Active', 'Inactive'],
-      badge: { Active: 'badge badge-green', Inactive: 'badge badge-gray' } },
+      badge: { Active: 'badge badge-green', Inactive: 'badge badge-red' } },
   ];
 
   const formFields = [

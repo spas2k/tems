@@ -1,40 +1,52 @@
+/**
+ * @file Full permission matrix editor for all roles.
+ * @module RolePermissions
+ *
+ * Interactive grid showing all roles × 23 resources × 4 actions. Allows toggling permissions with save confirmation.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Building2, FileText, Network, ShoppingCart, Receipt,
   PieChart, Zap, Tag, ShieldAlert, Users, DollarSign, Save,
-  RefreshCw, Check, Lock,
+  RefreshCw, Check, Lock, MapPin, Layers,
+  LifeBuoy, CreditCard, Megaphone, BookOpen, BarChart2,
+  Database, ScanLine,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getRoles, getRole, getPermissions, updateRole } from '../api';
+import { getRoleColor } from '../utils/roleColors';
 import { useConfirm } from '../context/ConfirmContext';
 import { useAuth } from '../context/AuthContext';
 
 // ── Section → DB resource mapping ────────────────────────
 // Each section in the matrix controls one DB resource's C/R/U/D permissions.
 const SECTIONS = [
-  { label: 'Vendors',          icon: Building2,    resource: 'accounts' },
-  { label: 'Contracts',        icon: FileText,     resource: 'contracts' },
-  { label: 'USOC Codes',       icon: Tag,          resource: 'usoc_codes' },
-  { label: 'Contract Rates',   icon: DollarSign,   resource: 'contract_rates' },
-  { label: 'Disputes',         icon: ShieldAlert,  resource: 'disputes' },
-  { label: 'Inventory',         icon: Network,      resource: 'inventory' },
-  { label: 'Cost Savings',     icon: Zap,          resource: 'cost_savings' },
-  { label: 'Orders',           icon: ShoppingCart, resource: 'orders' },
-  { label: 'Invoices',         icon: Receipt,      resource: 'invoices' },
-  { label: 'Line Items',       icon: Receipt,      resource: 'line_items' },
-  { label: 'Allocations',      icon: PieChart,     resource: 'allocations' },
-  { label: 'User Management',  icon: Users,        resource: 'users' },
-  { label: 'Roles & Permissions', icon: Shield,    resource: 'roles' },
+  { label: 'Vendors',            icon: Building2,    resource: 'accounts' },
+  { label: 'Vendor Remit',       icon: CreditCard,   resource: 'vendor_remit' },
+  { label: 'Spend Categories',   icon: Layers,       resource: 'spend_categories' },
+  { label: 'Locations',          icon: MapPin,       resource: 'locations' },
+  { label: 'Contracts',          icon: FileText,     resource: 'contracts' },
+  { label: 'USOC Codes',         icon: Tag,          resource: 'usoc_codes' },
+  { label: 'Contract Rates',     icon: DollarSign,   resource: 'contract_rates' },
+  { label: 'Disputes',           icon: ShieldAlert,  resource: 'disputes' },
+  { label: 'Inventory',          icon: Network,      resource: 'inventory' },
+  { label: 'Cost Savings',       icon: Zap,          resource: 'cost_savings' },
+  { label: 'Orders',             icon: ShoppingCart,  resource: 'orders' },
+  { label: 'Invoices',           icon: Receipt,      resource: 'invoices' },
+  { label: 'Line Items',         icon: Receipt,      resource: 'line_items' },
+  { label: 'Allocations',        icon: PieChart,     resource: 'allocations' },
+  { label: 'Invoice Reader',     icon: ScanLine,     resource: 'invoice_reader_uploads' },
+  { label: 'Tickets',            icon: LifeBuoy,     resource: 'tickets' },
+  { label: 'Reports',            icon: BarChart2,    resource: 'reports' },
+  { label: 'Field Catalog',      icon: Database,     resource: 'field_catalog' },
+  { label: 'Announcements',      icon: Megaphone,    resource: 'announcements' },
+  { label: 'Form Instructions',  icon: BookOpen,     resource: 'form_instructions' },
+  { label: 'User Management',    icon: Users,        resource: 'users' },
+  { label: 'Roles & Permissions', icon: Shield,      resource: 'roles' },
 ];
 
 const ACTIONS = ['create', 'read', 'update', 'delete'];
 const ACTION_LABELS = { create: 'Create', read: 'Read', update: 'Update', delete: 'Delete' };
-
-const ROLE_COLORS = {
-  Admin:   { bg: '#2563eb', light: '#dbeafe', text: '#1e40af' },
-  Manager: { bg: '#0d9488', light: '#ccfbf1', text: '#0f766e' },
-  Analyst: { bg: '#d97706', light: '#fef3c7', text: '#92400e' },
-  Viewer:  { bg: '#64748b', light: '#f1f5f9', text: '#475569' },
-};
 
 // ── Permission key helpers ───────────────────────────────
 const permKey = (resource, action) => `${resource}:${action}`;
@@ -86,6 +98,7 @@ function PermCell({ checked, locked, onChange, action }) {
 export default function RolePermissions() {
   const { refreshUser } = useAuth();
   const confirm = useConfirm();
+  const navigate = useNavigate();
 
   const [roles, setRoles]             = useState([]);
   const [allPerms, setAllPerms]       = useState([]);   // full permissions table
@@ -233,9 +246,9 @@ export default function RolePermissions() {
       </div>
 
       {/* ── Role tabs ─────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {roles.map(role => {
-          const rc = ROLE_COLORS[role.name] || ROLE_COLORS.Viewer;
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {roles.map((role, idx) => {
+          const rc = getRoleColor(role, idx);
           const isSelected = role.roles_id === selectedRoleId;
           return (
             <button
@@ -247,9 +260,9 @@ export default function RolePermissions() {
               style={{
                 padding: '8px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
                 fontWeight: 700, fontSize: 13, transition: 'all 0.15s',
-                background: isSelected ? rc.bg : '#f1f5f9',
+                background: isSelected ? rc : '#f1f5f9',
                 color: isSelected ? '#fff' : '#475569',
-                boxShadow: isSelected ? `0 2px 10px ${rc.bg}55` : 'none',
+                boxShadow: isSelected ? `0 2px 10px ${rc}55` : 'none',
               }}
             >
               {role.name}
@@ -264,6 +277,17 @@ export default function RolePermissions() {
             </button>
           );
         })}
+        <button
+          onClick={() => navigate('/roles')}
+          style={{
+            padding: '8px 14px', borderRadius: 10, border: '1px solid #e2e8f0', cursor: 'pointer',
+            fontWeight: 600, fontSize: 12, background: '#fff', color: '#64748b',
+            display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s',
+          }}
+          title="Manage roles"
+        >
+          Manage Roles →
+        </button>
       </div>
 
       {/* ── Matrix table ──────────────────────────────────── */}
@@ -308,10 +332,10 @@ export default function RolePermissions() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
               >
                 {saving
-                  ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  : <Save size={14} />}
-                {saving ? 'Saving…' : 'Save Changes'}
-              </button>
+                    ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                    : <Save size={14} />}
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
             )}
           </div>
 

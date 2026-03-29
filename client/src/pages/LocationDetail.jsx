@@ -1,3 +1,9 @@
+/**
+ * @file Location detail page with editable form fields.
+ * @module LocationDetail
+ *
+ * Shows location info (name, address, city, state, zip) with inline editing, notes, and change history.
+ */
 import React, { useContext, useEffect, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -5,6 +11,7 @@ import { ArrowLeft, MapPin, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getLocation, updateLocation } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import StatusToggle from '../components/StatusToggle';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 
@@ -24,7 +31,7 @@ export default function LocationDetail() {
   const navigate = useNavigate();
   const { setPageTitle } = useContext(PageTitleContext);
   const { hasPermission } = useAuth();
-  const canUpdate = hasPermission('accounts', 'update');
+  const canUpdate = hasPermission('locations', 'update');
 
   const [location, setLocation] = useState(null);
   const [form,     setFormData] = useState(null);
@@ -75,6 +82,20 @@ export default function LocationDetail() {
 
   const set = (k, v) => { setFormData(p => ({ ...p, [k]: v })); setDirty(true); };
 
+  const toggleActive = async (newVal) => {
+    const prev = form.status;
+    setFormData(p => ({ ...p, status: newVal }));
+    try {
+      const updated = await updateLocation(id, { ...form, status: newVal });
+      setLocation(updated.data);
+      setHistoryKey(k => k + 1);
+      showToast(`Location ${newVal === 'Active' ? 'activated' : 'deactivated'}.`);
+    } catch {
+      setFormData(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -107,9 +128,8 @@ export default function LocationDetail() {
 
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/locations')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/locations')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -125,10 +145,11 @@ export default function LocationDetail() {
               </div>
             </div>
           </div>
-          <span className={location.status === 'Active' ? 'badge badge-green' : 'badge badge-gray'}>
+          <span className={location.status === 'Active' ? 'badge badge-green' : 'badge badge-red'}>
             {location.status}
           </span>
         </div>
+        {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         {canUpdate && (
           <button className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving}
             style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}>
@@ -141,7 +162,7 @@ export default function LocationDetail() {
       <div className="page-card">
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Location Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <StatusToggle value={form.status} onChange={toggleActive} disabled={!canUpdate} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <Field label="Site Name *">
@@ -153,12 +174,6 @@ export default function LocationDetail() {
           <Field label="Site Type">
             <select className="form-input" value={form.site_type} onChange={e => set('site_type', e.target.value)}>
               {SITE_TYPES.map(t => <option key={t}>{t}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              <option>Active</option>
-              <option>Inactive</option>
             </select>
           </Field>
         </div>

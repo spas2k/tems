@@ -1,13 +1,22 @@
+/**
+ * @file Pagination bar with page size selector and navigation buttons.
+ * @module Pagination
+ *
+ * @param {number} props.currentPage - Current active page (1-based)
+ * @param {number} props.totalItems - Total number of items across all pages
+ * @param {number} props.pageSize - Number of items per page
+ * @param {Function} props.onPageChange - Callback with new page number
+ * @param {Function} props.onPageSizeChange - Callback with new page size
+ */
 import React from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
-const PAGE_SIZES = [10, 25, 50];
+const PAGE_SIZES = [10, 25, 50, 100, 250];
 
 export default function Pagination({ currentPage, totalItems, pageSize, onPageChange, onPageSizeChange }) {
-  const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalItems / pageSize));
-  const effectivePageSize = pageSize === 'all' ? totalItems : pageSize;
-  const start = totalItems === 0 ? 0 : (currentPage - 1) * effectivePageSize + 1;
-  const end = Math.min(currentPage * effectivePageSize, totalItems);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const end = Math.min(currentPage * pageSize, totalItems);
 
   return (
     <div className="pagination-bar">
@@ -16,22 +25,18 @@ export default function Pagination({ currentPage, totalItems, pageSize, onPageCh
         <select
           className="pagination-select"
           value={pageSize}
-          onChange={e => {
-            const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
-            onPageSizeChange(val);
-          }}
+          onChange={e => onPageSizeChange(Number(e.target.value))}
         >
           {PAGE_SIZES.map(s => (
             <option key={s} value={s}>{s}</option>
           ))}
-          <option value="all">All</option>
         </select>
         <span className="pagination-range">
           {totalItems === 0 ? '0 results' : `${start}–${end} of ${totalItems}`}
         </span>
       </div>
 
-      {pageSize !== 'all' && totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="pagination-controls">
           <button
             className="pagination-btn"

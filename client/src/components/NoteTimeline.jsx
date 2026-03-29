@@ -1,3 +1,13 @@
+/**
+ * @file Timeline-style note and activity feed for any entity.
+ * @module NoteTimeline
+ *
+ * Fetches notes from the API, supports adding new notes and deleting existing ones with confirmation. Displays type-coded entries (note, status_change, system).
+ *
+ * @param {string} props.entityType - Entity type key (e.g. "vendors", "invoices")
+ * @param {number} props.entityId - Entity primary key
+ * @param {string} props.author - Default author name for new notes (default "User")
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Send, Trash2, MessageSquare, Activity, Settings } from 'lucide-react';
 import { getNotes, createNote, deleteNote } from '../api';

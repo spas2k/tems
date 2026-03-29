@@ -1,3 +1,9 @@
+/**
+ * @file Billing account list page with CRUD modal and vendor lookup.
+ * @module Accounts
+ *
+ * CRUD list page for billing accounts with vendor relation.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Building2, Trash2 } from 'lucide-react';
@@ -42,7 +48,7 @@ export default function Accounts() {
     { key: 'account_type', label: 'Type', filterType: 'text' },
     { key: 'team', label: 'Team', filterType: 'text' },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: ['Active', 'Inactive'],
-      badge: { Active: 'badge badge-green', Inactive: 'badge badge-gray' } },
+      badge: { Active: 'badge badge-green', Inactive: 'badge badge-red' } },
     { key: 'created_at', label: 'Created At', filterType: 'date', format: 'date', defaultHidden: true },
     { key: 'updated_at', label: 'Updated At', filterType: 'date', format: 'date', defaultHidden: true },
   ];

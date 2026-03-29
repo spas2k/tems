@@ -1,3 +1,10 @@
+/**
+ * @file invoiceReader.js — Invoice Reader API Routes — /api/invoice-reader
+ * PDF invoice upload, OCR parsing, and automated line-item extraction.
+ * Supports upload, profile-based parsing, and manual review workflows.
+ *
+ * @module routes/invoiceReader
+ */
 // ============================================================
 // Invoice Reader API — Dynamic invoice parsing & batch import
 // Supports EDI (X12 810), Excel (.xlsx/.xls), and PDF formats
@@ -5,11 +12,12 @@
 const express  = require('express');
 const router   = express.Router();
 const multer   = require('multer');
-const XLSX     = require('xlsx');
+const ExcelJS  = require('exceljs');
 const pdf      = require('pdf-parse');
 const db       = require('../db');
 const safeError = require('./_safeError');
 const { requireRole } = require('../middleware/auth');
+const { notifyAll } = require('../services/notifications');
 
 // ── Multer: accept common invoice file types up to 20 MB ────
 const ALLOWED_MIMES = new Set([
@@ -54,21 +62,31 @@ function detectFormat(fileName, buffer) {
 }
 
 // ── Excel / CSV parser ───────────────────────────────────────
-// Single-pass: sheet_to_json once, slice first 20 for preview
-function parseExcel(buffer, fileName) {
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-  const sheets = wb.SheetNames.map(name => {
-    const sheet = wb.Sheets[name];
-    const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-    const totalRows = range.e.r; // 0-indexed last row
-
-    const allRows = XLSX.utils.sheet_to_json(sheet, { defval: null });
-    const headers = allRows.length ? Object.keys(allRows[0]) : [];
+// Single-pass: read all rows, slice first 20 for preview
+async function parseExcel(buffer, fileName) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const sheets = [];
+  for (const ws of wb.worksheets) {
+    const allRows = [];
+    let headers = [];
+    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      const values = [];
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        values[colNumber - 1] = cell.value != null ? cell.value : null;
+      });
+      if (rowNumber === 1) {
+        headers = values.map(v => v != null ? String(v).trim() : '');
+      } else {
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = values[i] ?? null; });
+        allRows.push(obj);
+      }
+    });
+    const totalRows = ws.rowCount - 1; // exclude header
     const previewRows = allRows.slice(0, 20);
-
-    return { name, headers, totalRows, previewRows, allRows };
-  });
-
+    sheets.push({ name: ws.name, headers, totalRows, previewRows, allRows });
+  }
   return { format: 'Excel', fileName, sheets };
 }
 
@@ -446,11 +464,20 @@ function formatEDIDate(ediDate) {
 
 // ── PDF parser ───────────────────────────────────────────────
 async function parsePDF(buffer) {
-  const data = await pdf(buffer);
+  // new Uint8Array(buffer) copies bytes into a fresh ArrayBuffer (byteOffset=0),
+  // avoiding a pdfjs parse failure that occurs when Node.js pools small Buffers
+  // with a non-zero byteOffset.
+  const data = await pdf(new Uint8Array(buffer));
   const text = data.text;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
-  // Attempt to detect tabular data by splitting on multiple spaces
+  // Attempt to detect tabular data by splitting on multiple spaces.
+  // A "secondary header row" is one where all parts contain no digits — these
+  // indicate a new section / second table in the PDF (e.g. a line-item table
+  // that follows an invoice-summary table).  We stop the first table there so
+  // those label rows are never treated as data.
+  const isLabelRow = (parts) => parts.every(p => !/\d/.test(p));
+
   const tableRows = [];
   let headers = [];
   let headerFound = false;
@@ -459,9 +486,14 @@ async function parsePDF(buffer) {
     const parts = lines[i].split(/\s{2,}/).filter(Boolean);
     if (parts.length >= 3) {
       if (!headerFound) {
-        // First row with 3+ columns is likely headers
+        // First multi-column row is the table header
         headers = parts;
         headerFound = true;
+      } else if (isLabelRow(parts)) {
+        // All-text row after data has started → secondary table header.
+        // Stop here — all rows that follow belong to a different table and must
+        // not be mixed with the first table's data.
+        break;
       } else {
         const row = {};
         parts.forEach((val, idx) => {
@@ -538,7 +570,7 @@ router.post('/parse', requireRole('Admin', 'Manager', 'Analyst'), upload.single(
     let parsed;
     switch (format) {
       case 'Excel':
-        parsed = parseExcel(buffer, originalname);
+        parsed = await parseExcel(buffer, originalname);
         // Strip allRows from each sheet — client only needs preview
         parsed.sheets = parsed.sheets.map(({ allRows, ...rest }) => rest);
         break;
@@ -611,12 +643,30 @@ router.post('/templates', requireRole('Admin', 'Manager'), async (req, res) => {
     if (!name || !format_type || !config) {
       return res.status(400).json({ error: 'name, format_type, and config are required' });
     }
+    if (typeof name !== 'string' || name.length > 255) {
+      return res.status(400).json({ error: 'name must be a string of 255 characters or fewer' });
+    }
+    const ALLOWED_FORMATS = ['CSV', 'Excel', 'PDF', 'XML', 'Fixed Width', 'Custom'];
+    if (!ALLOWED_FORMATS.includes(format_type)) {
+      return res.status(400).json({ error: `format_type must be one of: ${ALLOWED_FORMATS.join(', ')}` });
+    }
+    if (vendors_id != null) {
+      const vid = parseInt(vendors_id, 10);
+      if (!Number.isInteger(vid) || vid < 1) return res.status(400).json({ error: 'vendors_id must be a positive integer' });
+    }
+    if (typeof config !== 'object' || Array.isArray(config)) {
+      return res.status(400).json({ error: 'config must be a JSON object' });
+    }
+    const configStr = JSON.stringify(config);
+    if (configStr.length > 100000) {
+      return res.status(400).json({ error: 'config exceeds maximum allowed size' });
+    }
 
     const id = await db.insertReturningId('invoice_reader_templates', {
-      name,
+      name: name.trim(),
       vendors_id: vendors_id || null,
       format_type,
-      config: JSON.stringify(config),
+      config: configStr,
       status: 'Active',
     });
 
@@ -633,13 +683,35 @@ router.put('/templates/:id', requireRole('Admin', 'Manager'), async (req, res) =
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid template ID' });
 
   try {
+    const ALLOWED_FORMATS = ['CSV', 'Excel', 'PDF', 'XML', 'Fixed Width', 'Custom'];
+    const ALLOWED_STATUSES = ['Active', 'Inactive'];
     const { name, vendors_id, format_type, config, status } = req.body;
     const update = {};
-    if (name !== undefined)        update.name = name;
-    if (vendors_id !== undefined)  update.vendors_id = vendors_id || null;
-    if (format_type !== undefined)  update.format_type = format_type;
-    if (config !== undefined)      update.config = JSON.stringify(config);
-    if (status !== undefined)      update.status = status;
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.length > 255) return res.status(400).json({ error: 'name must be a string of 255 characters or fewer' });
+      update.name = name.trim();
+    }
+    if (vendors_id !== undefined) {
+      if (vendors_id != null) {
+        const vid = parseInt(vendors_id, 10);
+        if (!Number.isInteger(vid) || vid < 1) return res.status(400).json({ error: 'vendors_id must be a positive integer' });
+      }
+      update.vendors_id = vendors_id || null;
+    }
+    if (format_type !== undefined) {
+      if (!ALLOWED_FORMATS.includes(format_type)) return res.status(400).json({ error: `format_type must be one of: ${ALLOWED_FORMATS.join(', ')}` });
+      update.format_type = format_type;
+    }
+    if (config !== undefined) {
+      if (typeof config !== 'object' || Array.isArray(config)) return res.status(400).json({ error: 'config must be a JSON object' });
+      const cfgStr = JSON.stringify(config);
+      if (cfgStr.length > 100000) return res.status(400).json({ error: 'config exceeds maximum allowed size' });
+      update.config = cfgStr;
+    }
+    if (status !== undefined) {
+      if (!ALLOWED_STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
+      update.status = status;
+    }
     update.updated_at = new Date().toISOString().slice(0, 10);
 
     await db('invoice_reader_templates')
@@ -700,7 +772,7 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
       if (!profile) return res.status(404).json({ error: 'Profile not found' });
     } else if (!template_id && !mappings) {
       // No explicit mappings — try auto-match
-      const fileIds = extractFileIdentifiers(buffer, format, originalname);
+      const fileIds = await extractFileIdentifiers(buffer, format, originalname);
       profile = await matchProfile(fileIds);
     }
     if (profile) {
@@ -739,7 +811,7 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     let allRows = [];
     switch (format) {
       case 'Excel': {
-        const parsed = parseExcel(buffer, originalname);
+        const parsed = await parseExcel(buffer, originalname);
         const sheet = sheet_name
           ? parsed.sheets.find(s => s.name === sheet_name) || parsed.sheets[0]
           : parsed.sheets[0];
@@ -1012,11 +1084,18 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
           if (invoiceRecord.total_amount) {
             invoiceRecord.total_amount = parseFloat(invoiceRecord.total_amount) || 0;
           }
-          // Validate required accounts_id
+          // Validate required accounts_id.
+          // Default: queue an exception so the record can be resolved later.
+          // accounts.vendors_id is NOT NULL so auto-creation requires a vendor
+          // context (pass vendors_id in the request or map a 'Vendor Name' column).
           if (!invoiceRecord.accounts_id) {
-            const noAcctPolicy = errorPolicy.on_no_account || 'error';
-            errors.push(`Invoice "${invNum}": No account could be resolved. Map an account_number or select a vendor/account.`);
-            if (noAcctPolicy === 'queue_exception' || profile) {
+            const noAcctPolicy = errorPolicy.on_no_account || 'queue_exception';
+            errors.push(
+              `Invoice "${invNum}": No account could be resolved. ` +
+              `To enable auto-creation, select a vendor in the import form ` +
+              `or map a "Vendor Name" column so the account can be linked to a vendor.`
+            );
+            if (noAcctPolicy !== 'skip') {
               exceptionsToCreate.push({ type: 'no_account', severity: 'blocking',
                 context: { invoice_number: invNum, file_name: originalname, vendors_id: resolvedVendorsId } });
             }
@@ -1057,13 +1136,16 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
             for (let v = 0; v < validIndices.length; v++) {
               const k = validIndices[v];
               try {
-                await trx.raw(`SAVEPOINT inv_${k}`);
+                // k is a validated array index (not user input) — safe for SAVEPOINT identifiers
+                const spName = `inv_${Math.abs(Math.floor(Number(k)))}`;
+                await trx.raw(`SAVEPOINT ${spName}`);
                 const [row] = await trx('invoices').insert(validRecords[v]).returning('invoices_id');
-                await trx.raw(`RELEASE SAVEPOINT inv_${k}`);
+                await trx.raw(`RELEASE SAVEPOINT ${spName}`);
                 invoiceIds[k] = row;
                 insertedInvoices++;
               } catch (innerErr) {
-                await trx.raw(`ROLLBACK TO SAVEPOINT inv_${k}`).catch(() => {});
+                const spName2 = `inv_${Math.abs(Math.floor(Number(k)))}`;
+                await trx.raw(`ROLLBACK TO SAVEPOINT ${spName2}`).catch(() => {});
                 invoiceIds[k] = null;
                 errors.push(`Invoice "${batchMeta[k].invNum}": ${innerErr.message}`);
               }
@@ -1128,51 +1210,35 @@ router.post('/process', requireRole('Admin', 'Manager'), upload.single('file'), 
     // Notify admins about auto-created vendors and accounts
     if (autoCreatedVendors.length || autoCreatedAccounts.length || autoCreatedInventory.length) {
       try {
-        const admins = await db('users')
-          .join('roles', 'users.roles_id', 'roles.roles_id')
-          .where('roles.name', 'Admin')
-          .where('users.status', 'Active')
-          .select('users.users_id');
-
-        if (admins.length) {
-          const notifications = [];
-          for (const v of autoCreatedVendors) {
-            for (const a of admins) {
-              notifications.push({
-                users_id: a.users_id,
-                type: 'warning',
-                title: 'New Vendor Auto-Created',
-                message: `Vendor "${v.name}" was automatically created during invoice import. Please review and complete the vendor details.`,
-                entity_type: 'vendor',
-                entity_id: v.vendors_id,
-              });
-            }
-          }
-          for (const ac of autoCreatedAccounts) {
-            for (const a of admins) {
-              notifications.push({
-                users_id: a.users_id,
-                type: 'warning',
-                title: 'New Account Auto-Created',
-                message: `Account "${ac.account_number}" was automatically created during invoice import. Please review and complete the account details.`,
-                entity_type: 'account',
-                entity_id: ac.accounts_id,
-              });
-            }
-          }
-          for (const inv of autoCreatedInventory) {
-            for (const a of admins) {
-              notifications.push({
-                users_id: a.users_id,
-                type: 'warning',
-                title: 'New Inventory Item Auto-Created',
-                message: `Inventory item "${inv.inventory_number}" was automatically created during invoice import. Please review and complete the circuit details.`,
-                entity_type: 'inventory',
-                entity_id: inv.inventory_id,
-              });
-            }
-          }
-          if (notifications.length) await db('notifications').insert(notifications);
+        for (const v of autoCreatedVendors) {
+          await notifyAll({
+            type: 'warning',
+            title: 'New Vendor Auto-Created',
+            message: `Vendor "${v.name}" was automatically created during invoice import. Please review and complete the vendor details.`,
+            entity_type: 'vendor',
+            entity_id: v.vendors_id,
+            category: 'status_changed',
+          }, { roles: ['Admin'] });
+        }
+        for (const ac of autoCreatedAccounts) {
+          await notifyAll({
+            type: 'warning',
+            title: 'New Account Auto-Created',
+            message: `Account "${ac.account_number}" was automatically created during invoice import. Please review and complete the account details.`,
+            entity_type: 'account',
+            entity_id: ac.accounts_id,
+            category: 'status_changed',
+          }, { roles: ['Admin'] });
+        }
+        for (const inv of autoCreatedInventory) {
+          await notifyAll({
+            type: 'warning',
+            title: 'New Inventory Item Auto-Created',
+            message: `Inventory item "${inv.inventory_number}" was automatically created during invoice import. Please review and complete the circuit details.`,
+            entity_type: 'inventory',
+            entity_id: inv.inventory_id,
+            category: 'status_changed',
+          }, { roles: ['Admin'] });
         }
       } catch (notifErr) {
         // Non-critical — don't fail the import over notification errors
@@ -1282,7 +1348,7 @@ function coerceDate(val) {
 }
 
 // ── Extract identifiers from a file for profile auto-matching ─
-function extractFileIdentifiers(buffer, format, fileName) {
+async function extractFileIdentifiers(buffer, format, fileName) {
   const ids = { format, fileName };
   if (format === 'EDI') {
     const raw = buffer.toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -1298,11 +1364,16 @@ function extractFileIdentifiers(buffer, format, fileName) {
   } else if (format === 'Excel' || format === 'CSV') {
     // Extract column headers for fingerprinting
     try {
-      const wb = XLSX.read(buffer, { type: 'buffer', sheetRows: 1 });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      if (sheet) {
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        if (rows[0]) ids.headers = rows[0].map(h => String(h).trim());
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer);
+      const ws = wb.worksheets[0];
+      if (ws && ws.rowCount > 0) {
+        const row = ws.getRow(1);
+        const headers = [];
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          headers.push(cell.value != null ? String(cell.value).trim() : '');
+        });
+        ids.headers = headers;
       }
     } catch { /* ignore parse errors during identification */ }
   }
@@ -1443,7 +1514,7 @@ router.post('/profiles/test-match', requireRole('Admin', 'Manager'), upload.sing
   try {
     const { originalname, buffer } = req.file;
     const format = detectFormat(originalname, buffer);
-    const fileIds = extractFileIdentifiers(buffer, format, originalname);
+    const fileIds = await extractFileIdentifiers(buffer, format, originalname);
     const profile = await matchProfile(fileIds);
     res.json({ matched: !!profile, profile: profile || null, file_identifiers: fileIds });
   } catch (err) { safeError(res, err, 'invoice-reader/profiles/test-match'); }

@@ -1,3 +1,9 @@
+/**
+ * @file Announcement management list page.
+ * @module Announcements
+ *
+ * CRUD list page for system-wide announcements.
+ */
 import React, { useState } from 'react';
 import { Plus, Megaphone, Trash2 } from 'lucide-react';
 import { getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '../api';
@@ -23,9 +29,9 @@ const TYPE_BADGE = {
 };
 
 export default function Announcements() {
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canManage = isAdmin;
+  const canManage = hasPermission('announcements', 'create');
 
   const table = useCrudTable({
     api: { list: getAnnouncements, create: createAnnouncement, update: updateAnnouncement, delete: deleteAnnouncement },
@@ -44,7 +50,7 @@ export default function Announcements() {
     { key: 'start_date', label: 'Start', render: val => val ? dayjs(val).format('MM/DD/YYYY') : '—' },
     { key: 'end_date',   label: 'End',   render: val => val ? dayjs(val).format('MM/DD/YYYY') : '—' },
     { key: 'is_active', label: 'Active', filterType: 'select', filterOptions: ['true','false'],
-      render: val => <span className={val ? 'badge badge-green' : 'badge badge-gray'}>{val ? 'Active' : 'Inactive'}</span> },
+      render: val => <span className={val ? 'badge badge-green' : 'badge badge-red'}>{val ? 'Active' : 'Inactive'}</span> },
   ];
 
   const formFields = [

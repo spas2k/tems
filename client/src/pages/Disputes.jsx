@@ -1,3 +1,9 @@
+/**
+ * @file Dispute list page with CRUD modal and vendor/invoice lookups.
+ * @module Disputes
+ *
+ * CRUD list page for invoice disputes.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Eye, Download, ShieldAlert } from 'lucide-react';

@@ -1,3 +1,9 @@
+/**
+ * @file New vendor creation form.
+ * @module VendorAdd
+ *
+ * Uses FormPage to render a config-driven form for creating a new vendor record.
+ */
 import React from 'react';
 import { Landmark } from 'lucide-react';
 import { createVendor } from '../api';

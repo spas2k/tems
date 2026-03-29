@@ -16,7 +16,7 @@ exports.seed = async function (knex) {
     { currency_code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', status: 'Active' },
     { currency_code: 'GBP', name: 'British Pound', symbol: '£', status: 'Active' },
   ];
-  await knex('currencies').del();
+  await knex.raw('TRUNCATE TABLE currencies CASCADE');
   const currenciesResult = await knex('currencies').insert(currencies).returning('*');
   const currencyMap = Object.fromEntries(currenciesResult.map(c => [c.currency_code, c.currencies_id]));
 

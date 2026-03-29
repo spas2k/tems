@@ -1,11 +1,18 @@
+/**
+ * @file Invoice detail page with line items, allocations, and workflows.
+ * @module InvoiceDetail
+ *
+ * Shows invoice info, line item table (CRUD), allocation management, user assignment, notes, change history, and ticket creation.
+ */
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Pencil, Trash2, DollarSign, Receipt, SlidersHorizontal, List, Layers, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getInvoice, getInventory, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation, getUsocCodes, updateInvoice, getUsers } from '../api';
+import { getInvoice, getInventory, createLineItem, updateLineItem, deleteLineItem, getAllocations, createAllocation, deleteAllocation, getUsocCodes, updateInvoice, getUsers, recalculateInvoice } from '../api';
 import Modal from '../components/Modal';
 import DetailHeader from '../components/DetailHeader';
+import MultiStatusSlider from '../components/MultiStatusSlider';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import CreateTicketModal from '../components/CreateTicketModal';
@@ -13,6 +20,7 @@ import Pagination from '../components/Pagination';
 import { useConfirm } from '../context/ConfirmContext';
 
 const CHARGE_TYPES = ['MRC', 'NRC', 'Usage', 'Tax/Surcharge', 'Credit', 'Other'];
+const INVOICE_STATUSES = ['Open', 'Paid', 'Disputed', 'Overdue', 'Void', 'Closed'];
 const STATUS_BADGE = { Paid: 'badge badge-green', Open: 'badge badge-blue', Disputed: 'badge badge-orange', Void: 'badge badge-gray', Closed: 'badge badge-gray' };
 
 const EMPTY_LI    = { description: '', inventory_id: '', usoc_codes_id: '', charge_type: 'MRC', amount: '', mrc_amount: '', nrc_amount: '', contracted_rate: '', period_start: '', period_end: '' };
@@ -113,14 +121,22 @@ export default function InvoiceDetail() {
 
   const showToast = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 2500); };
 
-  const handleToggleStatus = async () => {
+  const handleToggleStatus = async (newStatus) => {
     setMenuOpen(false);
-    const newStatus = invoice.status === 'Closed' ? 'Open' : 'Closed';
     try {
       const updated = await updateInvoice(id, { ...invoice, status: newStatus });
       setInvoice(updated.data);
-      showToast(`Invoice ${newStatus === 'Closed' ? 'closed' : 'reopened'}.`);
+      showToast(`Status changed to ${newStatus}.`);
     } catch { showToast('Status update failed.', false); }
+  };
+
+  const handleRecalculate = async () => {
+    setMenuOpen(false);
+    try {
+      const res = await recalculateInvoice(id);
+      setInvoice(res.data);
+      showToast(`Total recalculated from ${res.data.line_item_count} line item${res.data.line_item_count !== 1 ? 's' : ''}: $${fmt(res.data.total_amount)}`);
+    } catch { showToast('Recalculate failed.', false); }
   };
 
   const openAssignModal = async () => {
@@ -219,8 +235,8 @@ export default function InvoiceDetail() {
 
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/invoices')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/invoices')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -252,6 +268,7 @@ export default function InvoiceDetail() {
               <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 224, zIndex: 9000, padding: '6px 0' }}>
                 <MenuItem label="Assign to User" onClick={openAssignModal} />
                 <MenuItem label="Analyze" onClick={() => setMenuOpen(false)} stub />
+                <MenuItem label="Recalculate Total" onClick={handleRecalculate} />
                 <MenuDivider />
                 <MenuItem label={invoice.status === 'Closed' ? 'Reopen Invoice' : 'Close Invoice'} onClick={handleToggleStatus} />
                 <MenuDivider />
@@ -270,8 +287,12 @@ export default function InvoiceDetail() {
       </DetailHeader>
 
       {/* Invoice Info */}
-      <div className="page-card" ref={refs.info} style={{ padding: 24, scrollMarginTop: 80 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20 }}>
+      <div className="page-card" ref={refs.info} style={{ scrollMarginTop: 80 }}>
+        <div className="page-card-header">
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Invoice Info</span>
+          <MultiStatusSlider value={invoice.status} options={INVOICE_STATUSES} onChange={handleToggleStatus} disabled={!canUpdate} />
+        </div>
+        <div style={{ padding: 24, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 20 }}>
           <InfoRow label="Invoice Date"   value={invoice.invoice_date?.split('T')[0]} />
           <InfoRow label="Due Date"       value={invoice.due_date?.split('T')[0]} />
           <InfoRow label="Period Start"   value={invoice.period_start?.split('T')[0]} />

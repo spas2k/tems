@@ -1,3 +1,9 @@
+/**
+ * @file User administration page with role assignment modal.
+ * @module UserManagement
+ *
+ * CRUD list page for user admin, including role selection and user creation.
+ */
 import React, { useState, useEffect } from 'react';
 import { Users, ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { getUsers, createUser, updateUser, deleteUser, getRoles } from '../api';
@@ -42,7 +48,7 @@ export default function UserManagement() {
       badge: { Admin: 'badge badge-purple', Manager: 'badge badge-blue', Analyst: 'badge badge-blue', Viewer: 'badge badge-gray' } },
     { key: 'status', label: 'Status',
       filterType: 'select', filterOptions: STATUS_OPTS,
-      badge: { Active: 'badge badge-green', Inactive: 'badge badge-gray', Suspended: 'badge badge-red' } },
+      badge: { Active: 'badge badge-green', Inactive: 'badge badge-red', Suspended: 'badge badge-red' } },
     { key: 'last_login', label: 'Last Login', format: 'date',
       render: val => val ? new Date(val).toLocaleString() : '—' },
   ];

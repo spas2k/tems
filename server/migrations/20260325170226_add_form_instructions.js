@@ -1,1 +1,6 @@
-exports.up = function(knex) { return knex.schema.createTable('form_instructions', table => { table.increments('id').primary(); table.string('form_id').notNullable().unique(); table.text('instruction').notNullable(); table.boolean('is_active').defaultTo(true); table.timestamp('created_at').defaultTo(knex.fn.now()); table.timestamp('updated_at').defaultTo(knex.fn.now()); }); }; exports.down = function(knex) { return knex.schema.dropTableIfExists('form_instructions'); };
+exports.up = function(knex) {
+  // Table already created in core_schema migration with the correct schema.
+  // This migration is kept as a no-op for migration history consistency.
+  return Promise.resolve();
+};
+exports.down = function(knex) { return Promise.resolve(); };

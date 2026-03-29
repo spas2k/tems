@@ -1,16 +1,25 @@
+/**
+ * @file Inventory item detail page with related invoices.
+ * @module InventoryDetail
+ *
+ * Shows inventory item info with account/contract/order lookups, related invoices, notes, and change history.
+ */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Network, Save, Receipt, ShoppingCart, AlertTriangle, ExternalLink, SlidersHorizontal, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import DetailHeader from '../components/DetailHeader';
+import MultiStatusSlider from '../components/MultiStatusSlider';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import {
   getInventoryItem, updateInventoryItem,
   getInventoryItemInvoices,
-  getAccounts, getContracts, getOrders, getOrder,
+  getAccounts, getContracts, getOrders, getOrder, getLocations,
 } from '../api';
+import LookupField from '../components/LookupField';
+import { LOOKUP_ACCOUNTS, LOOKUP_CONTRACTS, LOOKUP_ORDERS, LOOKUP_LOCATION_TEXT } from '../utils/lookupConfigs';
 import dayjs from 'dayjs';
 
 const TYPES    = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', 'Other'];
@@ -104,6 +113,7 @@ export default function InventoryDetail() {
   const [accounts,  setAccounts]  = useState([]);
   const [contracts, setContracts] = useState([]);
   const [orders,    setOrders]    = useState([]);
+  const [locations, setLocations] = useState([]);
 
   const [form,    setForm]    = useState(null);
   const [loading, setLoading] = useState(true);
@@ -128,15 +138,19 @@ export default function InventoryDetail() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleToggleActive = async () => {
+  const handleToggleActive = async (newStatus) => {
     setMenuOpen(false);
-    const newStatus = inventoryItem.status === 'Disconnected' ? 'Active' : 'Disconnected';
+    const prev = form.status;
+    setForm(f => ({ ...f, status: newStatus }));
     try {
       const updated = await updateInventoryItem(id, { ...form, status: newStatus });
       setInventoryItem(updated.data);
-      setForm(f => ({ ...f, status: newStatus }));
-      showToast(`InventoryItem ${newStatus === 'Active' ? 'activated' : 'disconnected'}.`);
-    } catch { showToast('Status update failed.', false); }
+      setHistoryKey(k => k + 1);
+      showToast(`Status changed to ${newStatus}.`);
+    } catch {
+      setForm(f => ({ ...f, status: prev }));
+      showToast('Status update failed.', false);
+    }
   };
 
   useEffect(() => {
@@ -146,7 +160,8 @@ export default function InventoryDetail() {
       getAccounts(),
       getContracts(),
       getOrders(),
-    ]).then(([ci, inv, ac, co, or_]) => {
+      getLocations(),
+    ]).then(([ci, inv, ac, co, or_, locs]) => {
       const c = ci.data;
       setInventoryItem(c);
       setPageTitle(c.inventory_number);
@@ -154,6 +169,7 @@ export default function InventoryDetail() {
       setAccounts(ac.data);
       setContracts(co.data);
       setOrders(or_.data);
+      setLocations(locs.data);
       setForm({
         accounts_id:      c.accounts_id || '',
         contracts_id:     c.contracts_id || '',
@@ -231,12 +247,8 @@ export default function InventoryDetail() {
       {/* Page header bar */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => navigate('/inventory')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/inventory')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -265,6 +277,7 @@ export default function InventoryDetail() {
             ))}
           </div>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
           {canUpdate && (
             <button
               className="btn btn-primary"
@@ -323,7 +336,7 @@ export default function InventoryDetail() {
       <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>InventoryItem Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <MultiStatusSlider value={form.status} options={STATUSES} onChange={handleToggleActive} disabled={!canUpdate} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -331,16 +344,27 @@ export default function InventoryDetail() {
             <input className="form-input" value={form.inventory_number} onChange={e => set('inventory_number', e.target.value)} />
           </Field>
 
-          <Field label="Vendor Account *">
-            <select className="form-input" value={form.accounts_id} onChange={e => set('accounts_id', e.target.value)}>
-              <option value="">Select vendor…</option>
-              {accounts.map(a => <option key={a.accounts_id} value={a.accounts_id}>{a.name}</option>)}
-            </select>
-          </Field>
+          <div>
+            <LookupField
+              label="Vendor Account *"
+              {...LOOKUP_ACCOUNTS(accounts)}
+              value={form.accounts_id}
+              onChange={row => set('accounts_id', row.accounts_id)}
+              onClear={() => set('accounts_id', '')}
+              displayValue={accounts.find(a => a.accounts_id === Number(form.accounts_id))?.name}
+            />
+          </div>
 
-          <Field label="Location">
-            <input className="form-input" value={form.location} onChange={e => set('location', e.target.value)} />
-          </Field>
+          <div>
+            <LookupField
+              label="Location"
+              {...LOOKUP_LOCATION_TEXT(locations)}
+              value={form.location}
+              onChange={row => set('location', row.location_name)}
+              onClear={() => set('location', '')}
+              displayValue={form.location}
+            />
+          </div>
 
           <Field label="InventoryItem Type">
             <select className="form-input" value={form.type} onChange={e => set('type', e.target.value)}>
@@ -364,25 +388,27 @@ export default function InventoryDetail() {
             <input className="form-input" type="date" value={form.disconnect_date} onChange={e => set('disconnect_date', e.target.value)} />
           </Field>
 
-          <Field label="Contract">
-            <select className="form-input" value={form.contracts_id || ''} onChange={e => set('contracts_id', e.target.value || null)}>
-              <option value="">None</option>
-              {contracts.map(c => <option key={c.contracts_id} value={c.contracts_id}>{c.contract_number}</option>)}
-            </select>
-          </Field>
+          <div>
+            <LookupField
+              label="Contract"
+              {...LOOKUP_CONTRACTS(contracts)}
+              value={form.contracts_id}
+              onChange={row => set('contracts_id', row.contracts_id)}
+              onClear={() => set('contracts_id', '')}
+              displayValue={contracts.find(c => c.contracts_id === Number(form.contracts_id))?.contract_number}
+            />
+          </div>
 
-          <Field label="Linked Order">
-            <select className="form-input" value={form.orders_id || ''} onChange={e => set('orders_id', e.target.value || null)}>
-              <option value="">None</option>
-              {orders.map(o => <option key={o.orders_id} value={o.orders_id}>{o.order_number} — {o.account_name || ''}</option>)}
-            </select>
-          </Field>
-
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </Field>
+          <div>
+            <LookupField
+              label="Linked Order"
+              {...LOOKUP_ORDERS(orders)}
+              value={form.orders_id}
+              onChange={row => set('orders_id', row.orders_id)}
+              onClear={() => set('orders_id', '')}
+              displayValue={orders.find(o => o.orders_id === Number(form.orders_id))?.order_number}
+            />
+          </div>
 
         </div>
       </div>

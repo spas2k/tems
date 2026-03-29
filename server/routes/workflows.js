@@ -1,3 +1,10 @@
+/**
+ * @file workflows.js — Workflows API Routes — /api/workflows
+ * Workflow execution history, manual triggering, and step inspection.
+ * Uses the workflow engine to execute registered workflow definitions.
+ *
+ * @module routes/workflows
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -71,6 +78,11 @@ function walkPath(def, branchChoices = {}) {
 }
 
 // ── GET /  — list all workflow runs ─────────────────────────
+/**
+ * GET /
+ * List all workflow runs with step counts and triggered-by user, ordered by started_at desc.
+ * @returns Array of workflow run objects
+ */
 router.get('/', async (req, res) => {
   try {
     const rows = await db('workflow_runs')
@@ -85,6 +97,11 @@ router.get('/', async (req, res) => {
 });
 
 // ── GET /definitions — list available workflow definitions ──
+/**
+ * GET /definitions
+ * List all registered workflow definitions.
+ * @returns Array of { key, name, description, stepCount }
+ */
 router.get('/definitions', (_req, res) => {
   const defs = Object.values(registry).map(d => ({
     key:         d.key,
@@ -97,6 +114,11 @@ router.get('/definitions', (_req, res) => {
 });
 
 // ── GET /:id — get a single workflow run with its steps ─────
+/**
+ * GET /:id
+ * Get a single workflow run by ID with all steps ordered by step number.
+ * @returns Workflow run object + steps array
+ */
 router.get('/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);

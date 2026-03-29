@@ -1,3 +1,9 @@
+/**
+ * @file Multi-step invoice file import wizard.
+ * @module InvoiceReader
+ *
+ * Upload → parse → map columns → process flow for importing invoices from Excel, EDI, or PDF files. Manages templates and profiles.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,6 +16,7 @@ import {
   getReaderTemplates, createReaderTemplate, deleteReaderTemplate,
   getReaderUploads, getVendors, getReaderProfiles,
 } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const FORMAT_ICONS = { Excel: FileSpreadsheet, PDF: FileText, EDI: FileCode };
 const FORMAT_COLORS = { Excel: '#0d9488', PDF: '#dc2626', EDI: '#7c3aed' };
@@ -23,6 +30,9 @@ const FORMAT_COLORS = { Excel: '#0d9488', PDF: '#dc2626', EDI: '#7c3aed' };
 // ─────────────────────────────────────────────────────────────
 export default function InvoiceReader() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('invoice_reader_uploads', 'create');
+  const canDelete = hasPermission('invoice_reader_uploads', 'delete');
   const [step, setStep]           = useState(1);
   const [file, setFile]           = useState(null);
   const [dragOver, setDragOver]   = useState(false);
@@ -204,6 +214,71 @@ export default function InvoiceReader() {
     : [];
 
   const mappedCount = Object.values(mappings).filter(m => m?.field).length;
+
+  // ── Pre-flight warnings (computed from current mappings + selections) ──────
+  // These are shown on Step 3 before the user clicks Process so issues can be
+  // corrected without incurring a round-trip to the server.
+  const preflightWarnings = (() => {
+    if (!parsed) return [];
+    const mapped = Object.values(mappings).filter(m => m?.field);
+    const mappedFields = new Set(mapped.map(m => m.field));
+    const warnings = [];
+
+    const hasVendorContext   = !!selectedVendor || mappedFields.has('vendor_name');
+    const hasAccountContext  = mappedFields.has('accounts_id') || mappedFields.has('account_number');
+
+    // ERROR: no way to resolve an account at all
+    if (!hasAccountContext && !hasVendorContext) {
+      warnings.push({
+        level: 'error',
+        message: 'No account can be resolved.',
+        detail: 'Select a vendor above, map a "Vendor Name" column, or map an "Account Number" column. Without at least one of these, every invoice row will fail.',
+      });
+    } else if (!hasAccountContext && hasVendorContext && !selectedVendor) {
+      // Vendor name comes from the file but we can't look up a default account
+      warnings.push({
+        level: 'warning',
+        message: '"Account Number" column not mapped.',
+        detail: 'Accounts will be auto-created per vendor, or the first existing account for each vendor will be used. Map "Account Number" to link invoices to the correct account.',
+      });
+    } else if (hasVendorContext && !selectedVendor && !hasAccountContext) {
+      warnings.push({
+        level: 'warning',
+        message: 'Vendor comes from file data but no account mapping exists.',
+        detail: 'Map an "Account Number" column or select a vendor from the dropdown to enable account resolution.',
+      });
+    }
+
+    // WARNING: no vendor context but account number is mapped — auto-create needs vendor
+    if (hasAccountContext && !hasVendorContext) {
+      warnings.push({
+        level: 'warning',
+        message: '"Account Number" mapped but no vendor context.',
+        detail: 'Auto-creating a missing account requires a vendor (accounts.vendors_id is required). Select a vendor or map a "Vendor Name" column so new accounts can be saved correctly.',
+      });
+    }
+
+    // INFO: invoice_number not mapped → auto-generated keys
+    if (!mappedFields.has('invoice_number')) {
+      warnings.push({
+        level: 'info',
+        message: '"Invoice Number" column not mapped.',
+        detail: 'Invoices will be assigned auto-generated identifiers (AUTO-<upload>-<row>). Map the Invoice Number column to use the real invoice numbers from the file.',
+      });
+    }
+
+    // INFO: common financial fields missing
+    if (!mappedFields.has('total_amount')) {
+      warnings.push({ level: 'info', message: '"Total Amount" not mapped — invoice totals will be blank.' });
+    }
+    if (!mappedFields.has('invoice_date')) {
+      warnings.push({ level: 'info', message: '"Invoice Date" not mapped — invoice dates will be blank.' });
+    }
+
+    return warnings;
+  })();
+
+  const preflightBlocking = preflightWarnings.some(w => w.level === 'error');
 
   // ═══════════════════════════════════════════════════════════
   //  RENDER
@@ -610,12 +685,8 @@ export default function InvoiceReader() {
 
               {/* Navigation */}
               <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
-                <button onClick={() => { setStep(1); setParsed(null); }} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 20px', borderRadius: 8, border: '1px solid var(--border-color, #d1d5db)',
-                  background: 'transparent', color: 'var(--text-color, #1e293b)', fontSize: 14, cursor: 'pointer',
-                }}>
-                  <ArrowLeft size={16} /> Back
+                <button onClick={() => { setStep(1); setParsed(null); }} className="btn-back">
+                  <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
                 </button>
                 <button
                   onClick={() => setStep(3)}
@@ -749,23 +820,52 @@ export default function InvoiceReader() {
                 </div>
               )}
 
+              {/* Pre-flight warnings */}
+              {preflightWarnings.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  {preflightWarnings.map((w, i) => {
+                    const colors = {
+                      error:   { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', icon: '#ef4444' },
+                      warning: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', icon: '#f59e0b' },
+                      info:    { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: '#3b82f6' },
+                    };
+                    const c = colors[w.level];
+                    const Icon = w.level === 'error' ? AlertCircle : w.level === 'warning' ? AlertCircle : CheckCircle;
+                    return (
+                      <div key={i} style={{
+                        display: 'flex', gap: 12, padding: '12px 16px',
+                        background: c.bg, border: `1px solid ${c.border}`, borderRadius: 8,
+                        marginBottom: 8,
+                      }}>
+                        <Icon size={16} style={{ color: c.icon, flexShrink: 0, marginTop: 1 }} />
+                        <div style={{ fontSize: 13 }}>
+                          <span style={{ fontWeight: 700, color: c.text }}>{w.message}</span>
+                          {w.detail && (
+                            <span style={{ color: c.text, opacity: 0.85 }}>{' '}{w.detail}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Navigation */}
               <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
-                <button onClick={() => setStep(2)} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 20px', borderRadius: 8, border: '1px solid var(--border-color, #d1d5db)',
-                  background: 'transparent', color: 'var(--text-color, #1e293b)', fontSize: 14, cursor: 'pointer',
-                }}>
-                  <ArrowLeft size={16} /> Back
+                <button onClick={() => setStep(2)} className="btn-back">
+                  <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
                 </button>
                 <button
                   onClick={handleProcess}
-                  disabled={processing}
+                  disabled={processing || preflightBlocking}
+                  title={preflightBlocking ? 'Resolve errors above before processing' : undefined}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '12px 28px', borderRadius: 8, border: 'none',
-                    background: '#10b981', color: '#fff', fontSize: 14, fontWeight: 600,
-                    cursor: processing ? 'wait' : 'pointer', opacity: processing ? 0.7 : 1,
+                    background: preflightBlocking ? '#94a3b8' : '#10b981',
+                    color: '#fff', fontSize: 14, fontWeight: 600,
+                    cursor: (processing || preflightBlocking) ? 'not-allowed' : 'pointer',
+                    opacity: processing ? 0.7 : 1,
                   }}
                 >
                   {processing ? <Loader size={16} className="spin" /> : <Play size={16} />}

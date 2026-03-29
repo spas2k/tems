@@ -1,9 +1,31 @@
-﻿// ============================================================
+/**
+ * @file _validators.js — Shared express-validator rules for all TEMS entities.
+ *
+ * Exports reusable validation rule arrays for each entity type (vendorRules,
+ * accountRules, etc.) and helper factories for common field patterns
+ * (requiredStr, optionalFk, optionalDecimal, etc.).
+ *
+ * Usage in route files:
+ *   const { validate, vendorRules } = require('./_validators');
+ *   router.post('/', vendorRules, validate, async (req, res) => { ... });
+ *
+ * @module _validators
+ * @requires express-validator
+ */
+// ============================================================
 // Shared express-validator rules for all TEMS entities
 // ============================================================
 const { body, param, validationResult } = require('express-validator');
 
-// â”€â”€ Middleware: run after validation rules to return 400 on failure â”€â”€
+/**
+ * Middleware: runs after validation rules, returns 400 with field-level
+ * error details if any validation failed.
+ *
+ * @param {import('express').Request}  req
+ * @param {import('express').Response} res
+ * @param {Function}                   next
+ * @returns {void} Sends 400 on failure with { error, details } payload
+ */
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -15,44 +37,86 @@ const validate = (req, res, next) => {
   next();
 };
 
-// â”€â”€ Reusable: id param must be a positive integer â”€â”€
+/**
+ * Validation chain: ensures :id route param is a positive integer.
+ * @type {import('express-validator').ValidationChain}
+ */
 const idParam = param('id').isInt({ min: 1 }).withMessage('ID must be a positive integer');
 
-// â”€â”€ Helper: optional integer FK field â”€â”€
+/**
+ * Creates a validation chain for an optional FK integer field.
+ * Accepts null/falsy; when present, must be a positive integer.
+ * @param {string} field - Body field name (e.g. 'vendors_id')
+ * @returns {import('express-validator').ValidationChain}
+ */
 const optionalFk = (field) =>
   body(field).optional({ nullable: true, values: 'falsy' }).isInt({ min: 1 }).withMessage(`${field} must be a positive integer`);
 
-// â”€â”€ Helper: required integer FK field â”€â”€
+/**
+ * Creates a validation chain for a required FK integer field.
+ * Must be non-empty and a positive integer.
+ * @param {string} field - Body field name (e.g. 'accounts_id')
+ * @returns {import('express-validator').ValidationChain}
+ */
 const requiredFk = (field) =>
   body(field).notEmpty().withMessage(`${field} is required`).isInt({ min: 1 }).withMessage(`${field} must be a positive integer`);
 
-// â”€â”€ Helper: optional decimal field â”€â”€
+/**
+ * Creates a validation chain for an optional numeric/decimal field.
+ * Accepts null/falsy; when present, must parse as float.
+ * @param {string} field - Body field name (e.g. 'projected_savings')
+ * @returns {import('express-validator').ValidationChain}
+ */
 const optionalDecimal = (field) =>
   body(field).optional({ nullable: true, values: 'falsy' }).isFloat().withMessage(`${field} must be a number`);
 
-// â”€â”€ Helper: required string with max length â”€â”€
+/**
+ * Creates a validation chain for a required, trimmed string with max length.
+ * @param {string} field - Body field name (e.g. 'name')
+ * @param {number} [max=255] - Maximum allowed character length
+ * @returns {import('express-validator').ValidationChain}
+ */
 const requiredStr = (field, max = 255) =>
   body(field)
     .trim()
     .notEmpty().withMessage(`${field} is required`)
     .isLength({ max }).withMessage(`${field} must be at most ${max} characters`);
 
-// â”€â”€ Helper: optional string with max length â”€â”€
+/**
+ * Creates a validation chain for an optional, trimmed string with max length.
+ * @param {string} field - Body field name
+ * @param {number} [max=255] - Maximum allowed character length
+ * @returns {import('express-validator').ValidationChain}
+ */
 const optionalStr = (field, max = 255) =>
   body(field)
     .optional({ values: 'falsy' })
     .trim()
     .isLength({ max }).withMessage(`${field} must be at most ${max} characters`);
 
-// â”€â”€ Helper: optional date field â”€â”€
+/**
+ * Creates a validation chain for an optional ISO-8601 date field.
+ * @param {string} field - Body field name (e.g. 'start_date')
+ * @returns {import('express-validator').ValidationChain}
+ */
 const optionalDate = (field) =>
   body(field).optional({ nullable: true, values: 'falsy' }).isISO8601().withMessage(`${field} must be a valid date`);
 
-// â”€â”€ Helper: required date field â”€â”€
+/**
+ * Creates a validation chain for a required ISO-8601 date field.
+ * @param {string} field - Body field name (e.g. 'filed_date')
+ * @returns {import('express-validator').ValidationChain}
+ */
 const requiredDate = (field) =>
   body(field).notEmpty().withMessage(`${field} is required`).isISO8601().withMessage(`${field} must be a valid date`);
 
-// â”€â”€ Helper: enum field â”€â”€
+/**
+ * Creates a validation chain for a field restricted to a set of allowed values.
+ * @param {string}   field - Body field name (e.g. 'status')
+ * @param {string[]} values - Allowed string values
+ * @param {boolean}  [required=false] - Whether the field must be present
+ * @returns {import('express-validator').ValidationChain}
+ */
 const enumField = (field, values, required = false) => {
   let chain = body(field);
   if (required) chain = chain.notEmpty().withMessage(`${field} is required`);
@@ -130,7 +194,7 @@ const contractRules = [
 
 const inventoryItemRules = [
   requiredFk('accounts_id'),
-  requiredFk('contracts_id'),
+  optionalFk('contracts_id'),
   optionalFk('orders_id'),
   requiredStr('inventory_number', 100),
   optionalStr('type', 60),

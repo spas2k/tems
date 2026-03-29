@@ -1,9 +1,16 @@
+/**
+ * @file Invoice reader profile management.
+ * @module ReaderProfiles
+ *
+ * CRUD for auto-detection profiles with vendor matching, template binding, and file-match testing.
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings, Plus, Pencil, Trash2, TestTube2, Upload, Check, X, ChevronDown, ChevronUp, FileUp } from 'lucide-react';
 import {
   getReaderProfiles, createReaderProfile, updateReaderProfile, deleteReaderProfile,
   getReaderTemplates, getVendors, testProfileMatch,
 } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const FORMAT_TYPES = ['EDI', 'Excel', 'CSV', 'PDF'];
 const ERROR_POLICIES = [
@@ -13,6 +20,9 @@ const ERROR_POLICIES = [
 ];
 
 export default function ReaderProfiles() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('invoice_reader_uploads', 'create');
+  const canDelete = hasPermission('invoice_reader_uploads', 'delete');
   const [profiles, setProfiles] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -302,9 +312,9 @@ export default function ReaderProfiles() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14 }}>
             <Settings size={16} /> Reader Profiles
           </span>
-          <button className="btn btn-primary btn-sm" onClick={startNew}>
+          {canCreate && <button className="btn btn-primary btn-sm" onClick={startNew}>
             <Plus size={14} /> New Profile
-          </button>
+          </button>}
         </div>
 
         {loading ? (
@@ -345,12 +355,12 @@ export default function ReaderProfiles() {
                     </td>
                     <td onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-sm btn-ghost btn-icon" onClick={() => startEdit(p)} title="Edit">
+                        {canCreate && <button className="btn btn-sm btn-ghost btn-icon" onClick={() => startEdit(p)} title="Edit">
                           <Pencil size={14} />
-                        </button>
-                        <button className="btn btn-sm btn-danger btn-icon" onClick={() => remove(p.invoice_reader_profiles_id)} title="Delete">
+                        </button>}
+                        {canDelete && <button className="btn btn-sm btn-danger btn-icon" onClick={() => remove(p.invoice_reader_profiles_id)} title="Delete">
                           <Trash2 size={14} />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>

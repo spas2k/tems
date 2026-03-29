@@ -1,3 +1,10 @@
+/**
+ * @file costSavings.js — Cost Savings API Routes — /api/cost-savings
+ * CRUD for telecom cost savings opportunities and realizations.
+ * Tracks identified/implemented/rejected savings by vendor, inventory, and invoice.
+ *
+ * @module routes/costSavings
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -21,6 +28,11 @@ function baseQuery() {
     );
 }
 
+/**
+ * GET /
+ * List all cost savings with vendor join, ordered by identified_date desc.
+ * @returns Array of cost savings objects with vendor_name
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
@@ -31,6 +43,11 @@ router.get('/', async (req, res) => {
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
+/**
+ * GET /:id
+ * Get a single cost savings record by ID with vendor join.
+ * @returns Cost savings object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('cs.cost_savings_id', req.params.id).first();
@@ -39,6 +56,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
+/**
+ * POST /
+ * Create a new cost savings record.
+ * @auth Requires role: Admin, Manager
+ * @body vendors_id, inventory_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings
+ * @returns 201 with created record
+ */
 router.post('/', requireRole('Admin', 'Manager'), costSavingsRules, validate, auditCreate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
     const { vendors_id, inventory_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
@@ -56,6 +80,13 @@ router.post('/', requireRole('Admin', 'Manager'), costSavingsRules, validate, au
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing cost savings record.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated record
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...costSavingsRules, validate, auditUpdate('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
     const { vendors_id, inventory_id, line_items_id, invoices_id, category, description, identified_date, status, projected_savings, realized_savings, notes } = req.body;
@@ -72,6 +103,12 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...costSavingsRules
   } catch (err) { safeError(res, err, 'costSavings'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a cost savings record.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('cost_savings', 'cost_savings_id'), auditDelete('cost_savings', 'cost_savings_id'), async (req, res) => {
   try {
     await db('cost_savings').where('cost_savings_id', req.params.id).del();
@@ -80,6 +117,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('cos
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('cost_savings', 'cost_savings_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple cost savings records.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('cost_savings', 'cost_savings_id', {
+  allowed: ['vendors_id', 'inventory_id', 'type', 'description', 'projected_savings', 'realized_savings', 'status'],
+}));
 
 module.exports = router;

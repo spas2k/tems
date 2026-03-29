@@ -1,11 +1,41 @@
+/**
+ * @file _cascadeGuard.js — Delete cascade protection middleware.
+ *
+ * Before allowing a DELETE on a parent record, checks for dependent child
+ * records in related tables. Returns 409 Conflict with a list of blocking
+ * dependencies if any child records exist.
+ *
+ * Also exports the DEPS map for reuse by the admin purge endpoint.
+ *
+ * @module _cascadeGuard
+ */
 // ============================================================
 // Delete cascade protection — checks for dependent child records
 // before allowing a DELETE, returning 409 Conflict if any exist.
 // ============================================================
 const db = require('../db');
 
+/**
+ * Dependency map: defines which child tables reference each parent table.
+ * Used by cascadeGuard middleware and admin purge endpoints.
+ *
+ * @type {Object<string, Array<{ table: string, fk: string, label: string }>>}
+ *
+ * @example
+ *   DEPS['vendors'] → [{ table: 'accounts', fk: 'vendors_id', label: 'accounts' }, ...]
+ */
 // Dependency map: { parentTable: [{ table, fk, label }] }
 const DEPS = {
+  vendors: [
+    { table: 'accounts',                fk: 'vendors_id',  label: 'accounts' },
+    { table: 'contracts',               fk: 'vendors_id',  label: 'contracts' },
+    { table: 'vendor_remit',            fk: 'vendors_id',  label: 'vendor remit' },
+    { table: 'orders',                  fk: 'vendors_id',  label: 'orders' },
+    { table: 'cost_savings',            fk: 'vendors_id',  label: 'cost savings' },
+    { table: 'disputes',                fk: 'vendors_id',  label: 'disputes' },
+    { table: 'invoice_reader_uploads',  fk: 'vendors_id',  label: 'reader uploads' },
+    { table: 'invoice_reader_profiles', fk: 'vendors_id',  label: 'reader profiles' },
+  ],
   accounts: [
     { table: 'contracts',    fk: 'accounts_id',  label: 'contracts' },
     { table: 'inventory',     fk: 'accounts_id',  label: 'inventory' },
@@ -46,9 +76,22 @@ const DEPS = {
 };
 
 /**
- * Returns an express middleware that checks for child records before DELETE.
- * @param {string} parentTable – e.g. 'accounts'
- * @param {string} pkColumn    – e.g. 'accounts_id'
+ * Express middleware factory: checks for dependent child records before
+ * a DELETE is processed. Returns 409 Conflict with a list of blockers
+ * if any child records reference the target row.
+ *
+ * @param {string} parentTable — Parent table name (must be a key in DEPS)
+ * @param {string} pkColumn    — Primary key column of the parent table
+ * @returns {Function} Express middleware (req, res, next)
+ *
+ * @example
+ *   router.delete('/:id', cascadeGuard('accounts', 'accounts_id'), async (req, res) => { ... });
+ *
+ * @response 409 — {
+ *   error: string,
+ *   dependents: string[],
+ *   message: string
+ * }
  */
 function cascadeGuard(parentTable, pkColumn) {
   return async (req, res, next) => {
@@ -84,3 +127,4 @@ function cascadeGuard(parentTable, pkColumn) {
 }
 
 module.exports = cascadeGuard;
+module.exports.DEPS = DEPS;

@@ -1,3 +1,19 @@
+/**
+ * @file Full-page config-driven form layout for creating new records.
+ * @module FormPage
+ *
+ * @param {string} props.title - Page heading text
+ * @param {string} props.subtitle - Sub-heading text below the title
+ * @param {ReactElement} props.icon - Lucide icon element for the header
+ * @param {Array} props.sections - Array of { title, fields[] } section definitions
+ * @param {Object} props.emptyForm - Initial empty form state template
+ * @param {Function} props.loadRelated - Async function to load related lookup data
+ * @param {Object} props.defaultValues - Default field values
+ * @param {Function} props.beforeSave - Transform function applied to form data before submit
+ * @param {Function} props.onSubmit - Async function called with form data on save
+ * @param {string} props.backPath - URL path for the Cancel/Back navigation
+ * @param {string} props.redirectOnSave - URL path to redirect to after successful save
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import LookupField from './LookupField';
 import { useNavigate } from 'react-router-dom';
@@ -229,20 +245,17 @@ export default function FormPage({
       {/* Sticky header */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="btn btn-ghost btn-icon" onClick={() => navigate(backPath)}>
-            <ArrowLeft size={18} />
+          <button className="btn-back" onClick={() => navigate(backPath)}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
+          <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           {Icon && <Icon size={22} style={{ color: '#60a5fa' }} />}
           <div>
             <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: 17 }}>{title}</div>
             {subtitle && <div style={{ color: '#94a3b8', fontSize: 12 }}>{subtitle}</div>}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-ghost" onClick={() => navigate(backPath)}
-            style={{ color: '#94a3b8' }}>
-            Cancel
-          </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}
             style={{ opacity: saving ? 0.7 : 1 }}>
             <Save size={15} />
@@ -280,17 +293,6 @@ export default function FormPage({
         );
       })}
 
-      {/* Bottom actions */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingBottom: 20 }}>
-        <button className="btn btn-cancel" onClick={() => navigate(backPath)}>
-          Cancel
-        </button>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving}
-          style={{ opacity: saving ? 0.7 : 1 }}>
-          <Save size={15} />
-          {saving ? 'Saving…' : 'Create'}
-        </button>
-      </div>
     </div>
   );
 }

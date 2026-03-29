@@ -1,3 +1,9 @@
+/**
+ * @file Workflow run detail page with flowchart visualization.
+ * @module WorkflowDetail
+ *
+ * Shows workflow run info, step-by-step timeline, and SVG flowchart via WorkflowFlowchart component.
+ */
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, XCircle, Clock, MinusCircle, GitBranch, Info } from 'lucide-react';
@@ -46,7 +52,7 @@ export default function WorkflowDetail() {
       <div style={{ padding: 40, textAlign: 'center' }}>
         <div style={{ color: 'var(--text-error)', marginBottom: 12 }}>Workflow run not found.</div>
         <button className="btn btn-primary" onClick={() => navigate('/workflows')}>
-          <ArrowLeft size={15} /> Back to Workflows
+          <ArrowLeft size={15} /> Back
         </button>
       </div>
     );
@@ -64,8 +70,8 @@ export default function WorkflowDetail() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Header */}
       <div className="wf-detail-header">
-        <button className="btn btn-ghost" onClick={() => navigate('/workflows')}>
-          <ArrowLeft size={16} /> Back
+        <button className="btn-back" onClick={() => navigate('/workflows')}>
+          <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

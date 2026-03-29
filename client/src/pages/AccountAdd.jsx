@@ -1,3 +1,9 @@
+/**
+ * @file New billing account creation form.
+ * @module AccountAdd
+ *
+ * Uses FormPage with vendor and parent-account lookups for creating a new account.
+ */
 ﻿import React from 'react';
 import { Building2 } from 'lucide-react';
 import { createAccount, getVendors, getAccounts } from '../api';

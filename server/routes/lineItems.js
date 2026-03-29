@@ -1,3 +1,10 @@
+/**
+ * @file lineItems.js — Line Items API Routes — /api/line-items
+ * CRUD for invoice line items (individual billing charges).
+ * Line items belong to invoices and optionally reference inventory and USOC codes.
+ *
+ * @module routes/lineItems
+ */
 // lineItems.js
 const express = require('express');
 const router = express.Router();
@@ -23,16 +30,27 @@ function baseQuery() {
     );
 }
 
+/**
+ * GET /
+ * List line items with optional ?invoices_id filter. Joins inventory and USOC codes.
+ * @returns Array of line item objects
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
     if (req.query.invoices_id) query = query.where('li.invoices_id', req.query.invoices_id);
     if (req.query.inventory_id) query = query.where('li.inventory_id', req.query.inventory_id);
-    const rows = await query;
+    const limit = Math.min(parseInt(req.query.limit) || 10000, 10000);
+    const rows = await query.limit(limit);
     res.json(rows);
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
+/**
+ * GET /:id
+ * Get a single line item by ID with joins.
+ * @returns Line item object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('li.line_items_id', req.params.id).first();
@@ -41,6 +59,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
+/**
+ * POST /
+ * Create a new line item. Also auto-calculates variance from contracted_rate.
+ * @auth Requires role: Admin, Manager
+ * @body invoices_id, inventory_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end
+ * @returns 201 with created line item
+ */
 router.post('/', requireRole('Admin', 'Manager'), lineItemRules, validate, auditCreate('line_items', 'line_items_id'), async (req, res) => {
   try {
     const { invoices_id, inventory_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
@@ -67,6 +92,13 @@ router.post('/', requireRole('Admin', 'Manager'), lineItemRules, validate, audit
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing line item. Recalculates variance and audit_status.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated line item object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...lineItemRules, validate, auditUpdate('line_items', 'line_items_id'), async (req, res) => {
   try {
     const { invoices_id, inventory_id, usoc_codes_id, description, charge_type, amount, mrc_amount, nrc_amount, contracted_rate, period_start, period_end } = req.body;
@@ -92,6 +124,12 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...lineItemRules, v
   } catch (err) { safeError(res, err, 'lineItems'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a line item. Blocked by cascadeGuard if allocations or disputes exist.
+ * @auth Requires role: Admin
+ * @returns { success: true } or 409
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('line_items', 'line_items_id'), auditDelete('line_items', 'line_items_id'), async (req, res) => {
   try {
     await db('line_items').where('line_items_id', req.params.id).del();
@@ -100,6 +138,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('lin
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('line_items', 'line_items_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple line items.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('line_items', 'line_items_id', {
+  allowed: ['invoices_id', 'usoc_codes_id', 'inventory_id', 'charge_type', 'description', 'quantity', 'amount', 'mrc_amount', 'nrc_amount', 'variance', 'audit_status', 'billing_account'],
+}));
 
 module.exports = router;

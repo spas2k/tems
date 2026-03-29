@@ -1,11 +1,18 @@
+/**
+ * @file batchUpload.js — Batch Upload API Routes — /api/batch-upload
+ * Handles Excel template parsing and bulk data import.
+ * Supports vendors, accounts, contracts, inventory, orders, invoices, line_items.
+ *
+ * @module routes/batchUpload
+ */
 // ============================================================
 // Batch Upload API — Template download & Excel import
 // ============================================================
-const express = require('express');
-const router  = express.Router();
-const multer  = require('multer');
-const XLSX    = require('xlsx');
-const db      = require('../db');
+const express  = require('express');
+const router   = express.Router();
+const multer   = require('multer');
+const ExcelJS  = require('exceljs');
+const db       = require('../db');
 const safeError = require('./_safeError');
 const { auditCreate } = require('../middleware/audit');
 const { requireRole } = require('../middleware/auth');
@@ -19,7 +26,7 @@ const upload = multer({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
     ];
-    if (allowed.includes(file.mimetype) || /\.(xlsx|xls)$/i.test(file.originalname)) {
+    if (allowed.includes(file.mimetype) && /\.(xlsx|xls)$/i.test(file.originalname)) {
       cb(null, true);
     } else {
       cb(new Error('Only .xlsx and .xls files are accepted'));
@@ -292,12 +299,12 @@ router.get('/tables', (_req, res) => {
 });
 
 // ── GET /template/:table — download Excel template (Analyst+) ──
-router.get('/template/:table', requireRole('Admin', 'Manager', 'Analyst'), (req, res) => {
+router.get('/template/:table', requireRole('Admin', 'Manager', 'Analyst'), async (req, res) => {
   const tableName = req.params.table;
   const def = TABLE_DEFS[tableName];
   if (!def) return res.status(400).json({ error: `Unknown table: ${tableName}` });
 
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
 
   // Header row = column labels
   const headers = def.columns.map(c => c.required ? `${c.label} *` : c.label);
@@ -320,20 +327,21 @@ router.get('/template/:table', requireRole('Admin', 'Manager', 'Analyst'), (req,
     ['Column Name', 'DB Field', 'Required', 'Type', 'Example'],
     ...def.columns.map(c => [c.label, c.column, c.required ? 'Yes' : 'No', c.type, String(c.example ?? '')]),
   ];
-  const instrSheet = XLSX.utils.aoa_to_sheet(instrData);
-  instrSheet['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 25 }];
-  XLSX.utils.book_append_sheet(wb, instrSheet, 'Instructions');
+  const instrSheet = wb.addWorksheet('Instructions');
+  instrData.forEach(row => instrSheet.addRow(row));
+  instrSheet.columns = [{ width: 25 }, { width: 20 }, { width: 10 }, { width: 10 }, { width: 25 }];
 
   // Data sheet with headers + one example row
-  const dataSheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-  dataSheet['!cols'] = def.columns.map(c => ({ wch: Math.max(c.label.length + 3, 15) }));
-  XLSX.utils.book_append_sheet(wb, dataSheet, 'Data');
+  const dataSheet = wb.addWorksheet('Data');
+  dataSheet.addRow(headers);
+  dataSheet.addRow(exampleRow);
+  dataSheet.columns = def.columns.map(c => ({ width: Math.max(c.label.length + 3, 15) }));
 
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const buf = await wb.xlsx.writeBuffer();
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="TEMS_Template_${def.label.replace(/\s+/g, '_')}.xlsx"`);
-  res.send(buf);
+  res.send(Buffer.from(buf));
 });
 
 // ── Helper: coerce a cell value to the expected column type ──
@@ -352,10 +360,14 @@ function coerceValue(raw, colDef) {
       return n;
     }
     case 'date': {
+      // Handle Excel Date objects (ExcelJS returns JS Date for date cells)
+      if (raw instanceof Date) {
+        return raw.toISOString().slice(0, 10);
+      }
       // Handle Excel serial date numbers
       if (typeof raw === 'number') {
-        const d = XLSX.SSF.parse_date_code(raw);
-        if (d) return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+        const epoch = new Date((raw - 25569) * 86400 * 1000);
+        if (!isNaN(epoch.getTime())) return epoch.toISOString().slice(0, 10);
       }
       const s = String(raw).trim();
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -380,12 +392,34 @@ router.post('/upload/:table', requireRole('Admin', 'Manager'), upload.single('fi
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   try {
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: false });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(req.file.buffer);
 
     // Find the "Data" sheet, or use the first sheet
-    const sheetName = wb.SheetNames.includes('Data') ? 'Data' : wb.SheetNames[0];
-    const sheet = wb.Sheets[sheetName];
-    const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    const dataSheetName = wb.worksheets.find(ws => ws.name === 'Data') ? 'Data' : wb.worksheets[0]?.name;
+    const sheet = wb.getWorksheet(dataSheetName);
+    if (!sheet || sheet.rowCount < 2) return res.status(400).json({ error: 'No data rows found in the uploaded file' });
+
+    // Convert ExcelJS worksheet to array of objects (like XLSX.utils.sheet_to_json)
+    const headerRow = sheet.getRow(1);
+    const headers = [];
+    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      headers[colNumber] = cell.value != null ? String(cell.value).trim() : '';
+    });
+    const raw = [];
+    for (let r = 2; r <= sheet.rowCount; r++) {
+      const row = sheet.getRow(r);
+      const obj = {};
+      let hasData = false;
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const key = headers[colNumber];
+        if (key) {
+          obj[key] = cell.value != null ? cell.value : '';
+          if (cell.value != null && cell.value !== '') hasData = true;
+        }
+      });
+      if (hasData) raw.push(obj);
+    }
 
     if (!raw.length) return res.status(400).json({ error: 'No data rows found in the uploaded file' });
 
@@ -444,6 +478,47 @@ router.post('/upload/:table', requireRole('Admin', 'Manager'), upload.single('fi
         errorCount: errors.length,
         details: errors.slice(0, 50), // cap at 50 error messages
       });
+    }
+
+    // ── Duplicate detection ─────────────────────────────────
+    // For tables with a natural business key, check for existing records
+    // and warn the user before allowing re-import.
+    const DEDUP_KEYS = {
+      invoices:  'invoice_number',
+      vendors:   'vendor_number',
+      accounts:  'account_number',
+      contracts: 'contract_number',
+      inventory: 'inventory_number',
+      orders:    'order_number',
+    };
+
+    const dedupCol = DEDUP_KEYS[tableName];
+    if (dedupCol) {
+      const uploadedValues = [...new Set(rows.map(r => r[dedupCol]).filter(Boolean))];
+      if (uploadedValues.length) {
+        // Query in batches of 500 to avoid param-limit issues
+        const existingSet = new Set();
+        for (let i = 0; i < uploadedValues.length; i += 500) {
+          const chunk = uploadedValues.slice(i, i + 500);
+          const found = await db(tableName).select(dedupCol).whereIn(dedupCol, chunk);
+          found.forEach(r => existingSet.add(String(r[dedupCol])));
+        }
+
+        if (existingSet.size > 0) {
+          const dupList = [...existingSet].slice(0, 25);
+          const dupRows = rows.filter(r => existingSet.has(String(r[dedupCol])));
+          return res.status(409).json({
+            error: 'Duplicate records detected',
+            message: `${existingSet.size} of ${uploadedValues.length} ${def.label.toLowerCase()} already exist in the database. `
+              + `Purge the existing records first (Admin → Purge Tool), then re-upload.`,
+            duplicateCount: existingSet.size,
+            duplicateColumn: dedupCol,
+            duplicates: dupList,
+            affectedRows: dupRows.length,
+            totalRows: raw.length,
+          });
+        }
+      }
     }
 
     // Insert in batches of 100

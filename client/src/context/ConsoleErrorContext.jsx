@@ -1,9 +1,21 @@
+/**
+ * @file Console error capture context for debugging support.
+ * @module ConsoleErrorContext
+ *
+ * Intercepts console.error, window.onerror, and unhandled rejection events.
+ * Collects up to 50 error entries and exposes them for the ticket system.
+ */
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
 const ConsoleErrorContext = createContext({ errors: [], clearErrors: () => {}, formatted: () => '' });
 
 const MAX_ERRORS = 50;
 
+/**
+ * @component ConsoleErrorProvider
+ * @param {Object} props - { children }
+ * Installs error interceptors and collects errors into state.
+ */
 export function ConsoleErrorProvider({ children }) {
   const [errors, setErrors] = useState([]);
   const origConsoleError = useRef(null);
@@ -66,4 +78,8 @@ export function ConsoleErrorProvider({ children }) {
   );
 }
 
+/**
+ * @function useConsoleErrors
+ * Returns { errors, clearErrors, formatted }.
+ */
 export const useConsoleErrors = () => useContext(ConsoleErrorContext);

@@ -1,3 +1,9 @@
+/**
+ * @file New USOC code creation form.
+ * @module UsocCodeAdd
+ *
+ * Uses FormPage for USOC code, description, and category fields.
+ */
 import React from 'react';
 import { Tag } from 'lucide-react';
 import { createUsocCode } from '../api';

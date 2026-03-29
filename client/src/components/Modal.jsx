@@ -1,3 +1,15 @@
+/**
+ * @file Simple overlay modal with header, body slot, and action buttons.
+ * @module Modal
+ *
+ * @param {boolean} props.open - Whether the modal is visible
+ * @param {string} props.title - Modal header title
+ * @param {Function} props.onClose - Callback when the modal is dismissed
+ * @param {Function} props.onSave - Callback when the Save button is clicked
+ * @param {string} props.saveLabel - Label for the save button (default "Save")
+ * @param {ReactNode} props.children - Modal body content
+ * @param {number} props.width - Modal width in pixels (default 560)
+ */
 import React from 'react';
 import { X } from 'lucide-react';
 

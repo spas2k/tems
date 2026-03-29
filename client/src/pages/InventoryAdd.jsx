@@ -1,7 +1,14 @@
+/**
+ * @file New inventory item creation form.
+ * @module InventoryAdd
+ *
+ * Uses FormPage with account, contract, order, and location lookups.
+ */
 ﻿import React from 'react';
 import { Network } from 'lucide-react';
-import { createInventoryItem, getAccounts, getContracts, getOrders } from '../api';
+import { createInventoryItem, getAccounts, getContracts, getOrders, getLocations } from '../api';
 import FormPage from '../components/FormPage';
+import { LOOKUP_ACCOUNTS, LOOKUP_CONTRACTS, LOOKUP_ORDERS, LOOKUP_LOCATION_TEXT } from '../utils/lookupConfigs';
 
 const TYPES = ['MPLS', 'Internet', 'Ethernet', 'Voice', 'SD-WAN', 'Dedicated', 'Other'];
 const STATUSES = ['Active', 'Pending', 'Disconnected', 'Suspended'];
@@ -18,10 +25,8 @@ const SECTIONS = [
     description: 'Key identifiers and account assignment',
     fields: (rel) => [
       { key: 'inventory_number', label: 'Inventory Number *', half: true },
-      { key: 'accounts_id', label: 'Account *', type: 'select',
-        options: (rel.accounts || []).map(a => ({ value: a.accounts_id, label: a.name })),
-        placeholder: 'Select account…', half: true },
-      { key: 'location', label: 'Location', placeholder: 'e.g. 123 Main St, New York, NY' },
+      { key: 'accounts_id', label: 'Account *', type: 'lookup', ...LOOKUP_ACCOUNTS(rel.accounts), half: true },
+      { key: 'location', label: 'Location', type: 'lookup', ...LOOKUP_LOCATION_TEXT(rel.locations) },
     ],
   },
   {
@@ -37,12 +42,8 @@ const SECTIONS = [
     title: 'Associations & Status',
     description: 'Link to contracts/orders and set valid dates',
     fields: (rel) => [
-      { key: 'contracts_id', label: 'Contract *', type: 'select',
-        options: (rel.contracts || []).map(c => ({ value: c.contracts_id, label: c.contract_number || c.name })),
-        placeholder: 'Select contract…', half: true },
-      { key: 'orders_id', label: 'Order (optional)', type: 'select',
-        options: (rel.orders || []).map(o => ({ value: o.orders_id, label: o.order_number })),
-        placeholder: 'None', half: true },
+      { key: 'contracts_id', label: 'Contract *', type: 'lookup', ...LOOKUP_CONTRACTS(rel.contracts), half: true },
+      { key: 'orders_id', label: 'Order (optional)', type: 'lookup', ...LOOKUP_ORDERS(rel.orders), half: true },
       { key: 'install_date', label: 'Install Date', type: 'date', half: true },
       { key: 'disconnect_date', label: 'Disconnect Date', type: 'date', half: true },
       { key: 'status', label: 'Status', type: 'select', options: STATUSES },
@@ -59,8 +60,8 @@ export default function InventoryAdd() {
       sections={SECTIONS}
       emptyForm={EMPTY}
       loadRelated={async () => {
-        const [acct, contr, ord] = await Promise.all([getAccounts(), getContracts(), getOrders()]);
-        return { accounts: acct.data, contracts: contr.data, orders: ord.data };
+        const [acct, contr, ord, locs] = await Promise.all([getAccounts(), getContracts(), getOrders(), getLocations()]);
+        return { accounts: acct.data, contracts: contr.data, orders: ord.data, locations: locs.data };
       }}
       defaultValues={(rel) => ({ accounts_id: rel.accounts?.[0]?.accounts_id || '' })}
       beforeSave={form => ({

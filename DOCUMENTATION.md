@@ -23,10 +23,10 @@
 13. [API Reference (All Endpoints)](#13-api-reference-all-endpoints)
 14. [How Data Flows Through the App](#14-how-data-flows-through-the-app)
 15. [Common Tasks & How-To Guides](#15-common-tasks--how-to-guides)
-16. [Switching Databases (MySQL → PostgreSQL → MSSQL)](#16-switching-databases-mysql--postgresql--mssql)
+16. [Switching Databases](#16-switching-databases)
 17. [Troubleshooting](#17-troubleshooting)
 18. [Glossary](#18-glossary)
-19. [Prompt Log & Living Documentation](#19-prompt-log--living-documentation)
+19. [Testing & Living Documentation](#19-testing--living-documentation)
 
 ---
 
@@ -167,8 +167,8 @@ This section explains every technology used in TEMS, what it does, and why it wa
 | **Node.js** | JavaScript runtime for servers | Lets you run JavaScript outside a web browser, so you can build server applications. |
 | **Express 4** | Web framework for Node.js | Handles HTTP requests (GET, POST, PUT, DELETE) and routes them to the appropriate handler functions. |
 | **Knex.js** | SQL query builder | Builds database queries using JavaScript instead of raw SQL strings. Supports MySQL, PostgreSQL, and MSSQL — switching databases requires only a config change, not rewriting queries. Also provides migrations (schema versioning) and seeds (demo data). |
-| **MySQL** | Relational database (current) | Stores all the data in structured tables. TEMS currently uses MySQL but is designed to switch to PostgreSQL or MSSQL by changing one environment variable. |
-| **mysql2** | MySQL driver for Node.js | The underlying driver that Knex uses to talk to MySQL. If you switch to PostgreSQL, you'd install `pg` instead; for MSSQL, `tedious`. |
+| **PostgreSQL** | Relational database (current) | Stores all the data in structured tables. TEMS currently uses PostgreSQL. The Knex query builder means switching to MySQL or MSSQL requires only a config change. |
+| **pg** | PostgreSQL driver for Node.js | The underlying driver that Knex uses to talk to PostgreSQL. If you switch to MySQL, you'd install `mysql2` instead; for MSSQL, `tedious`. |
 | **cors** | Cross-Origin Resource Sharing middleware | Allows the front-end (running on port 2000) to make requests to the back-end (running on port 2001). |
 | **dotenv** | Environment variable loader | Reads database credentials from a `.env` file so they aren't hard-coded in the source code. |
 | **uuid** | Unique ID generator | Generates universally unique identifiers (used in mock data). |
@@ -191,8 +191,8 @@ This section explains every technology used in TEMS, what it does, and why it wa
                                                                    ▼
                                                          ┌──────────────────┐
                                                          │                  │
-                                                         │   MySQL Database │
-                                                         │   "doctore"      │
+                                                         │  PostgreSQL DB   │
+                                                         │  "tems"          │
                                                          │                  │
                                                          └──────────────────┘
 ```
@@ -209,7 +209,7 @@ tems/                              ← Root project folder
 ├── client/                        ← FRONT-END (what users see in the browser)
 │   ├── index.html                 ← The single HTML page that loads the React app
 │   ├── package.json               ← Lists all front-end dependencies and scripts
-│   ├── vite.config.js             ← Vite configuration (dev server port, API proxy)
+│   ├── vite.config.js             ← Vite configuration (dev server port, API proxy, test config)
 │   │
 │   └── src/                       ← All React source code
 │       ├── main.jsx               ← Entry point — mounts React into the HTML page
@@ -219,58 +219,149 @@ tems/                              ← Root project folder
 │       ├── PageTitleContext.js     ← React context for dynamic page titles
 │       │
 │       ├── components/            ← Reusable UI components
-│       │   └── Modal.jsx          ← Pop-up dialog used for create/edit forms
+│       │   ├── DataTable.jsx      ← Main data grid with filtering, sorting, pagination
+│       │   ├── CrudModal.jsx      ← CRUD form modal with dynamic field types
+│       │   ├── Modal.jsx          ← Base pop-up dialog component
+│       │   ├── Pagination.jsx     ← Page controls for tables
+│       │   ├── AnnouncementBanner.jsx ← System-wide announcement display
+│       │   ├── ScrollToTop.jsx    ← Scroll position reset on navigation
+│       │   ├── DetailHeader.jsx   ← Sticky header for detail pages
+│       │   ├── FormPage.jsx       ← Reusable form layout for add pages
+│       │   ├── LookupField.jsx    ← Searchable lookup field for FK references
+│       │   ├── LookupModal.jsx    ← Modal for entity selection lookups
+│       │   ├── NoteTimeline.jsx   ← Note/activity timeline component
+│       │   ├── ChangeHistory.jsx  ← Audit log display component
+│       │   ├── FavoritesPanel.jsx ← Saved filter bookmarks panel
+│       │   ├── BulkUpdatePanel.jsx ← Bulk update interface
+│       │   └── ...                ← Additional shared components
 │       │
-│       └── pages/                 ← One file per page/view in the app
-│           ├── Dashboard.jsx      ← Home page with KPI cards and summaries
-│           ├── Accounts.jsx       ← Vendor accounts list (CRUD)
-│           ├── AccountDetail.jsx  ← Single account view with inline editing
-│           ├── Contracts.jsx      ← Contracts list (CRUD)
-│           ├── ContractDetail.jsx ← Single contract view with inline editing
-│           ├── Circuits.jsx       ← Circuit inventory list (CRUD)
-│           ├── CircuitDetail.jsx  ← Single circuit view with inline editing
-│           ├── Orders.jsx         ← Orders list (CRUD)
-│           ├── OrderDetail.jsx    ← Single order view with inline editing
-│           ├── Invoices.jsx       ← Invoices list (CRUD)
+│       ├── context/               ← React context providers
+│       │   ├── AuthContext.jsx    ← Authentication, roles, permissions
+│       │   ├── ConfirmContext.jsx ← Promise-based confirmation dialogs
+│       │   ├── FavoritesContext.jsx ← Saved filter bookmarks
+│       │   └── ConsoleErrorContext.jsx ← Error capture for bug reports
+│       │
+│       ├── hooks/                 ← Custom React hooks
+│       │   └── useCrudTable.jsx   ← Filter/sort/pagination/CRUD engine
+│       │
+│       ├── utils/                 ← Utility modules
+│       │   ├── lookupConfigs.js   ← Lookup field factory configurations
+│       │   └── roleColors.js      ← Color schemes for role badges
+│       │
+│       ├── __tests__/             ← Client unit tests (Vitest)
+│       │   ├── components/        ← DataTable, CrudModal, Modal, Pagination, etc.
+│       │   ├── context/           ← AuthContext, ConfirmContext, etc.
+│       │   ├── hooks/             ← useCrudTable
+│       │   ├── pages/             ← Dashboard, Vendors, Preferences
+│       │   └── utils/             ← lookupConfigs, roleColors
+│       │
+│       └── pages/                 ← ~70 page components
+│           ├── Dashboard.jsx      ← Home page with KPI cards and charts
+│           ├── Vendors.jsx        ← Vendor directory list
+│           ├── VendorDetail.jsx   ← Single vendor view
+│           ├── Accounts.jsx       ← Billing accounts list
+│           ├── AccountDetail.jsx  ← Single account view
+│           ├── Contracts.jsx      ← Contracts list
+│           ├── ContractDetail.jsx ← Single contract view
+│           ├── Inventory.jsx      ← Inventory (circuits) list
+│           ├── InventoryDetail.jsx ← Single inventory item view
+│           ├── Orders.jsx         ← Orders list
+│           ├── OrderDetail.jsx    ← Single order view
+│           ├── Invoices.jsx       ← Invoices list
 │           ├── InvoiceDetail.jsx  ← Single invoice with line items & allocations
-│           ├── Allocations.jsx    ← Cost center allocations list (read-only)
-│           ├── CostSavings.jsx    ← Savings pipeline list (CRUD)
-│           ├── UsocCodes.jsx      ← USOC code catalog list (CRUD)
-│           ├── UsocCodeDetail.jsx ← Single USOC code view with inline editing
-│           ├── Disputes.jsx       ← Billing disputes list (CRUD) with CSV export
-│           ├── DisputeDetail.jsx  ← Single dispute view with inline editing
-│           └── RateAudit.jsx      ← Rate validation report with CSV export
+│           ├── InvoiceReader.jsx  ← Multi-format invoice parsing wizard
+│           ├── Disputes.jsx       ← Billing disputes list
+│           ├── DisputeDetail.jsx  ← Single dispute view
+│           ├── RateAudit.jsx      ← Rate validation report
+│           ├── UsocCodes.jsx      ← USOC code catalog list
+│           ├── UsocCodeDetail.jsx ← Single USOC code view
+│           ├── Tickets.jsx        ← Internal ticketing
+│           ├── Users.jsx          ← User management
+│           ├── UserDetail.jsx     ← Single user view
+│           ├── Roles.jsx          ← Role management
+│           ├── AuditLog.jsx       ← Audit trail viewer
+│           ├── Reports.jsx        ← Saved reports list
+│           ├── CreateReport.jsx   ← Multi-table report builder
+│           ├── Preferences.jsx    ← User preferences (theme, etc.)
+│           └── ...                ← Additional pages (Locations, BatchUpload, etc.)
 │
 └── server/                        ← BACK-END (API server + database)
     ├── server.js                  ← Main server file — starts Express, defines routes
     ├── db.js                      ← Knex database instance + helper utilities
     ├── knexfile.js                ← Knex configuration (DB type, credentials, pool)
     ├── package.json               ← Lists all server dependencies and scripts
-    ├── mockData.js                ← In-memory demo data (fallback / reference)
-    ├── seed.sql                   ← DEPRECATED — old SQL seed (use Knex seeds instead)
-    ├── seed_extra.sql             ← DEPRECATED — old SQL seed (use Knex seeds instead)
     │
-    ├── migrations/                ← Knex schema migrations (version-controlled)
-    │   ├── 20260228000000_initial_schema.js    ← Creates original 8 tables
-    │   ├── 20260228100000_phase_a_usoc_rates.js ← Adds usoc_codes, contract_rates tables; alters contracts & line_items
-    │   └── 20260228200000_phase_bcd_disputes.js ← Adds disputes table
+    ├── middleware/                 ← Request processing middleware
+    │   ├── auth.js                ← Authentication + role/permission guards + SSO placeholder
+    │   └── audit.js               ← Audit logging for all CRUD routes
+    │
+    ├── migrations/                ← Knex schema migrations (16 files, 45 tables)
+    │   ├── 20260324000000_core_schema.js            ← Core tables (vendors, accounts, contracts, etc.)
+    │   ├── 20260324100000_add_missing_tables.js     ← Additional reference tables
+    │   ├── 20260324195936_add_user_preferences.js   ← User preferences
+    │   ├── 20260325170226_add_form_instructions.js  ← Form instruction content
+    │   ├── 20260325200000_add_workflows.js          ← Workflow engine tables
+    │   ├── 20260325210000_add_line_item_quantity.js  ← Line item quantity field
+    │   ├── 20260325220000_add_line_item_billing_account.js
+    │   ├── 20260325230000_move_billing_account_to_invoices.js
+    │   ├── 20260325240000_add_line_item_tax_amount.js
+    │   ├── 20260325250000_inventory_nullable_contracts.js
+    │   ├── 20260326000000_add_reader_profiles_exceptions.js
+    │   ├── 20260327000000_add_role_color.js
+    │   ├── 20260327100000_add_email_system.js
+    │   ├── 20260327120000_add_invoice_approvers.js
+    │   ├── 20260327150000_add_fk_indexes.js
+    │   └── 20260327160000_add_report_jobs.js
     │
     ├── seeds/                     ← Knex seed data (JavaScript-based)
-    │   └── 01_seed_data.js        ← All demo data (replaces deprecated seed.sql files)
+    │   ├── 02_auth_seed.js        ← Roles, permissions, role-permission matrix, dev admin
+    │   └── 03_test_data.js        ← Demo/test data
     │
-    └── routes/                    ← API route handlers (one file per entity)
-        ├── accounts.js            ← /api/accounts endpoints
-        ├── contracts.js           ← /api/contracts endpoints
-        ├── circuits.js            ← /api/circuits endpoints
-        ├── orders.js              ← /api/orders endpoints
-        ├── invoices.js            ← /api/invoices endpoints
-        ├── lineItems.js           ← /api/line-items endpoints
-        ├── allocations.js         ← /api/allocations endpoints
-        ├── costSavings.js         ← /api/cost-savings endpoints
-        ├── search.js              ← /api/search endpoint (global search)
-        ├── usocCodes.js           ← /api/usoc-codes endpoints
-        ├── contractRates.js       ← /api/contract-rates endpoints
-        └── disputes.js            ← /api/disputes endpoints
+    ├── routes/                    ← API route handlers (~35 files)
+    │   ├── vendors.js             ← /api/vendors endpoints
+    │   ├── accounts.js            ← /api/accounts endpoints
+    │   ├── contracts.js           ← /api/contracts endpoints
+    │   ├── inventory.js           ← /api/inventory endpoints
+    │   ├── orders.js              ← /api/orders endpoints
+    │   ├── invoices.js            ← /api/invoices endpoints
+    │   ├── lineItems.js           ← /api/line-items endpoints
+    │   ├── allocations.js         ← /api/allocations endpoints
+    │   ├── costSavings.js         ← /api/cost-savings endpoints
+    │   ├── disputes.js            ← /api/disputes endpoints
+    │   ├── usocCodes.js           ← /api/usoc-codes endpoints
+    │   ├── contractRates.js       ← /api/contract-rates endpoints
+    │   ├── search.js              ← /api/search endpoint (global search)
+    │   ├── users.js               ← /api/users endpoints
+    │   ├── roles.js               ← /api/roles endpoints
+    │   ├── tickets.js             ← /api/tickets endpoints
+    │   ├── reports.js             ← /api/reports (catalog, run, saved)
+    │   ├── invoiceReader.js       ← /api/invoice-reader (parse, process, templates)
+    │   ├── notifications.js       ← /api/notifications endpoints
+    │   ├── notes.js               ← /api/notes (polymorphic)
+    │   ├── favorites.js           ← /api/favorites endpoints
+    │   ├── vendors.js             ← /api/vendors endpoints
+    │   ├── locations.js           ← /api/locations endpoints
+    │   ├── vendorRemit.js         ← /api/vendor-remit endpoints
+    │   ├── workflows.js           ← /api/workflows endpoints
+    │   ├── _validators.js         ← Shared validation rules
+    │   ├── _bulkUpdate.js         ← Bulk update helper
+    │   ├── _cascadeGuard.js       ← FK dependency checks before deletes
+    │   ├── _safeError.js          ← Error formatting helper
+    │   └── ...                    ← Additional route files
+    │
+    ├── workflows/                 ← Workflow engine
+    │   ├── engine.js              ← Generic step runner
+    │   ├── index.js               ← Workflow registry
+    │   └── assignInvoice.js       ← Invoice assignment workflow
+    │
+    ├── __tests__/                 ← Server unit tests (Jest)
+    │   ├── db.test.js             ← Database helper tests
+    │   ├── routes/                ← Route tests (validators, bulkUpdate, etc.)
+    │   ├── middleware/            ← Auth middleware tests
+    │   └── workflows/             ← Workflow engine tests
+    │
+    └── scripts/                   ← Utility scripts
+        └── rebuild_schema.sql     ← Manual schema rebuild reference
 ```
 
 ---
@@ -298,21 +389,21 @@ Node.js comes with **npm** (Node Package Manager), which installs code libraries
 npm --version
 ```
 
-### 2. MySQL (version 8.0 or higher)
+### 2. PostgreSQL (version 14 or higher)
 
-**What is it?** MySQL is a database — it stores all the application data in organized tables.
+**What is it?** PostgreSQL is a relational database — it stores all the application data in organized tables.
 
 **How to install:**
-1. Go to [https://dev.mysql.com/downloads/mysql/](https://dev.mysql.com/downloads/mysql/)
-2. Download MySQL Community Server for your operating system
+1. Go to [https://www.postgresql.org/download/](https://www.postgresql.org/download/)
+2. Download PostgreSQL for your operating system
 3. Run the installer
-4. During setup, you'll be asked to create a **root password** — remember this!
+4. During setup, you'll be asked to create a **superuser password** — remember this!
 5. Verify it worked:
    ```
-   mysql --version
+   psql --version
    ```
 
-> **Tip:** You can also install MySQL through tools like XAMPP, WAMP, or Docker if you prefer.
+> **Tip:** You can also install PostgreSQL through Docker, Homebrew (macOS), or your Linux package manager.
 
 ### 3. A Code Editor (Recommended: VS Code)
 
@@ -337,21 +428,21 @@ Follow these steps in order:
 
 If you have the project folder already, skip this step. Otherwise, download or clone the repository to your computer.
 
-### Step 2: Create the MySQL Database
+### Step 2: Create the PostgreSQL Database
 
-Open a terminal and connect to MySQL:
+Open a terminal and connect to PostgreSQL:
 
 ```bash
-mysql -u root -p
+psql -U postgres
 ```
 
-Enter your root password when prompted. Then create the database:
+Enter your superuser password when prompted. Then create the database:
 
 ```sql
-CREATE DATABASE doctore;
+CREATE DATABASE tems;
 ```
 
-> **Why "doctore"?** That's the name configured in the project's database connection settings. You can change it if you prefer (see Step 4).
+> You can name it anything — just update the `DB_NAME` in your `.env` file to match.
 
 ### Step 3: Create the Environment File
 
@@ -361,23 +452,25 @@ The server needs to know how to connect to your database. Create a file called `
 server/.env
 ```
 
-Add these contents (replace `your_password` with your actual MySQL root password):
+Add these contents (replace `your_password` with your actual PostgreSQL password):
 
 ```env
+DB_CLIENT=pg
 DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
+DB_PORT=5432
+DB_USER=postgres
 DB_PASSWORD=your_password
-DB_NAME=doctore
+DB_NAME=tems
 PORT=2001
 ```
 
 **What does each line mean?**
+- `DB_CLIENT=pg` — Use the PostgreSQL driver
 - `DB_HOST=localhost` — The database is on your own computer
-- `DB_PORT=3306` — MySQL's default port number
-- `DB_USER=root` — The MySQL username
-- `DB_PASSWORD=your_password` — Your MySQL password
-- `DB_NAME=doctore` — Which database to use
+- `DB_PORT=5432` — PostgreSQL's default port number
+- `DB_USER=postgres` — The PostgreSQL username
+- `DB_PASSWORD=your_password` — Your PostgreSQL password
+- `DB_NAME=tems` — Which database to use
 - `PORT=2001` — Which port the API server runs on
 
 ### Step 4: Install Server Dependencies & Populate the Database
@@ -391,9 +484,9 @@ npm run migrate
 npm run seed
 ```
 
-- `npm install` reads `package.json` and downloads all the libraries the server needs (Express, Knex, MySQL driver, etc.) into a `node_modules/` folder.
-- `npm run migrate` creates all 19 database tables using the Knex migrations (6 migration files).
-- `npm run seed` fills the tables with realistic demo data about telecom vendors like AT&T, Verizon, Lumen, Comcast, and more.
+- `npm install` reads `package.json` and downloads all the libraries the server needs (Express, Knex, PostgreSQL driver, etc.) into a `node_modules/` folder.
+- `npm run migrate` creates all 45 database tables using the Knex migrations (16 migration files).
+- `npm run seed` fills the tables with roles, permissions, and demo data.
 
 To tear down and rebuild at any time:
 ```bash
@@ -402,7 +495,7 @@ npm run migrate            # Re-create tables
 npm run seed               # Re-insert demo data
 ```
 
-> **Note:** The `seed.sql` and `seed_extra.sql` files in the server folder are **deprecated** — they use an old column naming scheme. Always use the Knex approach above.
+> **Note:** Always use the Knex migration and seed approach above.
 
 ### Step 5: Install Client Dependencies
 
@@ -425,11 +518,11 @@ npm run dev
 
 You should see:
 ```
-MySQL connected successfully
+PostgreSQL connected
 TEMS API server running on port 2001
 ```
 
-If you see a MySQL connection error, double-check your `.env` file credentials.
+If you see a connection error, double-check your `.env` file credentials.
 
 ### Step 7: Start the Client
 
@@ -491,9 +584,9 @@ Here's what happens when you open the Dashboard page:
    ↓
 7. Express receives the request and runs the dashboard handler in server.js
    ↓
-8. The handler sends 14 SQL queries to MySQL
+8. The handler sends SQL queries to PostgreSQL
    ↓
-9. MySQL returns the results
+9. PostgreSQL returns the results
    ↓
 10. The handler packages results into a JSON object and sends it back
     ↓
@@ -504,18 +597,18 @@ Here's what happens when you open the Dashboard page:
 
 ### What Is a "Proxy"?
 
-In development, the client runs on `http://localhost:3000` and the server on `http://localhost:5000`. Normally, the browser would block requests from one to the other (for security). The **proxy** in `vite.config.js` solves this:
+In development, the client runs on `http://localhost:2000` and the server on `http://localhost:2001`. Normally, the browser would block requests from one to the other (for security). The **proxy** in `vite.config.js` solves this:
 
 ```javascript
 proxy: {
   '/api': {
-    target: 'http://localhost:5000',
+    target: 'http://localhost:2001',
     changeOrigin: true,
   },
 },
 ```
 
-This tells Vite: "When the browser requests any URL starting with `/api`, secretly forward it to `http://localhost:5000`." The browser doesn't even know it's talking to a different server.
+This tells Vite: "When the browser requests any URL starting with `/api`, secretly forward it to `http://localhost:2001`." The browser doesn't even know it's talking to a different server.
 
 ### Single-Page Application (SPA)
 
@@ -529,7 +622,7 @@ TEMS is a **Single-Page Application**. This means:
 
 ## 9. Database Design (Data Model)
 
-The database has **29 tables** across 13 migration files. Here's every table, every column, and what it stores.
+The database has **45 tables** across 16 migration files. For the full current schema, see [DATABASE_SCHEMA_recreated.md](DATABASE_SCHEMA_recreated.md). Here's every table, every column, and what it stores.
 
 > **Naming Convention:** Every table's primary key is named `{table_name}_id` (e.g., `accounts_id`, `circuits_id`). Foreign keys match the referenced table's PK name (e.g., `accounts_id` in `contracts` refers to `accounts.accounts_id`). The one special case is the `circuits` table where the vendor's circuit identifier is stored in `circuit_number` (to avoid collision with the PK `circuits_id`).
 
@@ -1181,6 +1274,8 @@ app.use('/api/orders',         require('./routes/orders'));
 app.use('/api/invoices',       require('./routes/invoices'));
 app.use('/api/line-items',     require('./routes/lineItems'));
 app.use('/api/allocations',    require('./routes/allocations'));
+app.use('/api/allocation-rules', require('./routes/allocationRules'));
+app.use('/api/bank-cost-centers', require('./routes/bankCostCenters'));
 app.use('/api/cost-savings',   require('./routes/costSavings'));
 app.use('/api/search',         require('./routes/search'));
 app.use('/api/usoc-codes',     require('./routes/usocCodes'));
@@ -1267,13 +1362,13 @@ This file tells Knex how to connect to the database:
 ```javascript
 module.exports = {
   development: {
-    client: process.env.DB_CLIENT || 'mysql2',  // Change to 'pg' or 'mssql'
+    client: process.env.DB_CLIENT || 'pg',
     connection: {
       host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 3306,
-      user: process.env.DB_USER || 'root',
+      port: parseInt(process.env.DB_PORT) || 5432,
+      user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'doctore',
+      database: process.env.DB_NAME || 'tems',
     },
     pool: { min: 2, max: 10 },
     migrations: { directory: './migrations' },
@@ -1283,8 +1378,8 @@ module.exports = {
 ```
 
 **To switch databases**, change the `DB_CLIENT` environment variable:
-- MySQL: `DB_CLIENT=mysql2` (default)
-- PostgreSQL: `DB_CLIENT=pg`
+- PostgreSQL: `DB_CLIENT=pg` (default)
+- MySQL: `DB_CLIENT=mysql2`
 - MSSQL: `DB_CLIENT=mssql`
 
 ### Route Files — The CRUD Pattern (Knex Query Builder)
@@ -1892,6 +1987,23 @@ This CSS file defines the entire visual design system:
 
 ---
 
+### Allocation Rules (`/allocation-rules`)
+
+**Purpose:** Define default cost-center percentage splits per account. When new invoices come in for an account, these rules can pre-populate allocation splits.
+
+**What you see:**
+- **3 KPI Cards:** Total Accounts, Accounts with Rules, Active Cost Centers
+- **Account Lookup** — Click to open searchable modal, select an account to configure
+- **Allocation Split Card** (appears after selecting an account):
+  - Cost Center Lookup — Click to add cost centers from a searchable modal
+  - Split Evenly button — Distributes percentages equally
+  - Color-coded slider cards for each assigned cost center
+  - Stacked progress bar showing total allocation (must equal 100%)
+  - Percentage input + range slider per cost center with proportional rebalancing
+  - Save Rules button (disabled until changes made and total = 100%)
+
+---
+
 ### Cost Savings (`/cost-savings`)
 
 **Purpose:** Track and manage savings opportunities — billing errors, contract negotiation opportunities, and more.
@@ -2064,7 +2176,7 @@ This CSS file defines the entire visual design system:
 
 ## 13. API Reference (All Endpoints)
 
-Every API endpoint the server provides. All URLs are relative to `http://localhost:5000`.
+Every API endpoint the server provides. All URLs are relative to `http://localhost:2001`.
 
 ### Dashboard
 
@@ -2188,6 +2300,28 @@ Every API endpoint the server provides. All URLs are relative to `http://localho
 | DELETE | `/api/allocations/:id` | Delete an allocation |
 
 **POST/PUT body fields:** `line_items_id`, `cost_center`, `department`, `percentage`, `allocated_amount`, `notes`
+
+---
+
+### Allocation Rules
+
+| Method | URL | Description |
+|---|---|---|
+| GET | `/api/allocation-rules` | List all rules (optional `?accounts_id` filter) |
+| GET | `/api/allocation-rules/:id` | Get one rule by ID |
+| POST | `/api/allocation-rules` | Create a single rule |
+| PUT | `/api/allocation-rules/account/:accountId` | Save full rule set for an account (replaces all existing) |
+| DELETE | `/api/allocation-rules/:id` | Delete a rule |
+
+**PUT body:** `{ rules: [{ bank_cost_centers_id, percentage }, ...] }` — Percentages must sum to 100. Executed in a transaction (delete old + insert new).
+
+---
+
+### Bank Cost Centers
+
+| Method | URL | Description |
+|---|---|---|
+| GET | `/api/bank-cost-centers` | List all cost centers |
 
 ---
 
@@ -2383,8 +2517,8 @@ Let's trace a complete scenario — creating a new vendor account — to see eve
 - `api.js` sends: `POST /api/accounts` with the form data as JSON in the request body
 
 **Step 4 — Vite proxy forwards the request**
-- The browser sent the request to `http://localhost:3000/api/accounts`
-- Vite's proxy forwards it to `http://localhost:5000/api/accounts`
+- The browser sent the request to `http://localhost:2000/api/accounts`
+- Vite's proxy forwards it to `http://localhost:2001/api/accounts`
 
 **Step 5 — Express routes the request**
 - `server.js` sees the URL starts with `/api/accounts` → hands it to `routes/accounts.js`
@@ -2420,19 +2554,19 @@ User clicks Save
      ↓
 Accounts.jsx → createAccount(data)
      ↓
-api.js → POST http://localhost:3000/api/accounts  (with JSON body)
+api.js → POST http://localhost:2000/api/accounts  (with JSON body)
      ↓
-vite proxy → http://localhost:5000/api/accounts
+vite proxy → http://localhost:2001/api/accounts
      ↓
 server.js → routes/accounts.js → router.post('/')
      ↓
-db.insertReturningId('accounts', data)  →  MySQL (via Knex)
+db.insertReturningId('accounts', data)  →  PostgreSQL (via Knex)
      ↓
-MySQL inserts the row, Knex returns the new accounts_id (e.g. 10)
+PostgreSQL inserts the row, Knex returns the new accounts_id (e.g. 10)
      ↓
-db('accounts').where('accounts_id', 10).first()  →  MySQL (via Knex)
+db('accounts').where('accounts_id', 10).first()  →  PostgreSQL (via Knex)
      ↓
-MySQL returns the full account row
+PostgreSQL returns the full account row
      ↓
 res.status(201).json(accountRow)  →  HTTP Response
      ↓
@@ -2539,9 +2673,9 @@ If you want to add a new entity (e.g., "Locations"):
 
 ---
 
-## 16. Switching Databases (MySQL → PostgreSQL → MSSQL)
+## 16. Switching Databases
 
-TEMS is built with **Knex.js**, a query builder that generates database-specific SQL automatically. This means you can switch from MySQL to PostgreSQL or MSSQL by changing configuration — no code changes required.
+TEMS uses **PostgreSQL** by default, but is built with **Knex.js**, a query builder that generates database-specific SQL automatically. This means you can switch to MySQL or MSSQL by changing configuration — no code changes required.
 
 ### How It Works
 
@@ -2560,27 +2694,27 @@ db('accounts').where('status', 'Active').orderBy('name')
 
 Knex handles quoting, data types, and syntax differences between databases.
 
-### Step-by-Step: Switch to PostgreSQL
+### Step-by-Step: Switch to MySQL
 
-1. **Install the PostgreSQL driver:**
+1. **Install the MySQL driver:**
    ```bash
    cd server
-   npm install pg
+   npm install mysql2
    ```
 
 2. **Update your `.env` file:**
    ```env
-   DB_CLIENT=pg
+   DB_CLIENT=mysql2
    DB_HOST=localhost
-   DB_PORT=5432
-   DB_USER=postgres
+   DB_PORT=3306
+   DB_USER=root
    DB_PASSWORD=your_password
-   DB_NAME=doctore
+   DB_NAME=tems
    ```
 
 3. **Create the database:**
-   ```bash
-   createdb doctore
+   ```sql
+   CREATE DATABASE tems;
    ```
 
 4. **Run Knex migrations to create tables:**
@@ -2593,7 +2727,7 @@ Knex handles quoting, data types, and syntax differences between databases.
    npm run seed
    ```
 
-6. **Start the server** — it now talks to PostgreSQL.
+6. **Start the server** — it now talks to MySQL.
 
 ### Step-by-Step: Switch to MSSQL
 
@@ -2610,14 +2744,10 @@ Knex handles quoting, data types, and syntax differences between databases.
    DB_PORT=1433
    DB_USER=sa
    DB_PASSWORD=your_password
-   DB_NAME=doctore
+   DB_NAME=tems
    ```
 
 3. **Run migrations and seeds as above.**
-
-### What About the `seed.sql` Files?
-
-The `seed.sql` and `seed_extra.sql` files are **deprecated** — they use the old column naming scheme (`id`, `account_id`, etc.) that is no longer used. They are kept for historical reference only. Use the Knex migration and seed files (`migrations/` and `seeds/` folders) instead — these use the current `{table}_id` naming convention and work on all three databases.
 
 ### Known Differences
 
@@ -2634,15 +2764,15 @@ The `seed.sql` and `seed_extra.sql` files are **deprecated** — they use the ol
 
 ## 17. Troubleshooting
 
-### "MySQL connection error" when starting the server
+### "PostgreSQL connection error" when starting the server
 
-**Cause:** The server can't connect to MySQL.
+**Cause:** The server can't connect to PostgreSQL.
 
 **Fix:**
-1. Make sure MySQL is running: `mysql -u root -p` should work
+1. Make sure PostgreSQL is running: `psql -U postgres` should work
 2. Check your `server/.env` file — are the credentials correct?
-3. Make sure the `doctore` database exists: `SHOW DATABASES;`
-4. If you changed the MySQL root password, update `.env`
+3. Make sure the `tems` database exists: `\l` in psql to list databases
+4. If you changed the PostgreSQL password, update `.env`
 
 ### "Cannot find module 'express'" or similar
 
@@ -2659,17 +2789,17 @@ The `seed.sql` and `seed_extra.sql` files are **deprecated** — they use the ol
 2. Check the **Console** tab for red error messages
 3. Common cause: server isn't running, so API calls fail
 
-### "Port 5000 already in use"
+### "Port 2001 already in use"
 
-**Cause:** Something else is using port 5000 (common on macOS with AirPlay).
+**Cause:** Something else is using port 2001.
 
 **Fix:** Change the port in `server/.env`:
 ```
-PORT=5001
+PORT=2002
 ```
 And update `client/vite.config.js`:
 ```javascript
-proxy: { '/api': { target: 'http://localhost:5001' } }
+proxy: { '/api': { target: 'http://localhost:2002' } }
 ```
 
 ### Data not showing up / empty tables
@@ -2722,7 +2852,7 @@ npm run seed
 | **MRC** | Monthly Recurring Charge — the amount billed every month for a service |
 | **Middleware** | Code that processes requests before they reach the main handler (e.g., CORS, JSON parsing) |
 | **Modal** | A popup dialog that overlays the page, often used for forms |
-| **MySQL** | A relational database management system (RDBMS) that stores data in tables |
+| **PostgreSQL** | A relational database management system (RDBMS) that stores data in tables. TEMS uses PostgreSQL by default |
 | **Node.js** | A runtime that lets you execute JavaScript on a server (outside the browser) |
 | **NPM** | Node Package Manager — installs and manages JavaScript libraries |
 | **NRC** | Non-Recurring Charge — a one-time fee billed for a service (e.g., installation, activation) |
@@ -2782,15 +2912,26 @@ npm run seed
 
 ---
 
-## 19. Prompt Log & Living Documentation
+## 19. Testing & Living Documentation
 
-### Prompt Log
+### Testing
 
-Every design and feature prompt used to build TEMS is recorded in [PROMPT_LOG.md](PROMPT_LOG.md). This provides a chronological history of every major change — what was requested, when, and what was built.
+TEMS includes comprehensive unit tests for both server and client:
 
-**What gets logged:** Any prompt that designs a feature, adds functionality, changes the UI, modifies the database, or creates new pages/components.
+- **Server tests:** 7 suites, 92 tests (Jest + Supertest)
+- **Client tests:** 16 suites, 279 tests (Vitest + React Testing Library)
+- **Total: 371 tests, all passing**
 
-**What does NOT get logged:** Troubleshooting questions, server start commands, debugging sessions, or general Q&A.
+Run tests:
+```bash
+# Server tests
+cd server && npm test
+
+# Client tests
+cd client && npm test
+```
+
+For the full test matrix, see [README.md](README.md).
 
 ### Living Documentation
 

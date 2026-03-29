@@ -1,3 +1,9 @@
+/**
+ * @file Form instruction management list page.
+ * @module FormInstructions
+ *
+ * CRUD list page for form-level help instruction entries.
+ */
 import React, { useState } from 'react';
 import { Plus, BookOpen, Trash2 } from 'lucide-react';
 import { getFormInstructions, createFormInstruction, updateFormInstruction, deleteFormInstruction } from '../api';
@@ -15,9 +21,9 @@ const EMPTY = {
 const FILTER_CONFIG = { form_id: 'text', is_active: 'select' };
 
 export default function FormInstructions() {
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canManage = isAdmin;
+  const canManage = hasPermission('form_instructions', 'create');
 
   const table = useCrudTable({
     api: { list: getFormInstructions, create: createFormInstruction, update: updateFormInstruction, delete: deleteFormInstruction },
@@ -32,7 +38,7 @@ export default function FormInstructions() {
     { key: 'instruction', label: 'Instruction',
       render: val => <span style={{ fontSize: 12, color: '#64748b', maxWidth: 400, overflow: 'hidden', display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</span> },
     { key: 'is_active', label: 'Active', filterType: 'select', filterOptions: ['true','false'],
-      render: val => <span className={val ? 'badge badge-green' : 'badge badge-gray'}>{val ? 'Yes' : 'No'}</span> },
+      render: val => <span className={val ? 'badge badge-green' : 'badge badge-red'}>{val ? 'Yes' : 'No'}</span> },
     { key: 'created_at', label: 'Created', render: val => val ? dayjs(val).format('MM/DD/YYYY') : '—' },
   ];
 

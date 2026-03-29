@@ -1,3 +1,9 @@
+/**
+ * @file Contract detail page with rates management and related entities.
+ * @module ContractDetail
+ *
+ * Shows contract info, rate table (CRUD), linked inventory, orders, vendor lookup, notes, and change history.
+ */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,6 +21,7 @@ import Modal from '../components/Modal';
 import dayjs from 'dayjs';
 import { useConfirm } from '../context/ConfirmContext';
 import LookupField from '../components/LookupField';
+import MultiStatusSlider from '../components/MultiStatusSlider';
 import { LOOKUP_VENDORS, LOOKUP_CONTRACTS, LOOKUP_CURRENCIES } from '../utils/lookupConfigs';
 
 const STATUSES = ['Active', 'Pending', 'Expired', 'Terminated'];
@@ -162,6 +169,20 @@ export default function ContractDetail() {
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setDirty(true); };
 
+  const toggleStatus = async (newVal) => {
+    const prev = form.status;
+    setForm(p => ({ ...p, status: newVal }));
+    try {
+      const updated = await updateContract(id, { ...form, status: newVal });
+      setContract(updated.data);
+      setHistoryKey(k => k + 1);
+      showToast(`Status changed to ${newVal}.`);
+    } catch {
+      setForm(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -226,12 +247,8 @@ export default function ContractDetail() {
       {/* Header bar */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => navigate('/contracts')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/contracts')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -250,7 +267,6 @@ export default function ContractDetail() {
               </div>
             </div>
           </div>
-          <span className={STATUS_BADGE[contract.status] || 'badge badge-gray'}>{contract.status}</span>
           {contract.auto_renew === 1 && (
             <span className="badge-auto-renew">
               <RefreshCw size={10} /> Auto-Renew
@@ -274,6 +290,7 @@ export default function ContractDetail() {
             ))}
           </div>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
           {canUpdate && (
             <button
               className="btn btn-primary"
@@ -323,7 +340,7 @@ export default function ContractDetail() {
       <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Contract Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <MultiStatusSlider value={form.status} options={STATUSES} onChange={toggleStatus} disabled={!canUpdate} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -343,12 +360,6 @@ export default function ContractDetail() {
               onClear={() => set('vendors_id', '')}
               displayValue={vendors.find(v => v.vendors_id === form.vendors_id)?.name}
             />
-          </Field>
-
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
-            </select>
           </Field>
 
           <Field label="Type">

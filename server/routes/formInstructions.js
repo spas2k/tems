@@ -1,3 +1,10 @@
+/**
+ * @file formInstructions.js — Form Instructions API Routes — /api/form-instructions
+ * CRUD for form helper blurbs shown above entity forms.
+ * Configured per entity/form to guide users.
+ *
+ * @module routes/formInstructions
+ */
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
@@ -13,6 +20,11 @@ const instructionRules = [
   body('is_active').optional().isBoolean({ loose: true }),
 ];
 
+/**
+ * GET /
+ * List all form instructions, optionally filtered by ?entity.
+ * @returns Array of form instruction objects
+ */
 router.get('/', async (req, res) => {
   try {
     let q = db('form_instructions').orderBy('form_id', 'asc');
@@ -40,6 +52,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'form_instructions'); }
 });
 
+/**
+ * POST /
+ * Create or upsert a form instruction.
+ * @auth Requires role: Admin
+ * @body entity, form, title, body
+ * @returns 201 with created instruction
+ */
 router.post('/', requireRole('Admin'), instructionRules, validate, auditCreate('form_instructions', 'id'), async (req, res) => {
   try {
     const { form_id, instruction, is_active } = req.body;
@@ -57,6 +76,13 @@ router.post('/', requireRole('Admin'), instructionRules, validate, auditCreate('
   } catch (err) { safeError(res, err, 'form_instructions'); }
 });
 
+/**
+ * PUT /:id
+ * Update a form instruction.
+ * @auth Requires role: Admin
+ * @body Same as POST
+ * @returns Updated instruction
+ */
 router.put('/:id', requireRole('Admin'), idParam, instructionRules, validate, auditUpdate('form_instructions', 'id'), async (req, res) => {
   try {
     const { form_id, instruction, is_active } = req.body;
@@ -72,6 +98,12 @@ router.put('/:id', requireRole('Admin'), idParam, instructionRules, validate, au
   } catch (err) { safeError(res, err, 'form_instructions'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a form instruction.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('form_instructions', 'id'), async (req, res) => {
   try {
     await db('form_instructions').where('id', req.params.id).del();

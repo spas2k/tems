@@ -1,3 +1,9 @@
+/**
+ * @file Cost savings list page with vendor/inventory lookups.
+ * @module CostSavings
+ *
+ * CRUD list page for tracking cost savings opportunities.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Zap } from 'lucide-react';

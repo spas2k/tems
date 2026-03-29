@@ -1,3 +1,9 @@
+/**
+ * @file Cost allocation list page (read-only).
+ * @module Allocations
+ *
+ * Read-only list of cost allocations filterable by invoice, showing GL code, department, and amount details.
+ */
 import React, { useEffect, useState, useMemo } from 'react';
 import { Eye, PieChart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';

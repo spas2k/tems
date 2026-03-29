@@ -1,3 +1,12 @@
+/**
+ * @file Root application shell with routing, navigation, and global UI.
+ * @module App
+ *
+ * Defines the full application layout: sidebar navigation, header bar (with
+ * global search, notifications, recent items, favorites), breadcrumbs,
+ * AnnouncementBanner, and all <Route> definitions. Contains sub-components:
+ * GlobalSearch, RecentItems, NotificationCenter, AppShell, and ErrorBoundary.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -5,7 +14,7 @@ import {
   Receipt, PieChart, Zap, DollarSign, ChevronLeft, ChevronRight, ChevronDown, User, Search, X, Tag,
   ShieldAlert, ShieldCheck, Users, Shield, Settings, Upload, Wrench, FolderKanban, Landmark, Flag, UserCheck, BookOpen,
   BarChart2, LineChart, Bell, Clock, Command, AlertTriangle, KeyRound, Menu,
-  MapPin, CreditCard, Megaphone, Layers, Database, LifeBuoy, AlertCircle, GitBranch,
+  MapPin, CreditCard, Megaphone, Layers, Database, LifeBuoy, AlertCircle, GitBranch, Mail, Trash2, BellRing,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { getContracts, getDashboard, getNotifications, markAllNotificationsRead } from './api';
@@ -31,6 +40,10 @@ import Invoices     from './pages/Invoices';
 import InvoiceAdd   from './pages/InvoiceAdd';
 import InvoiceDetail from './pages/InvoiceDetail';
 import Allocations  from './pages/Allocations';
+import AllocationRules from './pages/AllocationRules';
+import Currencies      from './pages/Currencies';
+import CurrencyAdd     from './pages/CurrencyAdd';
+import CurrencyDetail  from './pages/CurrencyDetail';
 import CostSavings  from './pages/CostSavings';
 import CostSavingAdd from './pages/CostSavingAdd';
 import UsocCodes    from './pages/UsocCodes';
@@ -57,9 +70,15 @@ import TicketDetail    from './pages/TicketDetail';
 import TicketAdd       from './pages/TicketAdd';
 import GLCodes         from './pages/GLCodes';
 import CreateGraph     from './pages/CreateGraph';
+import Graphs         from './pages/Graphs';
+import ViewGraph       from './pages/ViewGraph';
 import Reports        from './pages/Reports';
+import ViewReport      from './pages/ViewReport';
 import CreateReport    from './pages/CreateReport';
 import RolePermissions from './pages/RolePermissions';
+import Roles           from './pages/Roles';
+import RoleForm        from './pages/RoleForm';
+import RoleDetail      from './pages/RoleDetail';
 import Locations       from './pages/Locations';
 import LocationAdd     from './pages/LocationAdd';
 import LocationDetail  from './pages/LocationDetail';
@@ -71,8 +90,15 @@ import VendorRemitDetail from './pages/VendorRemitDetail';
 import Announcements   from './pages/Announcements';
 import FormInstructions from './pages/FormInstructions';
 import SpendCategories from './pages/SpendCategories';
+import SpendCategoryAdd from './pages/SpendCategoryAdd';
+import SpendCategoryDetail from './pages/SpendCategoryDetail';
 import Workflows from './pages/Workflows';
 import WorkflowDetail from './pages/WorkflowDetail';
+import EmailConfig from './pages/EmailConfig';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminPurge from './pages/AdminPurge';
+import NotificationSettings from './pages/NotificationSettings';
+import DashboardBuilder from './pages/DashboardBuilder';
 import AnnouncementBanner from './components/AnnouncementBanner';
 import ScrollToTop from './components/ScrollToTop';
 import FavoritesPanel from './components/FavoritesPanel';
@@ -82,13 +108,38 @@ import { PageTitleContext } from './PageTitleContext';
 import { globalSearch } from './api';
 
 const SEARCH_GROUPS = [
-  { key: 'vendors',   idKey: 'accounts_id',  label: 'Vendors',   color: '#2563eb', path: id => `/vendors/${id}`,   display: r => r.name },
-  { key: 'contracts', idKey: 'contracts_id', label: 'Contracts', color: '#0d9488', path: id => `/contracts/${id}`, display: r => r.contract_number || r.name },
-  { key: 'inventory',  idKey: 'inventory_id',  label: 'Inventory',  color: '#7c3aed', path: id => `/inventory/${id}`,  display: r => r.inventory_number },
-  { key: 'orders',    idKey: 'orders_id',    label: 'Orders',    color: '#d97706', path: id => `/orders/${id}`,    display: r => r.order_number },
-  { key: 'invoices',  idKey: 'invoices_id',  label: 'Invoices',  color: '#dc2626', path: id => `/invoices/${id}`,  display: r => r.invoice_number },
-  { key: 'usoc_codes', idKey: 'usoc_codes_id', label: 'USOC Codes', color: '#9333ea', path: id => `/usoc-codes/${id}`, display: r => `${r.usoc_code} — ${r.description}` },
+  { key: 'vendors',      icon: 'V',  label: 'Vendors',      color: '#3b82f6', idKey: 'vendors_id',      path: id => `/vendors/${id}`,
+    display: r => r.name,             sub: r => [r.vendor_number, r.vendor_type].filter(Boolean).join(' · '), badge: r => r.status },
+  { key: 'accounts',     icon: 'A',  label: 'Accounts',     color: '#06b6d4', idKey: 'accounts_id',     path: id => `/accounts/${id}`,
+    display: r => r.account_number,   sub: r => [r.name, r.vendor_name].filter(Boolean).join(' · '),         badge: r => r.status },
+  { key: 'contracts',    icon: 'C',  label: 'Contracts',    color: '#0d9488', idKey: 'contracts_id',    path: id => `/contracts/${id}`,
+    display: r => r.contract_number || r.contract_name, sub: r => r.vendor_name,                          badge: r => r.status },
+  { key: 'inventory',    icon: 'I',  label: 'Inventory',    color: '#7c3aed', idKey: 'inventory_id',    path: id => `/inventory/${id}`,
+    display: r => r.inventory_number, sub: r => [r.type, r.account_name].filter(Boolean).join(' · '),       badge: r => r.status },
+  { key: 'orders',       icon: 'O',  label: 'Orders',       color: '#d97706', idKey: 'orders_id',       path: id => `/orders/${id}`,
+    display: r => r.order_number,     sub: r => [r.vendor_name, r.description].filter(Boolean).join(' · '), badge: r => r.status },
+  { key: 'invoices',     icon: '$',  label: 'Invoices',     color: '#ef4444', idKey: 'invoices_id',     path: id => `/invoices/${id}`,
+    display: r => r.invoice_number,   sub: r => r.account_name,                                             badge: r => r.status,
+    extra: r => r.total_amount != null ? `$${Number(r.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : null },
+  { key: 'locations',    icon: 'L',  label: 'Locations',    color: '#10b981', idKey: 'locations_id',    path: id => `/locations/${id}`,
+    display: r => r.name,             sub: r => [r.city, r.state, r.site_code].filter(Boolean).join(', '),  badge: r => r.status },
+  { key: 'disputes',     icon: 'D',  label: 'Disputes',     color: '#f59e0b', idKey: 'disputes_id',     path: id => `/disputes/${id}`,
+    display: r => r.reference_number || `#${r.disputes_id}`, sub: r => [r.dispute_type, r.vendor_name].filter(Boolean).join(' · '), badge: r => r.status,
+    extra: r => r.amount != null ? `$${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : null },
+  { key: 'tickets',      icon: 'T',  label: 'Tickets',      color: '#ec4899', idKey: 'tickets_id',      path: id => `/tickets/${id}`,
+    display: r => r.ticket_number || `#${r.tickets_id}`, sub: r => r.title,                               badge: r => r.status },
+  { key: 'cost_savings', icon: 'S',  label: 'Savings',      color: '#22c55e', idKey: 'cost_savings_id', path: id => `/cost-savings/${id}`,
+    display: r => r.category || 'Savings', sub: r => [r.description, r.vendor_name].filter(Boolean).join(' · '), badge: r => r.status,
+    extra: r => r.projected_savings != null ? `$${Number(r.projected_savings).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : null },
+  { key: 'usoc_codes',   icon: 'U',  label: 'USOC Codes',   color: '#8b5cf6', idKey: 'usoc_codes_id',   path: id => `/usoc-codes/${id}`,
+    display: r => r.usoc_code,        sub: r => [r.description, r.category].filter(Boolean).join(' · '), badge: r => r.status },
 ];
+
+const BADGE_COLORS = {
+  Active: '#22c55e', Open: '#3b82f6', Paid: '#22c55e', Unpaid: '#ef4444',
+  Closed: '#64748b', Resolved: '#22c55e', 'In Progress': '#f59e0b',
+  Disputed: '#f59e0b', Pending: '#f59e0b', Expired: '#ef4444',
+};
 
 function GlobalSearch() {
   const navigate = useNavigate();
@@ -118,7 +169,8 @@ function GlobalSearch() {
         const res = await globalSearch(val.trim());
         setResults(res.data);
         setOpen(true);
-      } finally { setLoading(false); }
+      } catch { setResults(null); }
+      finally { setLoading(false); }
     }, 300);
   };
 
@@ -137,12 +189,12 @@ function GlobalSearch() {
         onFocusCapture={e => e.currentTarget.style.borderColor = '#3b82f6'}
         onBlurCapture={e => e.currentTarget.style.borderColor = '#93c5fd'}
       >
-        <Search size={16} color={loading ? '#3b82f6' : '#64748b'} style={{ flexShrink: 0 }} />
+        <Search size={16} color={loading ? '#3b82f6' : '#64748b'} style={{ flexShrink: 0, animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         <input
           value={query}
           onChange={handleChange}
           onFocus={() => results && setOpen(true)}
-          placeholder="Search accounts, inventory, orders…"
+          placeholder="Search all assets…  (Ctrl+K)"
           className="global-search-input"
           style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, fontWeight: 500 }}
         />
@@ -150,14 +202,15 @@ function GlobalSearch() {
       </div>
 
       {open && results && (
-        <div className="us-dropdown" style={{
-          position: 'absolute', top: 50, left: '50%', transform: 'translateX(-50%)', width: 420, maxHeight: 500,
-          borderRadius: 12,
-          overflowY: 'auto', zIndex: 9999,
+        <div style={{
+          position: 'absolute', top: 52, left: '50%', transform: 'translateX(-50%)',
+          width: 520, maxHeight: 560, borderRadius: 14, overflowY: 'auto', zIndex: 9999,
+          background: '#0f172a', border: '1px solid #1e293b',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
         }}>
           {total === 0 ? (
-            <div style={{ padding: '28px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
-              No results for <strong>"{query}"</strong>
+            <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+              No results for <strong style={{ color: '#94a3b8' }}>"{query}"</strong>
             </div>
           ) : (
             SEARCH_GROUPS.map(group => {
@@ -166,27 +219,74 @@ function GlobalSearch() {
               return (
                 <div key={group.key}>
                   <div style={{
-                    padding: '8px 16px 4px', fontSize: 10, fontWeight: 800,
-                    textTransform: 'uppercase', letterSpacing: '0.8px', color: '#94a3b8',
-                    borderTop: '1px solid #f1f5f9', background: '#fafafa',
-                  }}>{group.label}</div>
-                  {items.map(r => (
-                    <div key={r[group.idKey]} onClick={() => go(group.path(r[group.idKey]))}
-                      style={{ padding: '9px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: group.color, flexShrink: 0 }} />
-                      <span style={{ fontWeight: 700, fontSize: 13, color: group.color, flexShrink: 0 }}>{group.display(r)}</span>
-                      {r.sub && <span style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sub}</span>}
-                    </div>
-                  ))}
+                    padding: '10px 16px 6px', fontSize: 10, fontWeight: 800,
+                    textTransform: 'uppercase', letterSpacing: '1px', color: group.color,
+                    background: '#0f172a', position: 'sticky', top: 0, zIndex: 2,
+                    borderBottom: '1px solid #1e293b',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <span style={{
+                      width: 20, height: 20, borderRadius: 6, fontSize: 10, fontWeight: 900,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: `${group.color}25`, color: group.color,
+                    }}>{group.icon}</span>
+                    {group.label}
+                    <span style={{ color: '#475569', fontWeight: 600, marginLeft: 'auto' }}>{items.length}</span>
+                  </div>
+                  {items.map(r => {
+                    const badgeText = group.badge?.(r);
+                    const extraText = group.extra?.(r);
+                    return (
+                      <div key={r[group.idKey]} onClick={() => go(group.path(r[group.idKey]))}
+                        style={{
+                          padding: '10px 16px', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          borderBottom: '1px solid #1e293b20',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#1e293b'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0', whiteSpace: 'nowrap' }}>
+                              {group.display(r)}
+                            </span>
+                            {badgeText && (
+                              <span style={{
+                                fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
+                                background: `${BADGE_COLORS[badgeText] || '#475569'}22`,
+                                color: BADGE_COLORS[badgeText] || '#94a3b8',
+                                textTransform: 'uppercase', letterSpacing: '0.5px', flexShrink: 0,
+                              }}>{badgeText}</span>
+                            )}
+                          </div>
+                          {group.sub(r) && (
+                            <div style={{
+                              fontSize: 11, color: '#64748b', marginTop: 2,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>{group.sub(r)}</div>
+                          )}
+                        </div>
+                        {extraText && (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                            {extraText}
+                          </span>
+                        )}
+                        <ChevronRight size={14} color="#334155" style={{ flexShrink: 0 }} />
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })
           )}
-          <div style={{ padding: '8px 16px', borderTop: '1px solid #f1f5f9', fontSize: 11, color: '#cbd5e1', textAlign: 'right' }}>
-            {total} result{total !== 1 ? 's' : ''}
+          <div style={{
+            padding: '8px 16px', borderTop: '1px solid #1e293b',
+            fontSize: 11, color: '#475569', textAlign: 'right', background: '#0f172a',
+            position: 'sticky', bottom: 0,
+          }}>
+            {total} result{total !== 1 ? 's' : ''} across {SEARCH_GROUPS.filter(g => (results[g.key] || []).length > 0).length} categories
           </div>
         </div>
       )}
@@ -274,6 +374,10 @@ function NotificationCenter() {
   const [dismissed, setDismissed] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tems-dismissed-notifs')) || []; } catch { return []; }
   });
+  const [shaking, setShaking] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const prevUnreadIds = useRef(new Set());
+  const initialLoadDone = useRef(false);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -346,12 +450,49 @@ function NotificationCenter() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 60000); // refresh every 60s
-    return () => clearInterval(interval);
+    const interval = setInterval(load, 15000); // refresh every 15s
+    // Allow instant refresh from anywhere via custom event
+    const refresh = () => setTimeout(load, 500); // small delay for DB write to complete
+    window.addEventListener('tems-notification-refresh', refresh);
+    return () => { clearInterval(interval); window.removeEventListener('tems-notification-refresh', refresh); };
   }, []);
 
   // DB notifications are unread when is_read=false; computed ones when not dismissed
   const unread = notifications.filter(n => n.dbId ? !n.isDbRead : !dismissed.includes(n.id));
+
+  // Detect newly-arrived unread notifications → shake bell + show toast
+  useEffect(() => {
+    const currentIds = new Set(unread.map(n => n.id));
+    const isFirstLoad = !initialLoadDone.current;
+
+    if (isFirstLoad && unread.length > 0) {
+      // Shake the bell on initial load if there are unread notifications
+      initialLoadDone.current = true;
+      setShaking(true);
+      setTimeout(() => setShaking(false), 650);
+    } else if (!isFirstLoad) {
+      const newItems = unread.filter(n => !prevUnreadIds.current.has(n.id));
+      if (newItems.length > 0) {
+        // Shake the bell
+        setShaking(true);
+        setTimeout(() => setShaking(false), 650);
+        // Show toast for each new notification (max 3)
+        const incoming = newItems.slice(0, 3).map(n => ({ ...n, _toastId: `${n.id}-${Date.now()}` }));
+        setToasts(prev => [...incoming, ...prev].slice(0, 5));
+        incoming.forEach(t => {
+          setTimeout(() => setToasts(prev => prev.filter(x => x._toastId !== t._toastId)), 5000);
+        });
+      }
+    }
+
+    if (isFirstLoad && unread.length === 0) initialLoadDone.current = true;
+    prevUnreadIds.current = currentIds;
+  }, [unread.map(n => n.id).join(',')]);
+
+  const dismissToast = (toastId, path) => {
+    setToasts(prev => prev.filter(t => t._toastId !== toastId));
+    if (path) { navigate(path); setOpen(false); }
+  };
 
   const dismissAll = async () => {
     try { await markAllNotificationsRead(); } catch {}
@@ -364,8 +505,9 @@ function NotificationCenter() {
   const TYPE_ICON_COLOR = { danger: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
 
   return (
+    <>
     <div ref={ref} style={{ position: 'relative' }}>
-      <div className="notification-bell" onClick={() => setOpen(p => !p)}>
+      <div className={`notification-bell${shaking ? ' shaking' : ''}`} onClick={() => setOpen(p => !p)}>
         <Bell size={20} color="#64748b" />
         {unread.length > 0 && <span className="notification-badge">{unread.length > 9 ? '9+' : unread.length}</span>}
       </div>
@@ -373,18 +515,16 @@ function NotificationCenter() {
         <div className="notification-dropdown">
           <div className="notification-dropdown-header">
             <span>Notifications</span>
-            {unread.length > 0 && (
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={dismissAll}>
-                Mark all read
-              </button>
-            )}
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={dismissAll}>
+              Mark all read
+            </button>
           </div>
           <div style={{ maxHeight: 360, overflowY: 'auto' }}>
             {notifications.length === 0 ? (
               <div style={{ padding: '24px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                 No notifications
               </div>
-            ) : notifications.map(n => {
+            ) : notifications.slice(0, 10).map(n => {
               const isUnread = n.dbId ? !n.isDbRead : !dismissed.includes(n.id);
               return (
                 <div key={n.id}
@@ -405,6 +545,20 @@ function NotificationCenter() {
         </div>
       )}
     </div>
+    {toasts.length > 0 && (
+        <div className="notification-toast">
+          {toasts.map(t => (
+            <div key={t._toastId} className="notification-toast-item" onClick={() => dismissToast(t._toastId, t.path)}>
+              <AlertTriangle size={16} color={TYPE_ICON_COLOR[t.type]} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="toast-title" style={{ color: TYPE_ICON_COLOR[t.type] }}>{t.title}</div>
+                <div className="toast-message">{t.message}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -413,6 +567,7 @@ const NAV = [
   { path: '/vendors',  icon: Landmark,  label: 'Vendors',
     children: [
       { path: '/vendors',           icon: Landmark,    label: 'All Vendors' },
+      { path: '/accounts',          icon: Building2,   label: 'All Accounts' },
       { path: '/vendor-remit',      icon: CreditCard,  label: 'Vendor Remit' },
     ],
   },
@@ -429,7 +584,6 @@ const NAV = [
       { path: '/usoc-codes', icon: Tag,         label: 'USOC Codes' },
       { path: '/disputes',   icon: ShieldAlert, label: 'Disputes' },
       { path: '/rate-audit', icon: ShieldCheck, label: 'Rate Audit' },
-      { path: '/audit-log',  icon: Shield,      label: 'Audit Log' },
     ],
   },
   { path: '/orders',       icon: ShoppingCart,    label: 'Orders',
@@ -442,7 +596,9 @@ const NAV = [
     children: [
       { path: '/invoices',          icon: Receipt,   label: 'All Invoices' },
       { path: '/allocations',       icon: PieChart,  label: 'Allocations' },
+      { path: '/allocation-rules',   icon: PieChart,  label: 'Allocation Rules' },
       { path: '/invoice-approvers', icon: UserCheck, label: 'Invoice Approvers' },
+      { path: '/currencies',        icon: DollarSign, label: 'Currencies' },
       { path: '/invoice-reader',    icon: Upload,    label: 'Invoice Reader' },
       { path: '/reader-profiles',     icon: Settings,  label: 'Reader Profiles' },
       { path: '/reader-exceptions',   icon: AlertTriangle, label: 'Reader Exceptions' },
@@ -450,9 +606,9 @@ const NAV = [
   },
   { path: '/tickets', icon: LifeBuoy, label: 'Tickets & Issues',
     children: [
-      { path: '/tickets',              icon: LifeBuoy,     label: 'All Tickets' },
-      { path: '/tickets?my=1',         icon: UserCheck,    label: 'My Tickets' },
-      { path: '/tickets?status=Open',  icon: AlertCircle,  label: 'Open Issues' },
+      { path: '/tickets',              icon: LifeBuoy,     label: 'All Tickets',  roles: ['Admin', 'Manager'] },
+      { path: '/tickets',              icon: UserCheck,    label: 'My Tickets',   state: { filters: { assigned_user_name: '__MY__' } } },
+      { path: '/tickets',              icon: AlertCircle,  label: 'Open Issues',  roles: ['Admin', 'Manager'], state: { filters: { status: 'Open' } } },
     ],
   },
   { path: '/locations', icon: MapPin, label: 'Locations',
@@ -471,19 +627,26 @@ const NAV = [
     children: [
       { path: '/reports',       icon: BarChart2, label: 'All Reports' },
       { path: '/create-report', icon: FileText,  label: 'Create Report' },
+      { path: '/graphs',        icon: LineChart, label: 'All Graphs' },
       { path: '/create-graph',  icon: LineChart, label: 'Create Graph' },
     ],
   },
   {
     path: '/administration', icon: Wrench, label: 'Administration', adminOnly: true,
     children: [
+      { path: '/administration',    icon: BarChart2, label: 'Admin Dashboard' },
       { path: '/batch-upload',      icon: Upload,    label: 'Batch Upload' },
       { path: '/users',             icon: Users,     label: 'Users' },
+      { path: '/roles',             icon: Shield,    label: 'Roles' },
       { path: '/role-permissions',  icon: KeyRound,  label: 'Role Permissions' },
       { path: '/field-catalog',     icon: Database,  label: 'Field Catalog' },
       { path: '/form-instructions', icon: BookOpen,  label: 'Form Instructions' },
       { path: '/announcements',     icon: Megaphone, label: 'Announcements' },
       { path: '/workflows',         icon: GitBranch, label: 'Workflows' },
+      { path: '/email-config',      icon: Mail,      label: 'Email Config' },
+      { path: '/notification-settings', icon: BellRing, label: 'Notification Settings' },
+      { path: '/audit-log',         icon: Shield,    label: 'Audit Log' },
+      { path: '/admin-purge',       icon: Trash2,    label: 'Purge Tool' },
     ],
   },
 
@@ -513,6 +676,8 @@ const PAGE_META = {
   '/disputes/:id': { label: 'Dispute Detail', sub: 'View and edit dispute' },
   '/rate-audit':   { label: 'Rate Audit',  sub: 'Contract rate compliance validation' },
   '/allocations':  { label: 'Allocations', sub: 'Cost center allocations' },
+  '/allocation-rules': { label: 'Allocation Rules', sub: 'Define cost center splits per account' },
+  '/currencies':   { label: 'Currencies', sub: 'Currency code management' },
   '/invoice-reader': { label: 'Invoice Reader', sub: 'Dynamic invoice parsing & batch import' },
   '/reader-profiles':  { label: 'Reader Profiles', sub: 'Automated processing profiles & match rules' },
   '/reader-exceptions': { label: 'Reader Exceptions', sub: 'Processing exceptions & resolution queue' },
@@ -525,9 +690,13 @@ const PAGE_META = {
   '/users':        { label: 'Users',       sub: 'User accounts & role assignments' },
   '/audit-log':    { label: 'Audit Log',   sub: 'System activity history' },
   '/preferences':    { label: 'Preferences', sub: 'User preferences & settings' },
-  '/administration': { label: 'Administration', sub: 'System administration tools' },
+  '/administration': { label: 'Administration', sub: 'System health & administrative overview' },
+  '/admin-purge':    { label: 'Purge Tool',      sub: 'Cascade delete vendors, invoices, or inventory' },
   '/batch-upload':   { label: 'Batch Upload', sub: 'Import data from Excel templates' },
   '/role-permissions': { label: 'Role Permissions', sub: 'Configure access control for each user role' },
+  '/roles':            { label: 'Roles',            sub: 'Manage system roles' },
+  '/roles/new':        { label: 'New Role',          sub: 'Create a new role' },
+  '/roles/:id':        { label: 'Role Detail',       sub: 'View and manage role' },
   '/locations':      { label: 'Locations',        sub: 'InventoryItem installation site locations' },
   '/locations/new':  { label: 'New Location',     sub: 'Add a new site location' },
   '/locations/:id':  { label: 'Location Detail',  sub: 'View and edit location' },
@@ -538,12 +707,19 @@ const PAGE_META = {
   '/vendor-remit/:id': { label: 'Remit Detail',   sub: 'View and edit remittance record' },
   '/announcements':  { label: 'Announcements',    sub: 'System-wide announcement banners' },
   '/workflows':      { label: 'Workflows',         sub: 'Workflow execution history & flowcharts' },
+  '/email-config':   { label: 'Email Config',      sub: 'SMTP settings & notification email management' },
+  '/notification-settings': { label: 'Notification Settings', sub: 'Manage notification types and delivery preferences' },
   '/form-instructions': { label: 'Form Instructions', sub: 'Manage user form helper blurbs' },
   '/spend-categories': { label: 'Spend Categories', sub: 'Spending classification hierarchy' },
+  '/spend-categories/new': { label: 'New Category', sub: 'Create a new spend category' },
+  '/spend-categories/:id': { label: 'Category Detail', sub: 'View and edit spend category' },
   '/tickets':        { label: 'Tickets & Issues', sub: 'Issue tracking and resolution' },
   '/tickets/new':    { label: 'New Ticket',        sub: 'Create a new ticket' },
   '/tickets/:id':    { label: 'Ticket Detail',    sub: 'View and manage a ticket' },
   '/reports':        { label: 'Reports',      sub: 'Graphs and custom reports' },
+  '/reports/:id':    { label: 'View Report',  sub: 'Report data view' },
+  '/graphs':         { label: 'Graphs',       sub: 'Saved graph configurations' },
+  '/graphs/:id':     { label: 'View Graph',   sub: 'Graph data view' },
   '/create-graph':   { label: 'Create Graph', sub: 'Build a custom chart' },
   '/create-report':  { label: 'Create Report', sub: 'Build a custom report' },
 };
@@ -609,7 +785,7 @@ function AppShell() {
   // A child nav item is visible only if the user has `resource:read`.
   // Paths not listed here (Dashboard, Reports, etc.) are always visible.
   const NAV_RESOURCE = {
-    '/vendors':            'accounts',
+    '/vendors':            'vendors',
     '/contracts':          'contracts',
     '/usoc-codes':         'usoc_codes',
     '/disputes':           'disputes',
@@ -623,18 +799,26 @@ function AppShell() {
     '/invoices':           'invoices',
     '/allocations':        'allocations',
     '/invoice-approvers':  'invoices',
-    '/invoice-reader':     'invoices',
-    '/reader-profiles':    'invoices',
-    '/reader-exceptions':  'invoices',
+    '/invoice-reader':     'invoice_reader_uploads',
+    '/reader-profiles':    'invoice_reader_uploads',
+    '/reader-exceptions':  'invoice_reader_uploads',
     '/batch-upload':       'users',
     '/users':              'users',
     '/role-permissions':   'roles',
-    '/locations':          'accounts',
-    '/vendor-remit':       'accounts',
-    '/field-catalog':      'users',
-    '/announcements':      'roles',
-    '/form-instructions':  'roles',
-    '/spend-categories':   'accounts',
+    '/roles':              'roles',
+    '/locations':          'locations',
+    '/vendor-remit':       'vendor_remit',
+    '/field-catalog':      'field_catalog',
+    '/announcements':      'announcements',
+    '/form-instructions':  'form_instructions',
+    '/spend-categories':   'spend_categories',
+    '/tickets':            'tickets',
+    '/reports':            'reports',
+    '/create-report':      'reports',
+    '/graphs':             'reports',
+    '/create-graph':       'reports',
+    '/workflows':          'roles',
+    '/email-config':       'roles',
   };
 
   // Filter NAV: hide adminOnly groups from non-admins; hide children the
@@ -644,6 +828,7 @@ function AppShell() {
     .map(item => {
       if (!item.children) return item;
       const visible = item.children.filter(c => {
+        if (c.roles && !c.roles.includes(user?.role_name)) return false;
         const res = NAV_RESOURCE[c.path];
         return !res || hasPermission(res, 'read');
       });
@@ -707,7 +892,7 @@ function AppShell() {
 
   // Auto-collapse sidebar on report builder to maximise canvas space
   useEffect(() => {
-    if (location.pathname === '/create-report') {
+    if (location.pathname === '/create-report' || location.pathname === '/create-graph') {
       setCollapsed(true);
       setManualOverride(true);
     }
@@ -886,12 +1071,10 @@ function AppShell() {
                     if (isGroup) {
                       if (collapsed) {
                         // flyout is shown via hover; clicking navigates to the parent page
-                        const pureContainers = ['/administration'];
-                        navigate(pureContainers.includes(path) ? children[0]?.path || path : path);
+                        navigate(path);
                       } else {
                         toggleGroup(path);
-                        const pureContainers = ['/administration'];
-                        navigate(pureContainers.includes(path) ? children[0]?.path || path : path);
+                        navigate(path);
                       }
                     } else {
                       navigate(path);
@@ -930,13 +1113,14 @@ function AppShell() {
                 {/* Submenu */}
                 {isGroup && navExpanded && (
                   <div className={`nav-submenu${groupOpen ? ' open' : ''}`}>
-                    {children.map(({ path: cp, icon: CIcon, label: clabel }) => {
-                      const cActive = activeKey === cp || activeKey.startsWith(cp + '/');
+                    {children.map(({ path: cp, icon: CIcon, label: clabel, state: cState }) => {
+                      const pathMatch = activeKey === cp || activeKey.startsWith(cp + '/');
+                      const cActive = pathMatch && !cState;
                       return (
                         <div
-                          key={cp}
+                          key={cp + clabel}
                           className={`nav-subitem${cActive ? ' active' : ''}`}
-                          onClick={() => navigate(cp)}
+                          onClick={() => navigate(cp, cState ? { state: cState } : undefined)}
                           title={clabel}
                         >
                           <CIcon size={14} style={{ flexShrink: 0 }} />
@@ -990,13 +1174,14 @@ function AppShell() {
             <div style={{ padding: '10px 16px 8px', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 4 }}>
               {groupItem.label}
             </div>
-            {groupItem.children.map(({ path: cp, icon: CIcon, label: clabel }) => {
-              const cActive = activeKey === cp || activeKey.startsWith(cp + '/');
+            {groupItem.children.map(({ path: cp, icon: CIcon, label: clabel, state: cState }) => {
+              const pathMatch = activeKey === cp || activeKey.startsWith(cp + '/');
+              const cActive = pathMatch && !cState;
               return (
                 <div
-                  key={cp}
+                  key={cp + clabel}
                   className={`nav-subitem${cActive ? ' active' : ''}`}
-                  onClick={() => { navigate(cp); setFlyoutGroup(null); }}
+                  onClick={() => { navigate(cp, cState ? { state: cState } : undefined); setFlyoutGroup(null); }}
                 >
                   <CIcon size={14} style={{ flexShrink: 0 }} />
                   <span>{clabel}</span>
@@ -1127,6 +1312,10 @@ function AppShell() {
             <Route path="/disputes/:id"  element={<DisputeDetail />} />
             <Route path="/rate-audit"    element={<RateAudit />} />
             <Route path="/allocations"  element={<Allocations />} />
+            <Route path="/allocation-rules" element={<AllocationRules />} />
+            <Route path="/currencies"     element={<Currencies />} />
+            <Route path="/currencies/new" element={<CurrencyAdd />} />
+            <Route path="/currencies/:id" element={<CurrencyDetail />} />
             <Route path="/cost-savings" element={<CostSavings />} />
             <Route path="/cost-savings/new" element={<CostSavingAdd />} />
             <Route path="/projects"           element={<Projects />} />
@@ -1138,9 +1327,16 @@ function AppShell() {
             <Route path="/users/:id"   element={<UserDetail />} />
             <Route path="/audit-log"   element={<AuditLog />} />
             <Route path="/preferences" element={<Preferences />} />
+            <Route path="/dashboard-builder" element={<DashboardBuilder />} />
             <Route path="/batch-upload" element={<BatchUpload />} />
             <Route path="/role-permissions" element={<RolePermissions />} />
+            <Route path="/roles"       element={<Roles />} />
+            <Route path="/roles/new"   element={<RoleForm />} />
+            <Route path="/roles/:id"   element={<RoleDetail />} />
             <Route path="/create-graph"  element={<CreateGraph />} />
+            <Route path="/graphs/:id"    element={<ViewGraph />} />
+            <Route path="/graphs"         element={<Graphs />} />
+            <Route path="/reports/:id"   element={<ViewReport />} />
             <Route path="/reports"       element={<Reports />} />
             <Route path="/create-report" element={<CreateReport />} />
             <Route path="/locations"       element={<Locations />} />
@@ -1154,11 +1350,18 @@ function AppShell() {
             <Route path="/announcements"   element={<Announcements />} />
             <Route path="/form-instructions" element={<FormInstructions />} />
             <Route path="/spend-categories" element={<SpendCategories />} />
+            <Route path="/spend-categories/new" element={<SpendCategoryAdd />} />
+            <Route path="/spend-categories/:id" element={<SpendCategoryDetail />} />
             <Route path="/tickets"      element={<Tickets />} />
             <Route path="/tickets/new" element={<TicketAdd />} />
             <Route path="/tickets/:id" element={<TicketDetail />} />
             <Route path="/workflows"    element={<Workflows />} />
             <Route path="/workflows/:id" element={<WorkflowDetail />} />
+            <Route path="/email-config" element={<EmailConfig />} />
+            <Route path="/notification-settings" element={<NotificationSettings />} />
+            <Route path="/admin-purge" element={<AdminPurge />} />
+            <Route path="/administration" element={<AdminDashboard />} />
+
           </Routes>
           </ErrorBoundary>
         </div>

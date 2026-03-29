@@ -1,3 +1,10 @@
+/**
+ * @file Favorites management context for bookmark functionality.
+ * @module FavoritesContext
+ *
+ * Loads user favorites from the API on mount. Provides CRUD operations with
+ * dedup-aware addFavorite that replaces existing entries sharing the same key.
+ */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getFavorites, createFavorite, renameFavorite as apiRename, deleteFavorite } from '../api';
 
@@ -16,6 +23,11 @@ function normalize(row) {
   };
 }
 
+/**
+ * @component FavoritesProvider
+ * @param {Object} props - { children }
+ * Fetches favorites on mount and provides CRUD operations.
+ */
 export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
 
@@ -63,6 +75,10 @@ export function FavoritesProvider({ children }) {
   );
 }
 
+/**
+ * @function useFavorites
+ * Returns { favorites, addFavorite, removeFavorite, renameFavorite, isFavorited }.
+ */
 export function useFavorites() {
   return useContext(FavoritesContext);
 }

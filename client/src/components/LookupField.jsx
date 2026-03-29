@@ -1,3 +1,19 @@
+/**
+ * @file Read-only input that opens a LookupModal for record selection.
+ * @module LookupField
+ *
+ * @param {string} props.label - Field label text
+ * @param {number|string|null} props.value - Currently selected record ID
+ * @param {Function} props.onChange - Callback with selected record ID
+ * @param {Function} props.onClear - Callback to clear the selection
+ * @param {string} props.placeholder - Placeholder text (default "Select...")
+ * @param {boolean} props.disabled - Whether the field is read-only
+ * @param {string} props.modalTitle - Title for the lookup modal
+ * @param {Array} props.data - Array of records to search/select from
+ * @param {Array} props.columns - Column definitions for the lookup table
+ * @param {Array} props.searchableKeys - Object keys to include in search matching
+ * @param {string} props.displayValue - Display text for the currently selected value
+ */
 ﻿import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import LookupModal from './LookupModal';

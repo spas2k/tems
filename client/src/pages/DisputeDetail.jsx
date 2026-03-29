@@ -1,3 +1,9 @@
+/**
+ * @file Dispute detail page with vendor/invoice lookup.
+ * @module DisputeDetail
+ *
+ * Shows dispute info with vendor and invoice lookups, notes, and change history.
+ */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -6,6 +12,7 @@ import { getDispute, updateDispute, getVendors, getInvoices } from '../api';
 import LookupField from '../components/LookupField';
 import { LOOKUP_VENDORS, LOOKUP_INVOICES } from '../utils/lookupConfigs';
 import DetailHeader from '../components/DetailHeader';
+import MultiStatusSlider from '../components/MultiStatusSlider';
 import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
 
@@ -89,6 +96,24 @@ export default function DisputeDetail() {
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setDirty(true); };
 
+  const toggleStatus = async (newVal) => {
+    const prev = form.status;
+    setForm(p => ({ ...p, status: newVal }));
+    try {
+      const payload = { ...form, status: newVal };
+      if (!payload.resolved_date) payload.resolved_date = null;
+      if (!payload.credit_amount) payload.credit_amount = null;
+      if (!payload.line_items_id) payload.line_items_id = null;
+      const { data } = await updateDispute(id, payload);
+      setDispute(data);
+      setHistoryKey(k => k + 1);
+      showToast(`Status changed to ${newVal}.`);
+    } catch {
+      setForm(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -128,7 +153,7 @@ export default function DisputeDetail() {
       {/* Header */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/disputes')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ArrowLeft size={16} /> Back</button>
+          <button className="btn-back" onClick={() => navigate('/disputes')}><ArrowLeft size={15} /><span className="btn-back-label">Back</span></button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--icon-bg-red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -186,8 +211,12 @@ export default function DisputeDetail() {
       </div>
 
       {/* Form */}
-      <div className="page-card" ref={refs.details} style={{ padding: 20, scrollMarginTop: 80 }}>
-        <div className="rc-results-count" style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Dispute Details</div>
+      <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
+        <div className="page-card-header">
+          <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Dispute Details</span>
+          <MultiStatusSlider value={form.status} options={STATUSES} onChange={toggleStatus} />
+        </div>
+        <div style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <Field label="Account">
             <LookupField
@@ -210,11 +239,6 @@ export default function DisputeDetail() {
           <Field label="Dispute Type">
             <select className="form-input" value={form.dispute_type} onChange={e => set('dispute_type', e.target.value)}>
               {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
           <Field label="Amount">
@@ -242,6 +266,7 @@ export default function DisputeDetail() {
             <textarea className="form-input" rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
           </Field>
         </div>
+      </div>
       </div>
       <div ref={refs.history} style={{ scrollMarginTop: 80 }}>
         <ChangeHistory resource="disputes" resourceId={id} refreshKey={historyKey} />

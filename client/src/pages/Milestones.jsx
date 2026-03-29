@@ -1,3 +1,9 @@
+/**
+ * @file Placeholder page for order milestone tracking (coming soon).
+ * @module Milestones
+ *
+ * Renders a "Coming Soon" placeholder.
+ */
 import React from 'react';
 import { Flag } from 'lucide-react';
 

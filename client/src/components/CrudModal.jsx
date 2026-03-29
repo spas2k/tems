@@ -1,3 +1,17 @@
+/**
+ * @file Config-driven modal form for create/edit operations.
+ * @module CrudModal
+ *
+ * @param {boolean} props.open - Whether the modal is visible
+ * @param {string} props.title - Modal header title
+ * @param {Function} props.onClose - Callback when the modal is dismissed
+ * @param {Function} props.onSave - Callback when Save is clicked
+ * @param {Object} props.form - Current form state object
+ * @param {Function} props.setField - setField(fieldName, value) state setter
+ * @param {Array} props.fields - Array of field config objects ({ key, label, type, options, ... })
+ * @param {number} props.width - Modal width in pixels
+ * @param {ReactNode} props.children - Additional content below auto-rendered fields
+ */
 import React from 'react';
 import Modal from './Modal';
 import { useLocation } from 'react-router-dom';

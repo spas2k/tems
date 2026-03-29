@@ -1,3 +1,9 @@
+/**
+ * @file Field catalog entries for a specific category.
+ * @module FieldCatalogDetail
+ *
+ * CRUD list page for field entries within a single category.
+ */
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Database, ArrowLeft, Trash2 } from 'lucide-react';
@@ -13,8 +19,8 @@ export default function FieldCatalogDetail() {
   const navigate     = useNavigate();
   const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canCreate = hasPermission('accounts', 'create');
-  const canDelete  = hasPermission('accounts', 'delete');
+  const canCreate = hasPermission('field_catalog', 'create');
+  const canDelete  = hasPermission('field_catalog', 'delete');
 
   const categoryName = decodeURIComponent(category);
 
@@ -38,7 +44,7 @@ export default function FieldCatalogDetail() {
     {
       key: 'is_active', label: 'Active',
       render: val => (
-        <span className={val ? 'badge badge-green' : 'badge badge-gray'}>
+        <span className={val ? 'badge badge-green' : 'badge badge-red'}>
           {val ? 'Yes' : 'No'}
         </span>
       ),
@@ -64,11 +70,10 @@ export default function FieldCatalogDetail() {
       {/* Back nav */}
       <div>
         <button
-          className="btn btn-ghost btn-sm"
+          className="btn-back"
           onClick={() => navigate('/field-catalog')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#64748b' }}
         >
-          <ArrowLeft size={14} /> Back to Field Catalog
+          <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
         </button>
       </div>
 

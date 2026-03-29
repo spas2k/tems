@@ -1,7 +1,14 @@
+/**
+ * @file Header dropdown for demo user impersonation switching.
+ * @module UserSwitcher
+ *
+ * Shows the current user avatar/role in the header. Dropdown lists searchable demo users for impersonation. Includes link to Preferences page.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Check, LogOut, Settings, User, Search } from 'lucide-react';
+import { ChevronDown, LogOut, Settings, User, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import LookupModal from './LookupModal';
 
 const ROLE_COLORS = {
   Admin:   { bg: '#2563eb', text: '#fff', badge: '#dbeafe', badgeText: '#1e40af' },
@@ -33,7 +40,7 @@ export default function UserSwitcher() {
   } = useAuth();
 
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [lookupOpen, setLookupOpen] = useState(false);
   const ref = useRef(null);
 
   // Close on outside click
@@ -49,18 +56,18 @@ export default function UserSwitcher() {
 
   const roleColors = ROLE_COLORS[user.role_name] || ROLE_COLORS.Viewer;
 
-  const filteredUsers = demoUsers.filter(du =>
-    !search.trim() ||
-    du.display_name.toLowerCase().includes(search.toLowerCase()) ||
-    du.email.toLowerCase().includes(search.toLowerCase()) ||
-    (du.role_name || '').toLowerCase().includes(search.toLowerCase())
-  );
-
   const handleSwitch = (demoUser) => {
     switchDemoUser(demoUser.users_id);
+    setLookupOpen(false);
     setOpen(false);
-    setSearch('');
   };
+
+  const userLookupColumns = [
+    { key: 'display_name', label: 'USER NAME' },
+    { key: 'email', label: 'EMAIL' },
+    { key: 'role_name', label: 'ROLE' },
+  ];
+  const userSearchKeys = ['display_name', 'email', 'role_name'];
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -131,64 +138,32 @@ export default function UserSwitcher() {
           {/* Impersonate any user */}
           {demoUsers.length > 0 && (
             <>
-              <div style={{
-                padding: '8px 16px 4px',
-                fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-                letterSpacing: '0.7px', color: '#94a3b8',
-              }}>
-                Impersonate User
-              </div>
-              {/* Search box */}
-              <div style={{ padding: '4px 12px 6px', position: 'relative' }}>
-                <Search size={13} style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search users…"
-                  autoFocus
+              <div style={{ borderTop: '1px solid var(--border-color)' }}>
+                <div
+                  onClick={() => setLookupOpen(true)}
+                  className="us-dropdown-item"
                   style={{
-                    width: '100%', padding: '5px 8px 5px 28px', fontSize: 12,
-                    borderRadius: 7, border: '1px solid var(--border-color)',
-                    outline: 'none', boxSizing: 'border-box',
-                    background: 'var(--bg-subtle)', color: 'var(--text-color)',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 16px', cursor: 'pointer',
+                    color: 'var(--text-secondary)',
+                    transition: 'background 0.12s',
                   }}
-                />
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-subtle)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Users size={14} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Impersonate User</span>
+                </div>
               </div>
-              <div style={{ maxHeight: 220, overflowY: 'auto' }}>
-                {filteredUsers.length === 0 && (
-                  <div style={{ padding: '10px 16px', fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>No users found</div>
-                )}
-                {filteredUsers.map(du => {
-                  const isActive = du.users_id === user.users_id;
-                  const duColors = ROLE_COLORS[du.role_name] || ROLE_COLORS.Viewer;
-                  return (
-                    <div
-                      key={du.users_id}
-                      onClick={() => handleSwitch(du)}
-                      className={`us-dropdown-item${isActive ? ' us-dropdown-item-active' : ''}`}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '8px 16px', cursor: 'pointer',
-                        transition: 'background 0.12s',
-                      }}
-                    >
-                      <Avatar name={du.display_name} role={du.role_name} size={30} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="rc-results-count" style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {du.display_name}
-                        </div>
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: '0px 5px', borderRadius: 99,
-                          background: duColors.badge, color: duColors.badgeText,
-                        }}>
-                          {du.role_name}
-                        </span>
-                      </div>
-                      {isActive && <Check size={14} color="#2563eb" />}
-                    </div>
-                  );
-                })}
-              </div>
+              <LookupModal
+                open={lookupOpen}
+                onClose={() => setLookupOpen(false)}
+                onSelect={handleSwitch}
+                title="Impersonate User"
+                data={demoUsers}
+                columns={userLookupColumns}
+                searchableKeys={userSearchKeys}
+              />
             </>
           )}
 

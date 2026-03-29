@@ -1,3 +1,9 @@
+/**
+ * @file Ticket detail page with comments and status management.
+ * @module TicketDetail
+ *
+ * Shows ticket info, comment thread, status/priority/assignee management, entity linking, and change history.
+ */
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, LifeBuoy, Save, Send, Trash2, Clock, ChevronDown, ChevronRight, Terminal, Bug, MoreHorizontal } from 'lucide-react';
@@ -8,6 +14,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import LookupField from '../components/LookupField';
 import { LOOKUP_USERS } from '../utils/lookupConfigs';
 import DetailHeader from '../components/DetailHeader';
+import MultiStatusSlider from '../components/MultiStatusSlider';
 import ChangeHistory from '../components/ChangeHistory';
 
 const CATEGORIES = [
@@ -200,6 +207,20 @@ export default function TicketDetail() {
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setDirty(true); };
 
+  const toggleStatus = async (newVal) => {
+    const prev = form.status;
+    setForm(f => ({ ...f, status: newVal }));
+    try {
+      await updateTicket(id, { ...form, status: newVal });
+      setRefreshKey(k => k + 1);
+      load();
+      showToast(`Status changed to ${newVal}.`);
+    } catch {
+      setForm(f => ({ ...f, status: prev }));
+      showToast('Status update failed.');
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -234,6 +255,7 @@ export default function TicketDetail() {
       });
       setNewComment('');
       load();
+      window.dispatchEvent(new Event('tems-notification-refresh'));
     } catch {
       setError('Failed to add comment.');
     } finally {
@@ -277,19 +299,15 @@ export default function TicketDetail() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999, padding: '10px 20px', background: 'var(--bg-surface)', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
+        <div className="toast toast-ok">
           {toast}
         </div>
       )}
 
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            onClick={() => navigate('/tickets')}
-            className="btn btn-ghost btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/tickets')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -308,10 +326,10 @@ export default function TicketDetail() {
               </div>
             </div>
           </div>
-          <span className={statusBadgeClass(form.status)}>{form.status}</span>
           <span className={priorityBadgeClass(form.priority)}>{form.priority}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
           <button
             className="btn btn-primary"
             onClick={handleSave}
@@ -372,7 +390,7 @@ export default function TicketDetail() {
           <div className="page-card">
             <div className="page-card-header">
               <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Ticket Details</span>
-              {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+              <MultiStatusSlider value={form.status} options={STATUSES} onChange={toggleStatus} />
             </div>
 
             <div style={{ padding: 20 }}>
@@ -407,7 +425,7 @@ export default function TicketDetail() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
                 <div>
                   <label className="form-label">Category</label>
                   <select className="form-input" value={form.category} onChange={e => set('category', e.target.value)} style={{ width: '100%' }}>
@@ -418,12 +436,6 @@ export default function TicketDetail() {
                   <label className="form-label">Priority</label>
                   <select className="form-input" value={form.priority} onChange={e => set('priority', e.target.value)} style={{ width: '100%' }}>
                     {PRIORITIES.map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Status</label>
-                  <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)} style={{ width: '100%' }}>
-                    {STATUSES.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
               </div>

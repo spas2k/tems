@@ -1,3 +1,10 @@
+/**
+ * @file contractRates.js — Contract Rates API Routes — /api/contract-rates
+ * CRUD for rate schedules tied to contracts and USOC codes.
+ * Used for rate validation (comparing billed amounts to contracted rates).
+ *
+ * @module routes/contractRates
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -23,6 +30,11 @@ function baseQuery() {
 }
 
 // GET all contract rates (optional filter: ?contracts_id=&usoc_codes_id=)
+/**
+ * GET /
+ * List contract rates with optional ?contracts_id filter. Joins USOC codes and contracts.
+ * @returns Array of rate objects with usoc_code, contract_number
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
@@ -34,6 +46,11 @@ router.get('/', async (req, res) => {
 });
 
 // GET single contract rate
+/**
+ * GET /:id
+ * Get a single contract rate by ID.
+ * @returns Contract rate object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('cr.contract_rates_id', req.params.id).first();
@@ -43,6 +60,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
 });
 
 // POST create contract rate
+/**
+ * POST /
+ * Create a new contract rate.
+ * @auth Requires role: Admin, Manager
+ * @body contracts_id, usoc_codes_id, mrc, nrc, effective_date, expiration_date, notes
+ * @returns 201 with created rate
+ */
 router.post('/', requireRole('Admin', 'Manager'), contractRateRules, validate, auditCreate('contract_rates', 'contract_rates_id'), async (req, res) => {
   try {
     const { contracts_id, usoc_codes_id, mrc, nrc, effective_date, expiration_date, notes } = req.body;
@@ -57,6 +81,13 @@ router.post('/', requireRole('Admin', 'Manager'), contractRateRules, validate, a
 });
 
 // PUT update contract rate
+/**
+ * PUT /:id
+ * Update an existing contract rate.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated rate object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...contractRateRules, validate, auditUpdate('contract_rates', 'contract_rates_id'), async (req, res) => {
   try {
     const { contracts_id, usoc_codes_id, mrc, nrc, effective_date, expiration_date, notes } = req.body;
@@ -70,6 +101,12 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...contractRateRule
 });
 
 // DELETE contract rate
+/**
+ * DELETE /:id
+ * Delete a contract rate.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('contract_rates', 'contract_rates_id'), auditDelete('contract_rates', 'contract_rates_id'), async (req, res) => {
   try {
     await db('contract_rates').where('contract_rates_id', req.params.id).del();
@@ -78,6 +115,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('con
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('contract_rates', 'contract_rates_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple contract rates.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('contract_rates', 'contract_rates_id', {
+  allowed: ['contracts_id', 'usoc_codes_id', 'rate', 'effective_date', 'expiration_date', 'description', 'status'],
+}));
 
 module.exports = router;

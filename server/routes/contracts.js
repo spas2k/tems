@@ -1,3 +1,10 @@
+/**
+ * @file contracts.js — Contracts API Routes — /api/contracts
+ * CRUD for vendor contracts.
+ * Contracts define terms, rates, and durations for telecom services.
+ *
+ * @module routes/contracts
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -14,6 +21,11 @@ function baseQuery() {
     .select('c.*', 'v.name as vendor_name');
 }
 
+/**
+ * GET /
+ * List all contracts with vendor name join, ordered by contract_number.
+ * @returns Array of contract objects with vendor_name
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
@@ -23,6 +35,11 @@ router.get('/', async (req, res) => {
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
+/**
+ * GET /:id
+ * Get a single contract by ID with vendor join.
+ * @returns Contract object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('c.contracts_id', req.params.id).first();
@@ -31,6 +48,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
+/**
+ * POST /
+ * Create a new contract.
+ * @auth Requires role: Admin, Manager
+ * @body vendors_id, contract_name, contract_number, type, subtype, start_date, expiration_date, status, ...
+ * @returns 201 with created contract
+ */
 router.post('/', requireRole('Admin', 'Manager'), contractRules, validate, auditCreate('contracts', 'contracts_id'), async (req, res) => {
   try {
     const {
@@ -58,6 +82,13 @@ router.post('/', requireRole('Admin', 'Manager'), contractRules, validate, audit
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing contract.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated contract object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...contractRules, validate, auditUpdate('contracts', 'contracts_id'), async (req, res) => {
   try {
     const {
@@ -108,6 +139,12 @@ router.get('/:id/orders', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'contracts'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a contract. Blocked by cascadeGuard if dependent records exist.
+ * @auth Requires role: Admin
+ * @returns { success: true } or 409
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('contracts', 'contracts_id'), auditDelete('contracts', 'contracts_id'), async (req, res) => {
   try {
     await db('contracts').where('contracts_id', req.params.id).del();
@@ -116,6 +153,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('con
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('contracts', 'contracts_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple contracts.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('contracts', 'contracts_id', {
+  allowed: ['vendors_id', 'contract_number', 'contract_name', 'type', 'subtype', 'parent_contract_id', 'currency_id', 'start_date', 'expiration_date', 'term_type', 'renew_date', 'contracted_rate', 'rate_unit', 'term_months', 'minimum_spend', 'etf_amount', 'commitment_type', 'contract_value', 'tax_assessed', 'product_service_types', 'business_line', 'status', 'auto_renew'],
+}));
 
 module.exports = router;

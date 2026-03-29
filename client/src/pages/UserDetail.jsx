@@ -1,18 +1,27 @@
+/**
+ * @file User detail page with SSO config, activity, and assignments.
+ * @module UserDetail
+ *
+ * Shows user info, role assignment, SSO fields, assigned invoices/orders, recent activity, and change history.
+ */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Save, Users, Receipt, ShoppingCart, Activity, SlidersHorizontal,
   MessageSquare, KeyRound, Shield, Clock, ExternalLink, Mail, User,
+  ShieldOff, ShieldCheck, Check,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getUser, updateUser, getRoles, getUserInvoices, getUserOrders, getUserActivity } from '../api';
+import { getUser, updateUser, setUserStatus, getRoles, getUserInvoices, getUserOrders, getUserActivity } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import MultiStatusSlider from '../components/MultiStatusSlider';
 import ChangeHistory from '../components/ChangeHistory';
+import { getRoleColor, getRoleScheme, COLOR_SCHEMES } from '../utils/roleColors';
 import dayjs from 'dayjs';
 
 const STATUS_OPTS = ['Active', 'Inactive', 'Suspended'];
-const STATUS_BADGE = { Active: 'badge badge-green', Inactive: 'badge badge-gray', Suspended: 'badge badge-red' };
+const STATUS_BADGE = { Active: 'badge badge-green', Inactive: 'badge badge-red', Suspended: 'badge badge-red' };
 const ROLE_BADGE   = { Admin: 'badge badge-purple', Manager: 'badge badge-blue', Analyst: 'badge badge-blue', Viewer: 'badge badge-gray' };
 const INV_STATUS   = { Pending: 'badge badge-blue', Approved: 'badge badge-green', Paid: 'badge badge-green', Disputed: 'badge badge-red', Open: 'badge badge-blue' };
 const ORD_STATUS   = { Pending: 'badge badge-blue', 'In Progress': 'badge badge-orange', Completed: 'badge badge-green', Cancelled: 'badge badge-red' };
@@ -66,9 +75,11 @@ export default function UserDetail() {
   const [form,      setForm]      = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [saving,    setSaving]    = useState(false);
+  const [suspending, setSuspending] = useState(false);
   const [dirty,     setDirty]     = useState(false);
   const [toast,     setToast]     = useState(null);
   const [historyKey, setHistoryKey] = useState(0);
+  const [rolePickerOpen, setRolePickerOpen] = useState(false);
 
   const refs = {
     details:  useRef(null), sso: useRef(null),
@@ -139,6 +150,26 @@ export default function UserDetail() {
     }
   };
 
+  const handleStatusChange = async (newStatus) => {
+    setSuspending(true);
+    try {
+      const updated = await setUserStatus(id, newStatus);
+      setUser(updated.data);
+      setForm(f => ({ ...f, status: updated.data.status }));
+      setHistoryKey(k => k + 1);
+      showToast(
+        newStatus === 'Suspended'
+          ? `${updated.data.display_name} has been suspended.`
+          : `${updated.data.display_name} has been reactivated.`
+      );
+      refreshUser();
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Status update failed.', false);
+    } finally {
+      setSuspending(false);
+    }
+  };
+
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8' }}>Loading user…</div>;
   if (!user) return <div style={{ padding: 60, textAlign: 'center', color: '#ef4444' }}>User not found.</div>;
   if (!isAdmin) return <div style={{ padding: 32, color: '#ef4444' }}>Access denied — Admin role required.</div>;
@@ -161,9 +192,8 @@ export default function UserDetail() {
       {/* ── Header ─────────────────────────────────────── */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/users')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/users')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -195,6 +225,7 @@ export default function UserDetail() {
             ))}
           </div>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
           {canUpdate && (
             <button className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving}
               style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}>
@@ -234,7 +265,7 @@ export default function UserDetail() {
       <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>User Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <MultiStatusSlider value={form.status} options={STATUS_OPTS} onChange={newStatus => handleStatusChange(newStatus)} disabled={!canUpdate} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <Field label="Display Name *">
@@ -246,17 +277,90 @@ export default function UserDetail() {
               onChange={e => set('email', e.target.value)} />
           </Field>
           <Field label="Role *">
-            <select className="form-input" value={form.roles_id} disabled={!canUpdate}
-              onChange={e => set('roles_id', e.target.value)}>
-              <option value="">Select…</option>
-              {roles.map(r => <option key={r.roles_id} value={String(r.roles_id)}>{r.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select className="form-input" value={form.status} disabled={!canUpdate}
-              onChange={e => set('status', e.target.value)}>
-              {STATUS_OPTS.map(s => <option key={s}>{s}</option>)}
-            </select>
+            {(() => {
+              const current = roles.find(r => String(r.roles_id) === String(form.roles_id));
+              const { color, bg, text } = current
+                ? getRoleScheme(current)
+                : { color: '#64748b', bg: '#e2e8f0', text: '#1e293b' };
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Current role display */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '5px 12px', borderRadius: 20,
+                      background: bg, color: text,
+                      fontWeight: 700, fontSize: 13,
+                      border: `1px solid ${color}33`,
+                    }}>
+                      <Shield size={12} color={color} />
+                      {current?.name || '—'}
+                    </span>
+                    {canUpdate && (
+                      <button
+                        type="button"
+                        onClick={() => setRolePickerOpen(o => !o)}
+                        style={{
+                          fontSize: 11, fontWeight: 600, padding: '4px 10px',
+                          borderRadius: 6, cursor: 'pointer',
+                          background: 'transparent',
+                          border: '1px solid #e2e8f0',
+                          color: '#64748b',
+                        }}
+                      >
+                        {rolePickerOpen ? 'Cancel' : 'Change'}
+                      </button>
+                    )}
+                  </div>
+                  {/* Expanded picker */}
+                  {rolePickerOpen && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {roles.map((r, idx) => {
+                        const { color: rcolor, bg: rbg, text: rtext } = getRoleScheme(r, idx);
+                        const active  = String(form.roles_id) === String(r.roles_id);
+                        return (
+                          <button
+                            key={r.roles_id}
+                            type="button"
+                            onClick={() => { set('roles_id', String(r.roles_id)); setRolePickerOpen(false); }}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '7px 10px', borderRadius: 9, cursor: 'pointer',
+                              border: active ? `2px solid ${rcolor}` : '2px solid #e2e8f0',
+                              background: active ? rbg : '#fafafa',
+                              transition: 'all 0.12s', textAlign: 'left', outline: 'none',
+                            }}
+                          >
+                            <div style={{
+                              width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                              background: active ? rcolor : '#e2e8f0',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <Shield size={12} color={active ? '#fff' : '#94a3b8'} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 13, color: active ? rtext : '#334155' }}>
+                                {r.name}
+                              </div>
+                              {r.description && (
+                                <div style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {r.description}
+                                </div>
+                              )}
+                            </div>
+                            {active && (
+                              <div style={{ width: 16, height: 16, borderRadius: '50%', background: rcolor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Check size={9} color="#fff" strokeWidth={3} />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </Field>
           <Field label="Avatar URL">
             <input className="form-input" value={form.avatar_url} disabled={!canUpdate}
@@ -379,6 +483,7 @@ export default function UserDetail() {
               <tr>
                 <th>Order #</th>
                 <th>Vendor</th>
+                <th>Contract</th>
                 <th>Date</th>
                 <th>Status</th>
               </tr>
@@ -392,7 +497,8 @@ export default function UserDetail() {
                       {ord.order_number}
                     </span>
                   </td>
-                  <td>{ord.account_name || '—'}</td>
+                  <td>{ord.vendor_name || '—'}</td>
+                  <td style={{ fontSize: 12, color: '#64748b' }}>{ord.contract_number || '—'}</td>
                   <td>{ord.order_date ? dayjs(ord.order_date).format('MM/DD/YYYY') : '—'}</td>
                   <td><span className={ORD_STATUS[ord.status] || 'badge badge-gray'}>{ord.status || '—'}</span></td>
                 </tr>

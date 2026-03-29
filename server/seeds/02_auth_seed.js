@@ -13,11 +13,9 @@ const ROLES = [
 const RESOURCES = [
   'vendors', 'accounts', 'contracts', 'inventory', 'orders', 'invoices',
   'line_items', 'allocations', 'cost_savings', 'usoc_codes',
-  'contract_rates', 'disputes', 'users', 'roles', 'permissions', 'locations',
-  'company_codes', 'currencies', 'bank_cost_centers', 'spend_categories',
-  'field_catalog', 'vendor_remit', 'invoice_reader_templates', 'invoice_reader_uploads',
-  'tickets', 'ticket_comments', 'user_favorites', 'audit_log', 'announcements',
-  'projects', 'form_instructions'
+  'contract_rates', 'disputes', 'users', 'roles', 'locations',
+  'spend_categories', 'field_catalog', 'vendor_remit', 'invoice_reader_uploads',
+  'tickets', 'announcements', 'form_instructions', 'reports', 'currencies',
 ];
 
 const ACTIONS = ['create', 'read', 'update', 'delete'];
@@ -35,6 +33,8 @@ const ROLE_MATRIX = {
       // CUD on cost_savings and disputes only
       'cost_savings:create', 'cost_savings:update', 'cost_savings:delete',
       'disputes:create', 'disputes:update', 'disputes:delete',
+      // CUD on tickets
+      'tickets:create', 'tickets:update', 'tickets:delete',
     ],
   },
   Viewer: {
@@ -45,6 +45,9 @@ const ROLE_MATRIX = {
 exports.seed = async function (knex) {
   // ── Clear existing auth data (order matters for FKs) ──
   await knex('audit_log').del();
+  for (const t of ['saved_reports','saved_graphs','favorites','notifications']) {
+    if (await knex.schema.hasTable(t)) await knex(t).del();
+  }
   await knex('users').del();
   await knex('role_permissions').del();
   await knex('permissions').del();

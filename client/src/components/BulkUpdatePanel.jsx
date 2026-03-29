@@ -1,3 +1,12 @@
+/**
+ * @file Inline bulk-update form for selected DataTable rows.
+ * @module BulkUpdatePanel
+ *
+ * @param {Array} props.fields - Array of editable field definitions
+ * @param {number} props.selectedCount - Number of currently selected rows
+ * @param {Function} props.onApply - Callback with { fieldName: newValue } for touched fields
+ * @param {Function} props.onClose - Callback to dismiss the panel
+ */
 import React, { useState, useCallback } from 'react';
 import { Pencil, X, Check } from 'lucide-react';
 import LookupField from './LookupField';

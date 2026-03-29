@@ -1,3 +1,10 @@
+/**
+ * @file usocCodes.js — USOC Codes API Routes — /api/usoc-codes
+ * CRUD for Universal Service Order Codes.
+ * USOC codes classify telecom service types and their default charges.
+ *
+ * @module routes/usocCodes
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -9,6 +16,11 @@ const { requireRole } = require('../middleware/auth');
 const bulkUpdate = require('./_bulkUpdate');
 
 // GET all USOC codes (optional filter: ?category=&status=)
+/**
+ * GET /
+ * List all USOC codes ordered by usoc_code.
+ * @returns Array of USOC code objects
+ */
 router.get('/', async (req, res) => {
   try {
     let query = db('usoc_codes');
@@ -20,6 +32,11 @@ router.get('/', async (req, res) => {
 });
 
 // GET single USOC code
+/**
+ * GET /:id
+ * Get a single USOC code by ID.
+ * @returns USOC code object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await db('usoc_codes').where('usoc_codes_id', req.params.id).first();
@@ -29,6 +46,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
 });
 
 // POST create USOC code
+/**
+ * POST /
+ * Create a new USOC code.
+ * @auth Requires role: Admin, Manager
+ * @body usoc_code, description, category, sub_category, default_mrc, default_nrc, unit, status
+ * @returns 201 with created USOC code
+ */
 router.post('/', requireRole('Admin', 'Manager'), usocCodeRules, validate, auditCreate('usoc_codes', 'usoc_codes_id'), async (req, res) => {
   try {
     const { usoc_code, description, category, sub_category, default_mrc, default_nrc, unit, status } = req.body;
@@ -44,6 +68,13 @@ router.post('/', requireRole('Admin', 'Manager'), usocCodeRules, validate, audit
 });
 
 // PUT update USOC code
+/**
+ * PUT /:id
+ * Update an existing USOC code.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated USOC code object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...usocCodeRules, validate, auditUpdate('usoc_codes', 'usoc_codes_id'), async (req, res) => {
   try {
     const { usoc_code, description, category, sub_category, default_mrc, default_nrc, unit, status } = req.body;
@@ -57,6 +88,12 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...usocCodeRules, v
 });
 
 // DELETE USOC code
+/**
+ * DELETE /:id
+ * Delete a USOC code. Blocked by cascadeGuard if contract rates or line items reference it.
+ * @auth Requires role: Admin
+ * @returns { success: true } or 409
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('usoc_codes', 'usoc_codes_id'), auditDelete('usoc_codes', 'usoc_codes_id'), async (req, res) => {
   try {
     await db('usoc_codes').where('usoc_codes_id', req.params.id).del();
@@ -65,6 +102,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('uso
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('usoc_codes', 'usoc_codes_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple USOC codes.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('usoc_codes', 'usoc_codes_id', {
+  allowed: ['usoc_code', 'description', 'charge_type', 'category', 'sub_category', 'rate', 'status'],
+}));
 
 module.exports = router;

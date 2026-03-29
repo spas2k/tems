@@ -1,6 +1,13 @@
+/**
+ * @file Invoice reader exception management.
+ * @module ReaderExceptions
+ *
+ * Lists parsing/import failures with resolve and ignore actions. Shows exception stats (pending, resolved, ignored counts).
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, Eye, Filter, RefreshCw, X } from 'lucide-react';
 import { getReaderExceptions, getReaderExceptionStats, resolveReaderException, updateReaderException } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const TYPE_LABELS = {
   no_template_match: 'No Template Match',
@@ -29,6 +36,8 @@ const STATUS_KPI = {
 };
 
 export default function ReaderExceptions() {
+  const { hasPermission } = useAuth();
+  const canUpdate = hasPermission('invoice_reader_uploads', 'update');
   const [exceptions, setExceptions] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -133,7 +142,7 @@ export default function ReaderExceptions() {
               </div>
             )}
 
-            {selected.status === 'open' && (
+            {selected.status === 'open' && canUpdate && (
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', paddingTop: 4 }}>
                 <input className="form-input" style={{ flex: 1 }} placeholder="Resolution note (optional)…"
                   value={resolveNote} onChange={e => setResolveNote(e.target.value)} />

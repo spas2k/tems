@@ -1,0 +1,6 @@
+Orders: Order Number,Orders: Description,Inventory: InventoryItem Number,Inventory: Status
+ORD-ATT-001,Ethernet 100Mbps NYC-Chicago,INV-ATT-ETH-001,Active
+ORD-VZ-001,Ethernet 1Gbps Upgrade,INV-VZ-ETH-1GB,Active
+ORD-CMC-001,Broadband Installation Atlanta,INV-CMC-INET-001,Pending
+ORD-ATT-002,T1 San Francisco Branch,INV-ATT-T1-001,Disconnected
+test,,,

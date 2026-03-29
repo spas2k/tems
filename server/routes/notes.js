@@ -1,3 +1,10 @@
+/**
+ * @file notes.js — Notes API Routes — /api/notes
+ * CRUD for entity-linked notes/comments.
+ * Notes are polymorphic — they belong to any entity via entity_type + entity_id.
+ *
+ * @module routes/notes
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -10,6 +17,11 @@ const ALLOWED_ENTITY_TYPES = new Set([
 ]);
 
 // GET /notes?entity_type=account&entity_id=123
+/**
+ * GET /
+ * List notes filtered by ?entity_type and ?entity_id query params. Joins user display_name.
+ * @returns Array of note objects with user_display_name, ordered by created_at desc
+ */
 router.get('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), async (req, res) => {
   try {
     const { entity_type, entity_id } = req.query;
@@ -25,6 +37,12 @@ router.get('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), async (req
 });
 
 // POST /notes
+/**
+ * POST /
+ * Create a new note. Automatically sets users_id from authenticated user.
+ * @body entity_type, entity_id, body
+ * @returns 201 with created note + user join
+ */
 router.post('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), async (req, res) => {
   try {
     const { entity_type, entity_id, content, note_type } = req.body;
@@ -36,12 +54,17 @@ router.post('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), async (re
     if (!Number.isInteger(eid) || eid < 1) return res.status(400).json({ error: 'entity_id must be a positive integer' });
     // author is always derived server-side — never trusted from the client
     const author = req.user?.display_name || req.user?.username || 'System';
+    const ALLOWED_NOTE_TYPES = ['note', 'warning', 'info'];
+    const safeNoteType = ALLOWED_NOTE_TYPES.includes(note_type) ? note_type : 'note';
+    if (typeof content !== 'string' || content.length > 10000) {
+      return res.status(400).json({ error: 'content must be a string of 10,000 characters or fewer' });
+    }
     const id = await db.insertReturningId('notes', {
       entity_type,
       entity_id: eid,
       content,
       author,
-      note_type: note_type || 'note',
+      note_type: safeNoteType,
     });
     const row = await db('notes').where('notes_id', id).first();
     res.status(201).json(row);
@@ -49,6 +72,11 @@ router.post('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), async (re
 });
 
 // DELETE /notes/:id
+/**
+ * DELETE /:id
+ * Delete a note. Only the note author or Admin can delete.
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin', 'Manager'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);

@@ -1,3 +1,10 @@
+/**
+ * @file fieldCatalog.js — Field Catalog API Routes — /api/field-catalog
+ * CRUD for user-defined dropdown options (picklists).
+ * Options are grouped by category and used across entity forms.
+ *
+ * @module routes/fieldCatalog
+ */
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
@@ -16,6 +23,11 @@ const catalogRules = [
 ];
 
 // GET all, optionally filter by category
+/**
+ * GET /
+ * List all field catalog entries, or filter by ?category. Grouped by category.
+ * @returns Array of field catalog objects
+ */
 router.get('/', async (req, res) => {
   try {
     let q = db('field_catalog').orderBy('category').orderBy('sort_order').orderBy('label');
@@ -42,6 +54,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'field_catalog'); }
 });
 
+/**
+ * POST /
+ * Create a new field catalog entry.
+ * @auth Requires role: Admin
+ * @body category, value, label, sort_order, active
+ * @returns 201 with created entry
+ */
 router.post('/', requireRole('Admin'), catalogRules, validate, auditCreate('field_catalog', 'field_catalog_id'), async (req, res) => {
   try {
     const { category, label, value, sort_order, is_active, description } = req.body;
@@ -56,6 +75,13 @@ router.post('/', requireRole('Admin'), catalogRules, validate, auditCreate('fiel
   } catch (err) { safeError(res, err, 'field_catalog'); }
 });
 
+/**
+ * PUT /:id
+ * Update a field catalog entry.
+ * @auth Requires role: Admin
+ * @body Same as POST
+ * @returns Updated entry
+ */
 router.put('/:id', requireRole('Admin'), idParam, catalogRules, validate, auditUpdate('field_catalog', 'field_catalog_id'), async (req, res) => {
   try {
     const { category, label, value, sort_order, is_active, description } = req.body;
@@ -67,6 +93,12 @@ router.put('/:id', requireRole('Admin'), idParam, catalogRules, validate, auditU
   } catch (err) { safeError(res, err, 'field_catalog'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a field catalog entry.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('field_catalog', 'field_catalog_id'), async (req, res) => {
   try {
     await db('field_catalog').where('field_catalog_id', req.params.id).del();

@@ -1,3 +1,11 @@
+/**
+ * @file Blue info banner displaying form-specific instructions.
+ * @module FormInstructionBanner
+ *
+ * Loads instruction text from the API for the given formId. Respects the user's show_form_instructions preference.
+ *
+ * @param {string} props.formId - The form identifier to load instructions for
+ */
 import React, { useState, useEffect } from 'react';
 import { X, Info } from 'lucide-react';
 import { getFormInstructionByFormId } from '../api';

@@ -1,3 +1,9 @@
+/**
+ * @file Service order list page with CRUD modal and vendor/contract/inventory lookups.
+ * @module Orders
+ *
+ * CRUD list page for service orders.
+ */
 ﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ShoppingCart, Trash2 } from 'lucide-react';

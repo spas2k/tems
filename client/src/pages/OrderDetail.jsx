@@ -1,9 +1,16 @@
+/**
+ * @file Service order detail page with inventory changes.
+ * @module OrderDetail
+ *
+ * Shows order info with vendor/contract/inventory lookups, order inventory, notes, and change history.
+ */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Save, Network, AlertTriangle, ExternalLink, SlidersHorizontal, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import DetailHeader from '../components/DetailHeader';
+import MultiStatusSlider from '../components/MultiStatusSlider';
 import Modal from '../components/Modal';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
@@ -188,6 +195,20 @@ export default function OrderDetail() {
     setDirty(true);
   };
 
+  const toggleStatus = async (newVal) => {
+    const prev = form.status;
+    setForm(p => ({ ...p, status: newVal }));
+    try {
+      const updated = await updateOrder(id, { ...form, status: newVal });
+      setOrder(updated.data);
+      setHistoryKey(k => k + 1);
+      showToast(`Status changed to ${newVal}.`);
+    } catch {
+      setForm(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -228,12 +249,8 @@ export default function OrderDetail() {
       {/* Page header bar */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => navigate('/orders')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/orders')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -267,6 +284,7 @@ export default function OrderDetail() {
             ))}
           </div>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
           {canUpdate && (
             <button
               className="btn btn-primary"
@@ -336,7 +354,7 @@ export default function OrderDetail() {
       <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Order Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <MultiStatusSlider value={form.status} options={STATUSES} onChange={toggleStatus} disabled={!canUpdate} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -378,12 +396,6 @@ export default function OrderDetail() {
 
           <Field label="Contracted Rate ($/mo)">
             <input className="form-input" type="number" step="0.01" value={form.contracted_rate} onChange={e => set('contracted_rate', e.target.value)} />
-          </Field>
-
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
-            </select>
           </Field>
 
           <div style={{ gridColumn: '1 / -1' }}>

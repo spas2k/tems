@@ -1,3 +1,10 @@
+/**
+ * @file accounts.js — Accounts API Routes — /api/accounts
+ * CRUD for vendor billing accounts.
+ * Accounts link vendors to contracts, inventory, invoices, and cost savings.
+ *
+ * @module routes/accounts
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -14,15 +21,26 @@ function baseQuery() {
     .select('a.*', 'v.name as vendor_name');
 }
 
+/**
+ * GET /
+ * List all accounts with vendor name join.
+ * @returns Array of account objects with vendor_name
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
     if (req.query.vendors_id) query = query.where('a.vendors_id', req.query.vendors_id);
-    const rows = await query.orderBy('a.name');
+    const limit = Math.min(parseInt(req.query.limit) || 10000, 10000);
+    const rows = await query.orderBy('a.name').limit(limit);
     res.json(rows);
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
+/**
+ * GET /:id
+ * Get a single account by ID with vendor join.
+ * @returns Account object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('a.accounts_id', req.params.id).first();
@@ -31,6 +49,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
+/**
+ * POST /
+ * Create a new account.
+ * @auth Requires role: Admin, Manager
+ * @body vendors_id, name, account_number, subaccount_number, status, ...
+ * @returns 201 with created account object
+ */
 router.post('/', requireRole('Admin', 'Manager'), accountRules, validate, auditCreate('accounts', 'accounts_id'), async (req, res) => {
   try {
     const {
@@ -68,6 +93,13 @@ router.post('/', requireRole('Admin', 'Manager'), accountRules, validate, auditC
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing account.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated account object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...accountRules, validate, auditUpdate('accounts', 'accounts_id'), async (req, res) => {
   try {
     const {
@@ -104,6 +136,11 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...accountRules, va
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
+/**
+ * GET /:id/inventory
+ * List inventory items for this account.
+ * @returns Array of inventory items with contract_number
+ */
 router.get('/:id/inventory', idParam, validate, async (req, res) => {
   try {
     const rows = await db('inventory as i')
@@ -116,6 +153,12 @@ router.get('/:id/inventory', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'accounts'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete an account. Blocked by cascadeGuard if dependent records exist.
+ * @auth Requires role: Admin
+ * @returns { success: true } or 409
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('accounts', 'accounts_id'), auditDelete('accounts', 'accounts_id'), async (req, res) => {
   try {
     await db('accounts').where('accounts_id', req.params.id).del();
@@ -124,6 +167,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('acc
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('accounts', 'accounts_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple account records.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('accounts', 'accounts_id', {
+  allowed: ['vendors_id', 'name', 'account_number', 'subaccount_number', 'assigned_user_id', 'team', 'account_hierarchy', 'parent_account_id', 'account_type', 'account_subtype', 'currency_id', 'company_code_id', 'ship_to_location_id', 'asset_location_id', 'tax_analyst_id', 'payment_info', 'allocation_settings', 'contact_details', 'status'],
+}));
 
 module.exports = router;

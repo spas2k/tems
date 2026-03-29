@@ -1,5 +1,11 @@
+/**
+ * @file Support ticket list page (read-only — creation via TicketAdd).
+ * @module Tickets
+ *
+ * List page for support tickets with status filtering and detail navigation.
+ */
 ﻿import React, { useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LifeBuoy, Plus } from 'lucide-react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useAuth } from '../context/AuthContext';
@@ -40,8 +46,21 @@ const FILTER_CONFIG = {
 
 export default function Tickets() {
   const { setTitle } = useContext(PageTitleContext) || {};
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const canCreate = hasPermission('tickets', 'create');
+
+  // Resolve __MY__ placeholder to current user's display name
+  useEffect(() => {
+    const f = location.state?.filters;
+    if (f?.assigned_user_name === '__MY__' && user?.display_name) {
+      navigate(location.pathname, {
+        state: { filters: { ...f, assigned_user_name: user.display_name } },
+        replace: true,
+      });
+    }
+  }, [location.state, user]);
 
   useEffect(() => { setTitle?.('Tickets & Issues'); }, [setTitle]);
 
@@ -121,7 +140,7 @@ export default function Tickets() {
         title="Tickets"
         titleIcon={<LifeBuoy size={15} color="#475569" />}
         exportFilename="Tickets"
-        headerRight={<button className="btn btn-primary" onClick={() => navigate('/tickets/new')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Plus size={16} /> New Ticket</button>}
+        headerRight={canCreate && <button className="btn btn-primary" onClick={() => navigate('/tickets/new')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Plus size={16} /> New Ticket</button>}
       />
     </div>
   );

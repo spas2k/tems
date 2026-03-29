@@ -1,3 +1,15 @@
+/**
+ * @file Searchable selection modal for picking related records.
+ * @module LookupModal
+ *
+ * @param {boolean} props.open - Whether the modal is visible
+ * @param {Function} props.onClose - Callback when the modal is dismissed
+ * @param {Function} props.onSelect - Callback with the selected record
+ * @param {string} props.title - Modal header title
+ * @param {Array} props.data - Array of records to display
+ * @param {Array} props.columns - Column definitions for the table
+ * @param {Array} props.searchableKeys - Object keys to include in search filtering
+ */
 ﻿import React, { useState, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 

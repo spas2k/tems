@@ -1,3 +1,9 @@
+/**
+ * @file Contract-vs-billed rate compliance audit.
+ * @module RateAudit
+ *
+ * Displays rate validation results comparing contracted rates against actually billed charges, with variance calculation.
+ */
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getRateValidation } from '../api';

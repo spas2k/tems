@@ -1,7 +1,14 @@
+/**
+ * @file New invoice creation form.
+ * @module InvoiceAdd
+ *
+ * Uses FormPage with account lookup for creating a new invoice.
+ */
 import React from 'react';
 import { Receipt } from 'lucide-react';
 import { createInvoice, getAccounts } from '../api';
 import FormPage from '../components/FormPage';
+import { LOOKUP_ACCOUNTS } from '../utils/lookupConfigs';
 
 const STATUSES = ['Open', 'Paid', 'Disputed', 'Void'];
 
@@ -16,9 +23,7 @@ const SECTIONS = [
     title: 'Invoice Details',
     description: 'Vendor, invoice number, and amount',
     fields: (rel) => [
-      { key: 'accounts_id', label: 'Vendor Account *', type: 'select',
-        options: (rel.accounts || []).map(a => ({ value: a.accounts_id, label: a.name })),
-        placeholder: 'Select vendor…' },
+      { key: 'accounts_id', label: 'Vendor Account *', type: 'lookup', ...LOOKUP_ACCOUNTS(rel.accounts) },
       { key: 'invoice_number', label: 'Invoice Number', half: true },
       { key: 'total_amount', label: 'Total Amount ($)', type: 'number', step: '0.01', half: true },
     ],

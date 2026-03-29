@@ -1,3 +1,9 @@
+/**
+ * @file Contract list page with CRUD modal and vendor lookup.
+ * @module Contracts
+ *
+ * CRUD list page for vendor contracts.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, Trash2, AlertTriangle } from 'lucide-react';
@@ -39,8 +45,6 @@ export default function Contracts() {
   const vendors = table.related.vendors;
 
   const columns = [
-    { key: 'vendor_name', label: 'Vendor', filterType: 'select',
-      filterOptions: vendors.map(a => a.name) },
     { key: 'contract_number', label: 'Contract #', copyable: true,
       render: (v, row) => (
         <span style={{ color: '#3b82f6', fontWeight: 700, cursor: 'pointer' }}
@@ -48,6 +52,8 @@ export default function Contracts() {
           {v || row.name}
         </span>
       ) },
+    { key: 'vendor_name', label: 'Vendor', filterType: 'select',
+      filterOptions: vendors.map(a => a.name) },
     { key: 'name', label: 'Name', style: { color: '#64748b', fontSize: 13 } },
     { key: 'start_date', label: 'Start Date', filterType: 'date', format: 'date' },
     { key: 'end_date', label: 'End Date', filterType: 'date', format: 'date' },

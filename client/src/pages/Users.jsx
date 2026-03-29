@@ -1,7 +1,13 @@
+/**
+ * @file User list page with role lookup and status toggling.
+ * @module Users
+ *
+ * CRUD list page for user management with active/inactive status control.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users as UsersIcon, ShieldCheck, ShieldX, Trash2, KeyRound } from 'lucide-react';
-import { getUsers, deleteUser, getRoles } from '../api';
+import { Plus, Users as UsersIcon, ShieldCheck, ShieldX, Trash2, KeyRound, ShieldOff } from 'lucide-react';
+import { getUsers, deleteUser, getRoles, setUserStatus } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +17,7 @@ const STATUS_OPTS = ['Active', 'Inactive', 'Suspended'];
 
 const STATUS_BADGE = {
   Active:    'badge badge-green',
-  Inactive:  'badge badge-gray',
+  Inactive:  'badge badge-red',
   Suspended: 'badge badge-red',
 };
 
@@ -28,8 +34,11 @@ const FILTER_CONFIG = {
 
 export default function Users() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
   const confirm = useConfirm();
+  const canCreate = hasPermission('users', 'create');
+  const canUpdate = hasPermission('users', 'update');
+  const canDelete = hasPermission('users', 'delete');
   const [roles, setRoles] = useState([]);
 
   useEffect(() => {
@@ -57,7 +66,39 @@ export default function Users() {
     {
       key: 'status', label: 'Status',
       filterType: 'select', filterOptions: STATUS_OPTS,
-      badge: STATUS_BADGE,
+      render: (val, row) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className={STATUS_BADGE[val] || 'badge badge-gray'}>{val}</span>
+          {canUpdate && val !== 'Suspended' && (
+            <button
+              title="Suspend user"
+              onClick={e => { e.stopPropagation(); handleQuickStatus(row, 'Suspended'); }}
+              style={{
+                display: 'flex', alignItems: 'center', padding: '2px 6px', gap: 3,
+                fontSize: 10, fontWeight: 600, borderRadius: 5, cursor: 'pointer',
+                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                color: '#ef4444', lineHeight: 1.5,
+              }}
+            >
+              <ShieldOff size={10} /> Suspend
+            </button>
+          )}
+          {canUpdate && val === 'Suspended' && (
+            <button
+              title="Reactivate user"
+              onClick={e => { e.stopPropagation(); handleQuickStatus(row, 'Active'); }}
+              style={{
+                display: 'flex', alignItems: 'center', padding: '2px 6px', gap: 3,
+                fontSize: 10, fontWeight: 600, borderRadius: 5, cursor: 'pointer',
+                background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                color: '#10b981', lineHeight: 1.5,
+              }}
+            >
+              <ShieldCheck size={10} /> Activate
+            </button>
+          )}
+        </div>
+      ),
     },
     {
       key: 'sso_provider', label: 'SSO Provider',
@@ -77,7 +118,21 @@ export default function Users() {
   const inactiveCount  = table.data.filter(u => u.status === 'Inactive' || u.status === 'Suspended').length;
   const ssoCount       = table.data.filter(u => u.sso_provider).length;
 
-  if (!isAdmin) return <div style={{ padding: 32, color: '#ef4444' }}>Access denied — Admin role required.</div>;
+  const handleQuickStatus = async (row, newStatus) => {
+    try {
+      const updated = await setUserStatus(row.users_id, newStatus);
+      table.load();
+      table.showToast(
+        newStatus === 'Suspended'
+          ? `${row.display_name} suspended.`
+          : `${row.display_name} reactivated.`
+      );
+    } catch (err) {
+      table.showToast(err.response?.data?.error || 'Status update failed.', false);
+    }
+  };
+
+  if (!hasPermission('users', 'read')) return <div style={{ padding: 32, color: '#ef4444' }}>Access denied — insufficient permissions.</div>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -114,15 +169,31 @@ export default function Users() {
         exportFilename="Users"
         onRowClick={row => navigate(`/users/${row.users_id}`)}
         bulkActions={[
+          ...(canUpdate ? [{
+            label: 'Suspend', icon: ShieldOff, danger: false,
+            onClick: async rows => {
+              if (!(await confirm(`Suspend ${rows.length} user(s)?`, { danger: true, confirmLabel: 'Suspend' }))) return;
+              await Promise.all(rows.map(r => setUserStatus(r.users_id, 'Suspended')));
+              table.reload();
+            },
+          },
           {
+            label: 'Activate', icon: ShieldCheck, danger: false,
+            onClick: async rows => {
+              if (!(await confirm(`Activate ${rows.length} user(s)?`, { danger: false, confirmLabel: 'Activate' }))) return;
+              await Promise.all(rows.map(r => setUserStatus(r.users_id, 'Active')));
+              table.reload();
+            },
+          }] : []),
+          ...(canDelete ? [{
             label: 'Delete', icon: Trash2, danger: true,
             onClick: async rows => {
               if (!(await confirm(`Delete ${rows.length} user(s)?`))) return;
               rows.forEach(r => table.handleDelete(r.users_id, { skipConfirm: true }));
             },
-          },
+          }] : []),
         ]}
-        headerRight={
+        headerRight={canCreate &&
           <button className="btn btn-primary" onClick={() => navigate('/users/new')}>
             <Plus size={15} /> New User
           </button>

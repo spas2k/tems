@@ -1,3 +1,9 @@
+/**
+ * @file USOC code list page with CRUD modal.
+ * @module UsocCodes
+ *
+ * CRUD list page for USOC (telecom service) code management.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Tag } from 'lucide-react';
@@ -9,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Access', 'Transport', 'Wireless', 'Feature', 'Surcharge'];
 const STATUSES = ['Active', 'Inactive'];
-const STATUS_BADGE = { Active: 'badge badge-green', Inactive: 'badge badge-gray' };
+const STATUS_BADGE = { Active: 'badge badge-green', Inactive: 'badge badge-red' };
 
 const EMPTY = { usoc_code: '', description: '', category: 'Access', sub_category: '', default_mrc: '', default_nrc: '', unit: 'Each', status: 'Active' };
 

@@ -1,3 +1,9 @@
+/**
+ * @file Floating scroll-to-top button.
+ * @module ScrollToTop
+ *
+ * Appears after scrolling 200px in .app-content. Smooth-scrolls back to top on click.
+ */
 ﻿import React, { useState, useEffect } from 'react';
 import { ArrowUp } from 'lucide-react';
 

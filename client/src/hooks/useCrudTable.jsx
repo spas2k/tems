@@ -1,3 +1,24 @@
+/**
+ * @file Universal CRUD list-page hook for data tables.
+ * @module useCrudTable
+ *
+ * Handles API data loading, related lookups, client-side multi-operator
+ * filtering, sorting, pagination, CRUD modal state, bulk update, toast
+ * notifications, saved filters (localStorage), and assembles a tableProps
+ * object ready for <DataTable>.
+ *
+ * @param {Object} config - Configuration object
+ * @param {Object} config.api - { list, create?, update?, delete? } — API functions
+ * @param {string} config.idKey - Primary key field name (default "id")
+ * @param {Object} config.emptyForm - Template for new record form state
+ * @param {Array} config.filterConfig - Filter field definitions for the DataTable filter row
+ * @param {Array} config.related - Array of { key, api } for loading related lookup data
+ * @param {Object} config.defaultValues - Default field values for new records
+ * @param {Function} config.beforeSave - Transform function called on form data before API submit
+ * @param {string} config.resourceName - Permission resource name for canWrite checks
+ *
+ * @returns {Object} { data, related, loading, processedData, paginatedData, filters, setFilter, clearFilters, hasActiveFilters, showFilters, setShowFilters, sort, toggleSort, arrow, page, setPage, pageSize, setPageSize, modal, setModal, editing, form, setField, openNew, openEdit, handleSave, handleDelete, handleBulkUpdate, toast, showToast, renderToast, load, tableProps }
+ */
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -187,7 +208,6 @@ export default function useCrudTable({
       );
       // Reset to defaults first so filters not in the favorite are cleared
       setFilters({ ...filterInit, ...wrapped });
-      setShowFilters(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
@@ -232,7 +252,6 @@ export default function useCrudTable({
 
   /* ── paginated slice ─────────────────────────────────── */
   const paginatedData = useMemo(() => {
-    if (pageSize === 'all') return processedData;
     const start = (page - 1) * pageSize;
     return processedData.slice(start, start + pageSize);
   }, [processedData, page, pageSize]);

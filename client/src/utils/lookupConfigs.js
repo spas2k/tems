@@ -1,3 +1,22 @@
+/**
+ * @file Lookup field/modal configuration factories.
+ * @module lookupConfigs
+ *
+ * Exports factory functions that return configuration objects for
+ * <LookupField> and <LookupModal> components. Each factory defines the
+ * columns, search keys, display format, and placeholder for a lookup type.
+ *
+ * @exports LOOKUP_VENDORS - Vendor lookup config. Columns: ID, Name, Contact, Status.
+ * @exports LOOKUP_CONTRACTS - Contract lookup config. Columns: ID, Name, Vendor, Status.
+ * @exports LOOKUP_USERS - User lookup config. Columns: ID, Username, Email, Role.
+ * @exports LOOKUP_ACCOUNTS - Account lookup config. Columns: ID, Account Number, Name.
+ * @exports LOOKUP_LOCATIONS - Location lookup config. Columns: ID, Name, City, State.
+ * @exports LOOKUP_LOCATION_TEXT - Text-only location lookup (name display).
+ * @exports LOOKUP_CURRENCIES - Currency/ISO code lookup config.
+ * @exports LOOKUP_INVOICES - Invoice lookup config. Columns: ID, Invoice Number, Vendor.
+ * @exports LOOKUP_INVENTORY - Inventory lookup config. Columns: ID, Circuit ID, Type.
+ * @exports LOOKUP_ORDERS - Order lookup config. Columns: ID, Order Number, Vendor.
+ */
 ﻿export const LOOKUP_VENDORS = (data = []) => ({
   data,
   idKey: 'vendors_id',
@@ -57,6 +76,21 @@ export const LOOKUP_ACCOUNTS = (data = []) => ({
 export const LOOKUP_LOCATIONS = (data = []) => ({
   data,
   idKey: 'locations_id',
+  displayKey: 'location_name',
+  modalTitle: 'Select Location',
+  searchableKeys: ['location_name', 'address', 'city', 'state'],
+  columns: [
+    { key: 'location_name', label: 'LOCATION NAME' },
+    { key: 'city', label: 'CITY' },
+    { key: 'state', label: 'STATE' }
+  ],
+  placeholder: 'Select location...',
+});
+
+// Stores location_name (string) into a plain text field instead of the FK
+export const LOOKUP_LOCATION_TEXT = (data = []) => ({
+  data,
+  idKey: 'location_name',
   displayKey: 'location_name',
   modalTitle: 'Select Location',
   searchableKeys: ['location_name', 'address', 'city', 'state'],

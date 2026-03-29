@@ -1,3 +1,9 @@
+/**
+ * @file Vendor remittance list page with vendor lookup.
+ * @module VendorRemit
+ *
+ * CRUD list page for vendor remittance/payment records.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, CreditCard, Trash2 } from 'lucide-react';
@@ -14,7 +20,7 @@ const PAYMENT_METHODS = ['ACH', 'Check', 'Wire', 'EFT', 'Credit Card'];
 
 const EMPTY = {
   vendors_id: '', remit_name: '', remit_code: '', payment_method: 'ACH',
-  bank_name: '', routing_number: '', bank_vendor_number: '',
+  bank_name: '', routing_number: '', bank_account_number: '',
   remit_address: '', remit_city: '', remit_state: '', remit_zip: '',
   status: 'Active', notes: '',
 };
@@ -27,8 +33,8 @@ export default function VendorRemit() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canCreate = hasPermission('vendors', 'create');
-  const canDelete  = hasPermission('vendors', 'delete');
+  const canCreate = hasPermission('vendor_remit', 'create');
+  const canDelete  = hasPermission('vendor_remit', 'delete');
 
   const table = useCrudTable({
     api: { list: getVendorRemits, create: createVendorRemit, update: updateVendorRemit, delete: deleteVendorRemit },
@@ -52,7 +58,7 @@ export default function VendorRemit() {
     { key: 'payment_method', label: 'Method', filterType: 'select', filterOptions: PAYMENT_METHODS },
     { key: 'bank_name', label: 'Bank' },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: ['Active', 'Inactive'],
-      badge: { Active: 'badge badge-green', Inactive: 'badge badge-gray' } },
+      badge: { Active: 'badge badge-green', Inactive: 'badge badge-red' } },
   ];
 
   const formFields = [
@@ -73,7 +79,7 @@ export default function VendorRemit() {
     { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], half: true },
     { key: 'bank_name', label: 'Bank Name', half: true },
     { key: 'routing_number', label: 'Routing Number', half: true },
-    { key: 'bank_vendor_number', label: 'Bank Vendor Number' },
+    { key: 'bank_account_number', label: 'Bank Vendor Number' },
     { key: 'remit_address', label: 'Remit Address' },
     { key: 'remit_city', label: 'City', half: true },
     { key: 'remit_state', label: 'State', half: true },

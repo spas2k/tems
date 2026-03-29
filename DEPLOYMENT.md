@@ -8,9 +8,9 @@ This guide covers production deployment, security hardening, and operational mai
 
 | Requirement | Minimum |
 |-------------|---------|
-| Node.js | 18 LTS |
+| Node.js | 18 LTS (developed on v20.9) |
 | npm | 9+ |
-| Database | MySQL 8 / PostgreSQL 14 / SQL Server 2019 |
+| Database | PostgreSQL 14+ |
 | OS | Linux (recommended), Windows Server, or macOS |
 | Memory | 512 MB RAM for Node process |
 
@@ -24,7 +24,7 @@ Copy `server/.env.example` to `server/.env` and configure:
 |----------|----------|-------------|
 | `NODE_ENV` | Yes | `production` |
 | `PORT` | No | HTTP port (default `2001`) |
-| `DB_CLIENT` | Yes | `mysql2`, `pg`, or `mssql` |
+| `DB_CLIENT` | Yes | `pg` (PostgreSQL) |
 | `DB_HOST` | Yes | Database hostname |
 | `DB_PORT` | No | Database port (default per driver) |
 | `DB_USER` | Yes | Database user |
@@ -162,7 +162,7 @@ npx knex migrate:rollback
 npx knex migrate:status
 ```
 
-The supplemental migration (`20260303000000_supplemental_tables.js`) uses `hasTable`/`hasColumn` guards so it's safe to run even if some tables were created manually.
+Migrations use `hasTable`/`hasColumn` guards where appropriate and are non-destructive.
 
 ---
 
@@ -201,8 +201,8 @@ pm2 logs tems-api --lines 200
 
 ## Known Limitations and Security Notes
 
-### SheetJS (xlsx) Package
-The `xlsx` package (SheetJS) version 0.18.5 — the last free/open-source release — has a known prototype pollution vulnerability ([CVE-2023-30533](https://nvd.nist.gov/vuln/detail/CVE-2023-30533)). The paid [SheetJS Pro](https://sheetjs.com/) resolves this. Mitigations in place:
+### Excel Processing
+Excel import/export is handled by `exceljs` (v4.4.0), a fully open-source library with no known vulnerabilities. Mitigations for file uploads remain in place:
 - File size is limited via `multer` (10 MB)
 - Only `.xlsx` and `.xls` extensions are accepted
 - MIME type is checked
@@ -228,14 +228,9 @@ Recommended backup strategy:
 
 | Item | Frequency | Method |
 |------|-----------|--------|
-| Database | Daily + before migrations | `mysqldump` / `pg_dump` |
+| Database | Daily + before migrations | `pg_dump` |
 | `server/.env` | On any change | Encrypted secrets manager |
 | Uploaded files | Daily | If using disk storage |
-
-**MySQL backup example:**
-```bash
-mysqldump -u tems_user -p tems > tems_backup_$(date +%Y%m%d).sql
-```
 
 **PostgreSQL backup example:**
 ```bash
@@ -250,7 +245,9 @@ pg_dump -U tems_user tems > tems_backup_$(date +%Y%m%d).sql
 2. Pull the latest code
 3. `cd server && npm install`
 4. `cd client && npm install && npm run build`
-5. `npx knex migrate:latest` (from `server/`)
-6. `pm2 reload tems-api`
+5. `cd server && npm test` (verify all 92 server tests pass)
+6. `cd client && npm test` (verify all 279 client tests pass)
+7. `npx knex migrate:latest` (from `server/`)
+8. `pm2 reload tems-api`
 
 All migrations use `hasTable`/`hasColumn` guards and are non-destructive forward-only.

@@ -94,6 +94,12 @@ async function getUserById(userId) {
 async function authenticate(req, res, next) {
   const mode = process.env.AUTH_MODE || 'dev';
 
+  // SECURITY: Prevent dev/fallback auth from running in production
+  if (process.env.NODE_ENV === 'production' && mode !== 'sso') {
+    console.error('FATAL: AUTH_MODE must be "sso" in production. Current:', mode);
+    return res.status(503).json({ error: 'Server misconfiguration — authentication not configured for production' });
+  }
+
   if (mode === 'dev') {
     // ── DEV BYPASS (with optional impersonation) ────────
     const impersonateId = req.headers['x-dev-user-id'];

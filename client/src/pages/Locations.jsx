@@ -1,3 +1,9 @@
+/**
+ * @file Location list page with CRUD modal, filtering, and export.
+ * @module Locations
+ *
+ * CRUD list page for site/location management.
+ */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, MapPin, Trash2 } from 'lucide-react';
@@ -23,8 +29,8 @@ export default function Locations() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canCreate = hasPermission('accounts', 'create');
-  const canDelete = hasPermission('accounts', 'delete');
+  const canCreate = hasPermission('locations', 'create');
+  const canDelete = hasPermission('locations', 'delete');
 
   const table = useCrudTable({
     api: { list: getLocations, create: createLocation, update: updateLocation, delete: deleteLocation },
@@ -43,7 +49,7 @@ export default function Locations() {
     { key: 'state', label: 'State' },
     { key: 'contact_name', label: 'Contact' },
     { key: 'status', label: 'Status', filterType: 'select', filterOptions: ['Active', 'Inactive'],
-      badge: { Active: 'badge badge-green', Inactive: 'badge badge-gray' } },
+      badge: { Active: 'badge badge-green', Inactive: 'badge badge-red' } },
   ];
 
   const formFields = [

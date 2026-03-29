@@ -1,7 +1,14 @@
+/**
+ * @file New cost saving entry creation form.
+ * @module CostSavingAdd
+ *
+ * Uses FormPage with vendor and inventory lookups.
+ */
 import React from 'react';
 import { Zap } from 'lucide-react';
 import { createCostSaving, getVendors, getInventory } from '../api';
 import FormPage from '../components/FormPage';
+import { LOOKUP_VENDORS } from '../utils/lookupConfigs';
 
 const CATEGORIES = ['Billing Error', 'Contract Optimization', 'Disconnect', 'Rate Negotiation', 'Duplicate', 'Other'];
 const STATUSES = ['Identified', 'In Progress', 'Resolved'];
@@ -17,9 +24,7 @@ const SECTIONS = [
     title: 'Identification',
     description: 'Vendor, category, and current status',
     fields: (rel) => [
-      { key: 'vendors_id', label: 'Vendor Account *', type: 'select',
-        options: (rel.vendors || []).map(a => ({ value: a.vendors_id, label: a.name })),
-        placeholder: 'Select vendor…' },
+      { key: 'vendors_id', label: 'Vendor Account *', type: 'lookup', ...LOOKUP_VENDORS(rel.vendors) },
       { key: 'category', label: 'Category', type: 'select', options: CATEGORIES, half: true },
       { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
     ],

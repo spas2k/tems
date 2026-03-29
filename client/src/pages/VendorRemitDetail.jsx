@@ -1,3 +1,9 @@
+/**
+ * @file Vendor remittance detail page with vendor lookup.
+ * @module VendorRemitDetail
+ *
+ * Shows remittance record info with vendor lookup, notes, and change history.
+ */
 import React, { useContext, useEffect, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -5,6 +11,9 @@ import { ArrowLeft, CreditCard, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getVendorRemit, updateVendorRemit, getVendors } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import StatusToggle from '../components/StatusToggle';
+import LookupField from '../components/LookupField';
+import { LOOKUP_VENDORS } from '../utils/lookupConfigs';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 
@@ -24,7 +33,7 @@ export default function VendorRemitDetail() {
   const navigate = useNavigate();
   const { setPageTitle } = useContext(PageTitleContext);
   const { hasPermission } = useAuth();
-  const canUpdate = hasPermission('vendors', 'update');
+  const canUpdate = hasPermission('vendor_remit', 'update');
 
   const [remit,   setRemit]   = useState(null);
   const [vendors, setVendors] = useState([]);
@@ -55,7 +64,7 @@ export default function VendorRemitDetail() {
           payment_method:      d.payment_method      || 'ACH',
           bank_name:           d.bank_name           || '',
           routing_number:      d.routing_number      || '',
-          bank_vendor_number: d.bank_vendor_number || '',
+          bank_account_number: d.bank_account_number || '',
           remit_address:       d.remit_address       || '',
           remit_city:          d.remit_city          || '',
           remit_state:         d.remit_state         || '',
@@ -76,6 +85,20 @@ export default function VendorRemitDetail() {
   }, [remit]);
 
   const set = (k, v) => { setFormData(p => ({ ...p, [k]: v })); setDirty(true); };
+
+  const toggleActive = async (newVal) => {
+    const prev = form.status;
+    setFormData(p => ({ ...p, status: newVal }));
+    try {
+      const updated = await updateVendorRemit(id, { ...form, status: newVal });
+      setRemit(updated.data);
+      setHistoryKey(k => k + 1);
+      showToast(`Remit record ${newVal === 'Active' ? 'activated' : 'deactivated'}.`);
+    } catch {
+      setFormData(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -109,9 +132,8 @@ export default function VendorRemitDetail() {
 
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/vendor-remit')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/vendor-remit')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -126,10 +148,8 @@ export default function VendorRemitDetail() {
               </div>
             </div>
           </div>
-          <span className={remit.status === 'Active' ? 'badge badge-green' : 'badge badge-gray'}>
-            {remit.status}
-          </span>
         </div>
+        {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         {canUpdate && (
           <button className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving}
             style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}>
@@ -142,7 +162,7 @@ export default function VendorRemitDetail() {
       <div className="page-card">
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Remittance Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <StatusToggle value={form.status} onChange={toggleActive} disabled={!canUpdate} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div style={{ gridColumn: '1 / -1' }}>
@@ -150,24 +170,22 @@ export default function VendorRemitDetail() {
               <input className="form-input" value={form.remit_name} onChange={e => set('remit_name', e.target.value)} />
             </Field>
           </div>
-          <Field label="Vendor">
-            <select className="form-input" value={form.vendors_id} onChange={e => set('vendors_id', e.target.value)}>
-              <option value="">— Select Vendor —</option>
-              {vendors.map(v => <option key={v.vendors_id} value={String(v.vendors_id)}>{v.name}</option>)}
-            </select>
-          </Field>
+          <div>
+            <LookupField
+              label="Vendor"
+              {...LOOKUP_VENDORS(vendors)}
+              value={form.vendors_id}
+              onChange={row => set('vendors_id', String(row.vendors_id))}
+              onClear={() => set('vendors_id', '')}
+              displayValue={vendors.find(v => v.vendors_id === Number(form.vendors_id))?.name}
+            />
+          </div>
           <Field label="Remit Code">
             <input className="form-input" value={form.remit_code} onChange={e => set('remit_code', e.target.value)} />
           </Field>
           <Field label="Payment Method">
             <select className="form-input" value={form.payment_method} onChange={e => set('payment_method', e.target.value)}>
               {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              <option>Active</option>
-              <option>Inactive</option>
             </select>
           </Field>
         </div>
@@ -187,7 +205,7 @@ export default function VendorRemitDetail() {
           </Field>
           <div style={{ gridColumn: '1 / -1' }}>
             <Field label="Vendor Number">
-              <input className="form-input" value={form.bank_vendor_number} onChange={e => set('bank_vendor_number', e.target.value)} />
+              <input className="form-input" value={form.bank_account_number} onChange={e => set('bank_account_number', e.target.value)} />
             </Field>
           </div>
         </div>

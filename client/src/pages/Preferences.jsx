@@ -1,5 +1,12 @@
+/**
+ * @file User preferences page.
+ * @module Preferences
+ *
+ * Settings for theme (light/dark/auto), default rows per page, and form instruction visibility.
+ */
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Monitor as MonitorIcon, Bell, Palette, Globe, Monitor, Clock, Smartphone, BookOpen, List } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Sun, Moon, Monitor as MonitorIcon, Bell, Palette, Globe, Monitor, Clock, Smartphone, BookOpen, List, LayoutDashboard, ArrowRight, Columns } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 /* ── Theme helper ────────────────────────── */
@@ -29,12 +36,6 @@ const SECTIONS = [
     status: 'Coming Soon',
   },
   {
-    icon: Monitor,
-    title: 'Dashboard Layout',
-    description: 'Choose which KPI cards and charts appear on the dashboard',
-    status: 'Coming Soon',
-  },
-  {
     icon: Globe,
     title: 'Regional & Locale',
     description: 'Date format, currency display, number formatting, and timezone',
@@ -50,6 +51,8 @@ const SECTIONS = [
 
 export default function Preferences() {
   const { user, updatePreferences } = useAuth();
+  const navigate = useNavigate();
+  const hasCustomDashboard = !!user?.preferences?.dashboardLayout?.widgets?.length;
   const [mode, setMode] = useState(() => localStorage.getItem(THEME_KEY) || 'light');
   const [virtualMobile, setVirtualMobileState] = useState(
     () => localStorage.getItem('tems-virtual-mobile') === 'true'
@@ -233,6 +236,34 @@ export default function Preferences() {
             boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left 0.2s',
           }} />
         </button>
+      </div>
+
+      {/* ── Dashboard Layout (active) ── */}
+      <div className="card" style={{ padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 18, cursor: 'pointer', transition: 'all 0.15s' }}
+        onClick={() => navigate('/dashboard-builder')}
+        onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
+        onMouseLeave={e => e.currentTarget.style.borderColor = ''}
+      >
+        <div className="pref-icon-box" style={{
+          width: 42, height: 42, borderRadius: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          background: '#dbeafe',
+        }}>
+          <Columns size={20} color="#2563eb" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }} className="pref-title">Dashboard Layout</div>
+          <div style={{ fontSize: 12, marginTop: 2 }} className="pref-sub">
+            {hasCustomDashboard
+              ? 'You have a custom dashboard layout. Click to edit.'
+              : 'Choose which widgets, charts, and reports appear on your dashboard'
+            }
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {hasCustomDashboard && <span className="badge badge-green" style={{ fontSize: 11 }}>Customized</span>}
+          <ArrowRight size={18} color="#3b82f6" />
+        </div>
       </div>
 
       {/* Coming-soon sections */}

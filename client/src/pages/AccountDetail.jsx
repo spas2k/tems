@@ -1,3 +1,9 @@
+/**
+ * @file Account detail page with inventory sub-tab.
+ * @module AccountDetail
+ *
+ * Shows billing account info with vendor lookup, related inventory, notes, and change history.
+ */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -5,6 +11,7 @@ import { ArrowLeft, Building2, Save, Network, ExternalLink, SlidersHorizontal, M
 import { useAuth } from '../context/AuthContext';
 import { getAccount, updateAccount, getAccountInventory, getVendors } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import StatusToggle from '../components/StatusToggle';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
@@ -100,6 +107,20 @@ export default function AccountDetail() {
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setDirty(true); };
 
+  const toggleActive = async (newVal) => {
+    const prev = form.status;
+    setForm(p => ({ ...p, status: newVal }));
+    try {
+      const updated = await updateAccount(id, { ...form, status: newVal });
+      setAccount(updated.data);
+      setHistoryKey(k => k + 1);
+      showToast(`Account ${newVal === 'Active' ? 'activated' : 'deactivated'}.`);
+    } catch {
+      setForm(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -138,12 +159,8 @@ export default function AccountDetail() {
       {/* Header bar */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => navigate('/accounts')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/accounts')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -160,9 +177,6 @@ export default function AccountDetail() {
               </div>
             </div>
           </div>
-          <span className={account.status === 'Active' ? 'badge badge-green' : 'badge badge-gray'}>
-            {account.status}
-          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 6px' }}>
@@ -171,6 +185,7 @@ export default function AccountDetail() {
             ))}
           </div>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
           {canUpdate && (
             <button
               className="btn btn-primary"
@@ -212,7 +227,7 @@ export default function AccountDetail() {
       <div className="page-card" ref={refs.details} style={{ scrollMarginTop: 80 }}>
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>Account Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <StatusToggle value={form.status} onChange={toggleActive} disabled={!canUpdate} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -241,13 +256,6 @@ export default function AccountDetail() {
 
           <Field label="Team">
             <input className="form-input" value={form.team} onChange={e => set('team', e.target.value)} />
-          </Field>
-
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              <option>Active</option>
-              <option>Inactive</option>
-            </select>
           </Field>
 
         </div>

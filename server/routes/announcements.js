@@ -1,3 +1,10 @@
+/**
+ * @file announcements.js — Announcements API Routes — /api/announcements
+ * CRUD for system-wide announcement banners.
+ * Active announcements are shown to all users in the UI header.
+ *
+ * @module routes/announcements
+ */
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
@@ -16,6 +23,11 @@ const announcementRules = [
   body('end_date').optional({ nullable: true, values: 'falsy' }).isISO8601(),
 ];
 
+/**
+ * GET /
+ * List all announcements, most recent first.
+ * @returns Array of announcement objects
+ */
 router.get('/', async (req, res) => {
   try {
     let q = db('announcements').orderBy('created_at', 'desc');
@@ -42,6 +54,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'announcements'); }
 });
 
+/**
+ * POST /
+ * Create a new announcement.
+ * @auth Requires role: Admin
+ * @body title, message, type, active, starts_at, ends_at
+ * @returns 201 with created announcement
+ */
 router.post('/', requireRole('Admin'), announcementRules, validate, auditCreate('announcements', 'announcements_id'), async (req, res) => {
   try {
     const { title, message, type, is_active, start_date, end_date } = req.body;
@@ -58,6 +77,13 @@ router.post('/', requireRole('Admin'), announcementRules, validate, auditCreate(
   } catch (err) { safeError(res, err, 'announcements'); }
 });
 
+/**
+ * PUT /:id
+ * Update an announcement.
+ * @auth Requires role: Admin
+ * @body Same as POST
+ * @returns Updated announcement
+ */
 router.put('/:id', requireRole('Admin'), idParam, announcementRules, validate, auditUpdate('announcements', 'announcements_id'), async (req, res) => {
   try {
     const { title, message, type, is_active, start_date, end_date } = req.body;
@@ -71,6 +97,12 @@ router.put('/:id', requireRole('Admin'), idParam, announcementRules, validate, a
   } catch (err) { safeError(res, err, 'announcements'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete an announcement.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('announcements', 'announcements_id'), async (req, res) => {
   try {
     await db('announcements').where('announcements_id', req.params.id).del();

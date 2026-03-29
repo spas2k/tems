@@ -1,3 +1,9 @@
+/**
+ * @file Vendor detail page with related entities and inline editing.
+ * @module VendorDetail
+ *
+ * Shows vendor info, related inventory, contracts, orders, invoices, disputes, and remits. Supports inline field editing, notes, and change history.
+ */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -12,6 +18,7 @@ import {
   getContracts, getOrders, getInvoices, getDisputes, getVendorRemits,
 } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import StatusToggle from '../components/StatusToggle';
 import NoteTimeline from '../components/NoteTimeline';
 import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
@@ -23,7 +30,7 @@ const BADGE = {
   Pending:       'badge badge-blue',
   Disconnected:  'badge badge-gray',
   Suspended:     'badge badge-orange',
-  Inactive:      'badge badge-gray',
+  Inactive:      'badge badge-red',
   Paid:          'badge badge-green',
   Unpaid:        'badge badge-orange',
   Overdue:       'badge badge-red',
@@ -56,7 +63,7 @@ function Field({ label, children }) {
   );
 }
 
-function SectionCard({ title, count, icon: Icon, iconColor, children, sectionRef, navigatePath, navFilters }) {
+function SectionCard({ title, count, icon: Icon, iconColor, children, sectionRef, navigatePath, navFilters, headerExtra }) {
   const nav = useNavigate();
   const isLink = !!navigatePath;
   return (
@@ -77,6 +84,7 @@ function SectionCard({ title, count, icon: Icon, iconColor, children, sectionRef
             {count} record{count !== 1 ? 's' : ''}
           </span>
         )}
+        {headerExtra}
       </div>
       {children}
     </div>
@@ -195,6 +203,20 @@ export default function VendorDetail() {
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setDirty(true); };
 
+  const toggleActive = async (newVal) => {
+    const prev = form.status;
+    setForm(p => ({ ...p, status: newVal }));
+    try {
+      const updated = await updateVendor(id, { ...form, status: newVal });
+      setVendor(updated.data);
+      setHistoryKey(k => k + 1);
+      showToast(`Vendor ${newVal === 'Active' ? 'activated' : 'deactivated'}.`);
+    } catch {
+      setForm(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -236,9 +258,8 @@ export default function VendorDetail() {
       {/* Header */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/vendors')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ArrowLeft size={15} /> Back
+          <button className="btn-back" onClick={() => navigate('/vendors')}>
+            <ArrowLeft size={15} /><span className="btn-back-label">Back</span>
           </button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -255,9 +276,6 @@ export default function VendorDetail() {
               </div>
             </div>
           </div>
-          <span className={vendor.status === 'Active' ? 'badge badge-green' : 'badge badge-gray'}>
-            {vendor.status}
-          </span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -271,6 +289,7 @@ export default function VendorDetail() {
             ))}
           </div>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
           {canUpdate && (
             <button
               className="btn btn-primary"
@@ -332,9 +351,9 @@ export default function VendorDetail() {
       </div>
 
       {/* ── Vendor Details ── */}
-      <SectionCard title="Vendor Details" icon={SlidersHorizontal} iconColor="#3b82f6" sectionRef={refs.details}>
+      <SectionCard title="Vendor Details" icon={SlidersHorizontal} iconColor="#3b82f6" sectionRef={refs.details}
+        headerExtra={<StatusToggle value={form.status} onChange={toggleActive} disabled={!canUpdate} />}>
         <div style={{ padding: 20 }}>
-          {dirty && <div style={{ marginBottom: 12 }}><span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span></div>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <Field label="Vendor Name *">
               <input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} />
@@ -345,12 +364,6 @@ export default function VendorDetail() {
             <Field label="Service Type">
               <select className="form-input" value={form.vendor_type} onChange={e => set('vendor_type', e.target.value)}>
                 {SERVICE_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </Field>
-            <Field label="Status">
-              <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-                <option>Active</option>
-                <option>Inactive</option>
               </select>
             </Field>
             <Field label="Contact Name">

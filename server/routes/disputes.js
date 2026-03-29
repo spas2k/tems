@@ -1,3 +1,10 @@
+/**
+ * @file disputes.js — Disputes API Routes — /api/disputes
+ * CRUD for billing disputes (overcharges, duplicates, wrong rates, etc.).
+ * Disputes link to invoices, vendors, and optionally line items.
+ *
+ * @module routes/disputes
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -15,17 +22,28 @@ function baseQuery() {
     .select('d.*', 'i.invoice_number', 'v.name as vendor_name');
 }
 
+/**
+ * GET /
+ * List all disputes with vendor and invoice joins, ordered by filed_date desc.
+ * @returns Array of dispute objects with vendor_name, invoice_number
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
     if (req.query.vendors_id) query = query.where('d.vendors_id', req.query.vendors_id);
     if (req.query.invoices_id) query = query.where('d.invoices_id', req.query.invoices_id);
     if (req.query.status) query = query.where('d.status', req.query.status);
-    const rows = await query.orderBy('d.filed_date', 'desc');
+    const limit = Math.min(parseInt(req.query.limit) || 10000, 10000);
+    const rows = await query.orderBy('d.filed_date', 'desc').limit(limit);
     res.json(rows);
   } catch (err) { safeError(res, err, 'disputes'); }
 });
 
+/**
+ * GET /:id
+ * Get a single dispute by ID with joins.
+ * @returns Dispute object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('d.disputes_id', req.params.id).first();
@@ -34,6 +52,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'disputes'); }
 });
 
+/**
+ * POST /
+ * Create a new dispute.
+ * @auth Requires role: Admin, Manager
+ * @body line_items_id, invoices_id, vendors_id, dispute_type, amount, status, filed_date, resolved_date, resolution_notes, credit_amount, reference_number
+ * @returns 201 with created dispute
+ */
 router.post('/', requireRole('Admin', 'Manager'), disputeRules, validate, auditCreate('disputes', 'disputes_id'), async (req, res) => {
   try {
     const { line_items_id, invoices_id, vendors_id, dispute_type, amount, status, filed_date, resolved_date, resolution_notes, credit_amount, reference_number, notes } = req.body;
@@ -50,6 +75,13 @@ router.post('/', requireRole('Admin', 'Manager'), disputeRules, validate, auditC
   } catch (err) { safeError(res, err, 'disputes'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing dispute.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated dispute object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...disputeRules, validate, auditUpdate('disputes', 'disputes_id'), async (req, res) => {
   try {
     const { line_items_id, invoices_id, vendors_id, dispute_type, amount, status, filed_date, resolved_date, resolution_notes, credit_amount, reference_number, notes } = req.body;
@@ -65,6 +97,12 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...disputeRules, va
   } catch (err) { safeError(res, err, 'disputes'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a dispute.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('disputes', 'disputes_id'), auditDelete('disputes', 'disputes_id'), async (req, res) => {
   try {
     await db('disputes').where('disputes_id', req.params.id).del();
@@ -73,6 +111,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('dis
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('disputes', 'disputes_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple disputes.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('disputes', 'disputes_id', {
+  allowed: ['vendors_id', 'invoices_id', 'type', 'disputed_amount', 'status', 'filed_date', 'resolved_date', 'resolution', 'credit_amount', 'description'],
+}));
 
 module.exports = router;

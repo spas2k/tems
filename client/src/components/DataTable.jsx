@@ -1,8 +1,16 @@
+/**
+ * @file Reusable data grid component with filtering, sorting, pagination, and export.
+ * @module DataTable
+ *
+ * Renders a full-featured data table with column toggling, multi-operator
+ * filter row, sort indicators, pagination, row selection, bulk actions,
+ * Excel/CSV export, and saved-filter bookmarks via the Favorites context.
+ */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Pencil, Trash2, Filter, X, Download, Copy, Check, Square, CheckSquare, Bookmark, Star, Columns } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import Pagination from './Pagination';
 import BulkUpdatePanel from './BulkUpdatePanel';
 import { useFavorites } from '../context/FavoritesContext';
@@ -350,21 +358,23 @@ export default function DataTable({
   }, []);
 
   /* ── export ──────────────────────────────────────────── */
-  const handleExport = useCallback((format) => {
+  const handleExport = useCallback(async (format) => {
     const exportData = allData || data;
+    const headers = visibleColumns.map(col => col.label);
     const rows = exportData.map(row =>
-      Object.fromEntries(visibleColumns.map(col => [col.label, row[col.key] ?? '']))
+      visibleColumns.map(col => row[col.key] ?? '')
     );
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Data');
     const fname = exportFilename || title || 'export';
     if (format === 'csv') {
-      const csv = XLSX.utils.sheet_to_csv(ws);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-      saveAs(blob, `${fname}.csv`);
+      const escape = v => { const s = String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
+      const csv = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
+      saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${fname}.csv`);
     } else {
-      const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Data');
+      ws.addRow(headers);
+      rows.forEach(r => ws.addRow(r));
+      const buf = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf], { type: 'application/octet-stream' }), `${fname}.xlsx`);
     }
   }, [allData, data, visibleColumns, exportFilename, title]);
@@ -455,7 +465,7 @@ export default function DataTable({
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} ref={toolbarRef}>
-          {hasActiveFilters && (
+          {hasActiveFilters && showFilters && (
             <button className="btn btn-ghost btn-sm" onClick={() => { clearFilters(); setShowSavedFilters(false); setShowExport(false); }}>
               <X size={13} /> Clear
             </button>

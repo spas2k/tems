@@ -1,3 +1,10 @@
+/**
+ * @file favorites.js — Favorites API Routes — /api/favorites
+ * CRUD for user-bookmarked entities.
+ * Favorites are scoped to the authenticated user (users_id).
+ *
+ * @module routes/favorites
+ */
 // ============================================================
 // Favorites API Routes  — /api/favorites
 // Favorites are scoped to the authenticated user (users_id).
@@ -19,6 +26,11 @@ function getUserId(req) {
 }
 
 // GET /api/favorites — list favorites for the current user
+/**
+ * GET /
+ * List all favorites for the current user, ordered by position, then created_at desc.
+ * @returns Array of favorite objects
+ */
 router.get('/', async (req, res) => {
   try {
     const uid = getUserId(req);
@@ -31,6 +43,12 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/favorites — create a new favorite
+/**
+ * POST /
+ * Add a new favorite bookmark.
+ * @body entity_type, entity_id, label, path
+ * @returns 201 with created favorite
+ */
 router.post('/', async (req, res) => {
   try {
     const uid = getUserId(req);
@@ -55,6 +73,12 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/favorites/:id — rename (only name field is mutable)
+/**
+ * PUT /:id
+ * Update a favorite (label, position, path).
+ * @body label, position, path
+ * @returns Updated favorite object
+ */
 router.put('/:id', async (req, res) => {
   try {
     const uid = getUserId(req);
@@ -78,6 +102,11 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/favorites/:id — delete a favorite
+/**
+ * DELETE /:id
+ * Remove a favorite bookmark.
+ * @returns { success: true }
+ */
 router.delete('/:id', async (req, res) => {
   try {
     const uid = getUserId(req);

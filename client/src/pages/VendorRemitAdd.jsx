@@ -1,3 +1,9 @@
+/**
+ * @file New vendor remittance creation form.
+ * @module VendorRemitAdd
+ *
+ * Manual form with vendor fetch for creating a new remittance record.
+ */
 import React, { useEffect, useState } from 'react';
 import { CreditCard } from 'lucide-react';
 import { createVendorRemit, getVendors } from '../api';
@@ -7,7 +13,7 @@ const PAYMENT_METHODS = ['ACH', 'Check', 'Wire', 'EFT', 'Credit Card'];
 
 const EMPTY = {
   vendors_id: '', remit_name: '', remit_code: '', payment_method: 'ACH',
-  bank_name: '', routing_number: '', bank_vendor_number: '',
+  bank_name: '', routing_number: '', bank_account_number: '',
   remit_address: '', remit_city: '', remit_state: '', remit_zip: '',
   status: 'Active', notes: '',
 };
@@ -41,7 +47,7 @@ export default function VendorRemitAdd() {
       fields: [
         { key: 'bank_name', label: 'Bank Name', half: true },
         { key: 'routing_number', label: 'Routing Number (ABA)', half: true },
-        { key: 'bank_vendor_number', label: 'Vendor Number' },
+        { key: 'bank_account_number', label: 'Vendor Number' },
       ],
     },
     {

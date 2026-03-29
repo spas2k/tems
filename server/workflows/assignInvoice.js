@@ -81,12 +81,15 @@ module.exports = {
       label: 'Create Notification',
       instruction: 'Send a notification to the target user informing them of the new invoice assignment.',
       action: async (ctx, db) => {
-        await db('notifications').insert({
+        const { notify } = require('../services/notifications');
+        await notify({
           users_id: ctx.target_users_id,
           title: 'Invoice Assigned to You',
           message: `Invoice #${ctx.invoices_id} has been assigned to you for review.`,
           type: 'info',
-          is_read: false,
+          entity_type: 'invoice',
+          entity_id: ctx.invoices_id,
+          category: 'invoice_assigned',
         });
         return 'Notification created for target user.';
       },

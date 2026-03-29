@@ -1,3 +1,9 @@
+/**
+ * @file Header dropdown panel for managing saved favorites.
+ * @module FavoritesPanel
+ *
+ * Shows saved favorites with inline rename and delete. Navigates to the favorited path with its saved filter state on click.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Star, Trash2, Edit2, Check, X, ChevronRight } from 'lucide-react';

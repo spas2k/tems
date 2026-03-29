@@ -1,3 +1,10 @@
+/**
+ * @file Application entry point. Mounts the React root.
+ * @module main
+ *
+ * Wraps <App /> in React.StrictMode and ConsoleErrorProvider.
+ * Also registers a global click handler for date-input toggle behavior.
+ */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';

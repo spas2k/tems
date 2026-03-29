@@ -1,3 +1,9 @@
+/**
+ * @file New support ticket creation form.
+ * @module TicketAdd
+ *
+ * Uses FormPage with user assignment lookup and auto-populated console error fields.
+ */
 import React, { useMemo } from 'react';
 import { LifeBuoy, Terminal } from 'lucide-react';
 import { createTicket, getUsers } from '../api';

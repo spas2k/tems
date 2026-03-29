@@ -1,3 +1,9 @@
+/**
+ * @file Audit trail viewer for entity-level change history.
+ * @module ChangeHistory
+ *
+ * Fetches and displays CREATE/UPDATE/DELETE audit records for a given entity, with field-level before/after diffs and relative timestamps.
+ */
 import React, { useState, useEffect } from 'react';
 import { Clock, PlusCircle, Edit3, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { getAuditHistory } from '../api';

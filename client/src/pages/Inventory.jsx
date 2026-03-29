@@ -1,3 +1,9 @@
+/**
+ * @file Inventory list page with CRUD modal and account/contract/order lookups.
+ * @module Inventory
+ *
+ * CRUD list page for circuit/service inventory items.
+ */
 ﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Network, Trash2 } from 'lucide-react';

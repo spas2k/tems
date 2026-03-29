@@ -1,3 +1,10 @@
+/**
+ * @file vendorRemit.js — Vendor Remit API Routes — /api/vendor-remit
+ * CRUD for vendor payment/remittance information.
+ * Stores bank details, payment methods, and remit-to addresses.
+ *
+ * @module routes/vendorRemit
+ */
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
@@ -16,6 +23,11 @@ const remitRules = [
   body('status').optional().isIn(['Active', 'Inactive']),
 ];
 
+/**
+ * GET /
+ * List all vendor remit records with vendor name join.
+ * @returns Array of vendor remit objects
+ */
 router.get('/', async (req, res) => {
   try {
     let query = db('vendor_remit as vr')
@@ -28,6 +40,11 @@ router.get('/', async (req, res) => {
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
 
+/**
+ * GET /:id
+ * Get a single vendor remit record by ID.
+ * @returns Vendor remit object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await db('vendor_remit as vr')
@@ -40,15 +57,22 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
 
+/**
+ * POST /
+ * Create a new vendor remit record.
+ * @auth Requires role: Admin, Manager
+ * @body vendors_id, payment_method, bank_name, routing_number, bank_account_number, remit_address, ...
+ * @returns 201 with created record
+ */
 router.post('/', requireRole('Admin', 'Manager'), remitRules, validate, auditCreate('vendor_remit', 'vendor_remit_id'), async (req, res) => {
   try {
     const { vendors_id, remit_name, remit_code, payment_method, bank_name,
-            routing_number, bank_vendor_number, remit_address, remit_city,
+            routing_number, bank_account_number, remit_address, remit_city,
             remit_state, remit_zip, status, notes } = req.body;
     const id = await db.insertReturningId('vendor_remit', {
       vendors_id: vendors_id || null, remit_name, remit_code,
       payment_method: payment_method || 'ACH', bank_name, routing_number,
-      bank_vendor_number, remit_address, remit_city, remit_state, remit_zip,
+      bank_account_number, remit_address, remit_city, remit_state, remit_zip,
       status: status || 'Active', notes,
     });
     const row = await db('vendor_remit as vr')
@@ -59,14 +83,21 @@ router.post('/', requireRole('Admin', 'Manager'), remitRules, validate, auditCre
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
 
+/**
+ * PUT /:id
+ * Update a vendor remit record.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST
+ * @returns Updated record
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, remitRules, validate, auditUpdate('vendor_remit', 'vendor_remit_id'), async (req, res) => {
   try {
     const { vendors_id, remit_name, remit_code, payment_method, bank_name,
-            routing_number, bank_vendor_number, remit_address, remit_city,
+            routing_number, bank_account_number, remit_address, remit_city,
             remit_state, remit_zip, status, notes } = req.body;
     await db('vendor_remit').where('vendor_remit_id', req.params.id).update({
       vendors_id: vendors_id || null, remit_name, remit_code, payment_method, bank_name,
-      routing_number, bank_vendor_number, remit_address, remit_city,
+      routing_number, bank_account_number, remit_address, remit_city,
       remit_state, remit_zip, status, notes,
     });
     const row = await db('vendor_remit as vr')
@@ -77,6 +108,12 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, remitRules, validat
   } catch (err) { safeError(res, err, 'vendor_remit'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a vendor remit record.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('vendor_remit', 'vendor_remit_id'), async (req, res) => {
   try {
     await db('vendor_remit').where('vendor_remit_id', req.params.id).del();
@@ -85,6 +122,8 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('vend
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('vendor_remit', 'vendor_remit_id'));
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('vendor_remit', 'vendor_remit_id', {
+  allowed: ['vendors_id', 'remit_name', 'address', 'city', 'state', 'zip', 'routing_number', 'account_number', 'payment_method', 'status'],
+}));
 
 module.exports = router;

@@ -1,3 +1,10 @@
+/**
+ * @file spendCategories.js — Spend Categories API Routes — /api/spend-categories
+ * CRUD for hierarchical spending classification.
+ * Supports parent-child relationships for category trees.
+ *
+ * @module routes/spendCategories
+ */
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
@@ -14,6 +21,11 @@ const categoryRules = [
   body('is_active').optional().isBoolean(),
 ];
 
+/**
+ * GET /
+ * List all spend categories with parent category join.
+ * @returns Array of spend category objects with parent_name
+ */
 router.get('/', async (req, res) => {
   try {
     const rows = await db('spend_categories as sc')
@@ -32,6 +44,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'spend_categories'); }
 });
 
+/**
+ * POST /
+ * Create a new spend category.
+ * @auth Requires role: Admin
+ * @body name, description, parent_id
+ * @returns 201 with created category
+ */
 router.post('/', requireRole('Admin'), categoryRules, validate, auditCreate('spend_categories', 'spend_categories_id'), async (req, res) => {
   try {
     const { name, code, description, parent_id, is_active } = req.body;
@@ -45,6 +64,13 @@ router.post('/', requireRole('Admin'), categoryRules, validate, auditCreate('spe
   } catch (err) { safeError(res, err, 'spend_categories'); }
 });
 
+/**
+ * PUT /:id
+ * Update a spend category.
+ * @auth Requires role: Admin
+ * @body Same as POST
+ * @returns Updated category
+ */
 router.put('/:id', requireRole('Admin'), idParam, categoryRules, validate, auditUpdate('spend_categories', 'spend_categories_id'), async (req, res) => {
   try {
     const { name, code, description, parent_id, is_active } = req.body;
@@ -58,6 +84,12 @@ router.put('/:id', requireRole('Admin'), idParam, categoryRules, validate, audit
   } catch (err) { safeError(res, err, 'spend_categories'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a spend category.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('spend_categories', 'spend_categories_id'), async (req, res) => {
   try {
     const children = await db('spend_categories').where('parent_id', req.params.id).count('* as cnt').first();

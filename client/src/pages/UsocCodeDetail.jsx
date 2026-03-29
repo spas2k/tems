@@ -1,15 +1,22 @@
+/**
+ * @file USOC code detail page with linked contract rates.
+ * @module UsocCodeDetail
+ *
+ * Shows USOC code info with related contract rates table and change history.
+ */
 import React, { useContext, useEffect, useState } from 'react';
 import { PageTitleContext } from '../PageTitleContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Tag, Save, FileText } from 'lucide-react';
 import { getUsocCode, updateUsocCode, getContractRates } from '../api';
 import DetailHeader from '../components/DetailHeader';
+import StatusToggle from '../components/StatusToggle';
 import ChangeHistory from '../components/ChangeHistory';
 import dayjs from 'dayjs';
 
 const CATEGORIES = ['Access', 'Transport', 'Wireless', 'Feature', 'Surcharge'];
 const STATUSES   = ['Active', 'Inactive'];
-const STATUS_BADGE = { Active: 'badge badge-green', Inactive: 'badge badge-gray' };
+const STATUS_BADGE = { Active: 'badge badge-green', Inactive: 'badge badge-red' };
 
 function Field({ label, children }) {
   return (
@@ -61,6 +68,20 @@ export default function UsocCodeDetail() {
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setDirty(true); };
 
+  const toggleActive = async (newVal) => {
+    const prev = form.status;
+    setForm(p => ({ ...p, status: newVal }));
+    try {
+      const updated = await updateUsocCode(id, { ...form, status: newVal });
+      setUsoc(updated.data);
+      setHistoryKey(k => k + 1);
+      showToast(`USOC code ${newVal === 'Active' ? 'activated' : 'deactivated'}.`);
+    } catch {
+      setForm(p => ({ ...p, status: prev }));
+      showToast('Status update failed.', false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -85,7 +106,7 @@ export default function UsocCodeDetail() {
       {/* Header bar */}
       <DetailHeader>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/usoc-codes')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ArrowLeft size={15} /> Back</button>
+          <button className="btn-back" onClick={() => navigate('/usoc-codes')}><ArrowLeft size={15} /><span className="btn-back-label">Back</span></button>
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--icon-bg-purple)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -98,6 +119,7 @@ export default function UsocCodeDetail() {
           </div>
           <span className={STATUS_BADGE[usoc.status] || 'badge badge-gray'}>{usoc.status}</span>
         </div>
+        {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
         <button className="btn btn-primary" onClick={handleSave} disabled={!dirty || saving} style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: (!dirty || saving) ? 0.5 : 1 }}>
           <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
         </button>
@@ -124,7 +146,7 @@ export default function UsocCodeDetail() {
       <div className="page-card">
         <div className="page-card-header">
           <span className="rc-results-count" style={{ fontWeight: 700, fontSize: 15 }}>USOC Code Details</span>
-          {dirty && <span className="unsaved-indicator"><Save size={13} strokeWidth={2.5} />Unsaved changes</span>}
+          <StatusToggle value={form.status} onChange={toggleActive} />
         </div>
         <div style={{ padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <Field label="USOC Code *"><input className="form-input" value={form.usoc_code} onChange={e => set('usoc_code', e.target.value)} /></Field>
@@ -138,11 +160,6 @@ export default function UsocCodeDetail() {
           <Field label="Default MRC ($)"><input className="form-input" type="number" step="0.01" value={form.default_mrc} onChange={e => set('default_mrc', e.target.value)} /></Field>
           <Field label="Default NRC ($)"><input className="form-input" type="number" step="0.01" value={form.default_nrc} onChange={e => set('default_nrc', e.target.value)} /></Field>
           <Field label="Unit"><input className="form-input" value={form.unit} onChange={e => set('unit', e.target.value)} placeholder="Each" /></Field>
-          <Field label="Status">
-            <select className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
-              {STATUSES.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </Field>
         </div>
       </div>
 

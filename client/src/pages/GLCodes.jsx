@@ -1,3 +1,9 @@
+/**
+ * @file Placeholder page for GL code management (coming soon).
+ * @module GLCodes
+ *
+ * Renders a "Coming Soon" placeholder.
+ */
 import React from 'react';
 import { BookOpen } from 'lucide-react';
 

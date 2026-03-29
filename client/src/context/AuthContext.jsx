@@ -1,8 +1,21 @@
+/**
+ * @file Authentication context provider and useAuth hook.
+ * @module AuthContext
+ *
+ * Loads the current user and demo user list on mount. Exposes auth state,
+ * role/permission checks (hasPermission, hasRole, canWrite, isAdmin),
+ * user preference updates, and demo-user impersonation switching.
+ */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCurrentUser, getDemoUsers, updateMyPreferences } from '../api';
 
 const AuthContext = createContext(null);
 
+/**
+ * @component AuthProvider
+ * @param {Object} props - { children }
+ * Wraps the app in auth context, fetching user on mount.
+ */
 export function AuthProvider({ children }) {
   const [user, setUser]           = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -139,6 +152,10 @@ export function AuthProvider({ children }) {
   );
 }
 
+/**
+ * @function useAuth
+ * Returns { user, loading, demoUsers, isImpersonating, refreshUser, updatePreferences, hasPermission, hasRole, canWrite, isAdmin, switchDemoUser, endImpersonation }.
+ */
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');

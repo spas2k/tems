@@ -13,8 +13,12 @@ const db = require('../db');
 
 /**
  * Resolve the next step number from a step definition.
- * - Decision steps: follow branches.yes or branches.no based on actionResult
- * - Other steps: use explicit nextStep, or fall back to step + 1
+ * - Decision steps: follows branches.yes or branches.no based on actionResult
+ * - Other steps: uses explicit nextStep, or returns null to fall through
+ *
+ * @param {object}  stepDef       — Step definition from the workflow
+ * @param {boolean} actionResult  — Result of the step's action (true/false)
+ * @returns {number|null} The next step number, or null for sequential fallthrough
  */
 function resolveNext(stepDef, actionResult) {
   if (stepDef.type === 'decision' && stepDef.branches) {
@@ -26,13 +30,30 @@ function resolveNext(stepDef, actionResult) {
 }
 
 /**
- * Collect every step reachable from `startStep` via the definition graph
- * WITHOUT executing — used to mark unreachable steps as "skipped".
+ * Collect every step number in the definition. Used to identify
+ * unvisited steps that should be marked as "skipped".
+ *
+ * @param {Array<{ step: number }>} steps — Array of step definitions
+ * @returns {Set<number>} Set of all step numbers in the workflow
  */
 function allReachableSteps(steps) {
   return new Set(steps.map(s => s.step));
 }
 
+/**
+ * Execute a full workflow definition by walking the step graph.
+ *
+ * Creates a `workflow_runs` record, iterates through steps starting from
+ * the lowest-numbered step, executes each step's action function (if any),
+ * follows decision branches, marks untaken branches as "skipped", and
+ * finalizes the run with a success/failed status.
+ *
+ * @async
+ * @param {object} definition — Workflow definition: { key, name, steps: [{ step, type, label, instruction, action?, branches?, nextStep? }] }
+ * @param {object} context    — Arbitrary context object passed to each step's action function
+ * @param {number} [triggeredBy] — users_id of the user who triggered the workflow
+ * @returns {Promise<{ run: object, steps: object[] }>} The finalized workflow_runs row and sorted array of workflow_steps rows
+ */
 async function run(definition, context, triggeredBy) {
   // 1. Create the workflow run record
   const [run] = await db('workflow_runs').insert({

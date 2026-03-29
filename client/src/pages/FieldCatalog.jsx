@@ -1,3 +1,9 @@
+/**
+ * @file Field catalog aggregated category list with drill-down.
+ * @module FieldCatalog
+ *
+ * Shows field catalog categories with entry counts; navigates to FieldCatalogDetail.
+ */
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Database } from 'lucide-react';
@@ -20,7 +26,7 @@ const formFields = [
 export default function FieldCatalog() {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const canCreate = hasPermission('accounts', 'create');
+  const canCreate = hasPermission('field_catalog', 'create');
 
   const table = useCrudTable({
     api: { list: getFieldCatalog, create: createFieldCatalog },

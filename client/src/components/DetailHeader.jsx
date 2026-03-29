@@ -1,3 +1,11 @@
+/**
+ * @file Sticky detail-page header with scroll detection.
+ * @module DetailHeader
+ *
+ * Detects scroll position via IntersectionObserver and adds a .stuck class when the header is pinned to the top of its scroll container.
+ *
+ * @param {ReactNode} props.children - Header content (title, actions, etc.)
+ */
 import { useEffect, useRef, useState } from 'react';
 
 export default function DetailHeader({ children }) {

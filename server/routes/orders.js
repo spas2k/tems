@@ -1,3 +1,10 @@
+/**
+ * @file orders.js — Orders API Routes — /api/orders
+ * CRUD for telecom service orders.
+ * Orders track provisioning requests linked to vendors, contracts, and inventory.
+ *
+ * @module routes/orders
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -18,16 +25,27 @@ function baseQuery() {
     .select('o.*', 'v.name as vendor_name', 'co.contract_number', 'i.inventory_number', 'u.display_name as assigned_user_name');
 }
 
+/**
+ * GET /
+ * List all orders with vendor, contract, and assigned user joins.
+ * @returns Array of order objects
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
     if (req.query.vendors_id) query = query.where('o.vendors_id', req.query.vendors_id);
     if (req.query.status) query = query.where('o.status', req.query.status);
-    const rows = await query.orderBy('o.order_date', 'desc');
+    const limit = Math.min(parseInt(req.query.limit) || 10000, 10000);
+    const rows = await query.orderBy('o.order_date', 'desc').limit(limit);
     res.json(rows);
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
+/**
+ * GET /:id
+ * Get a single order by ID with joins.
+ * @returns Order object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('o.orders_id', req.params.id).first();
@@ -36,6 +54,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
+/**
+ * POST /
+ * Create a new service order.
+ * @auth Requires role: Admin, Manager
+ * @body vendors_id, contracts_id, inventory_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id
+ * @returns 201 with created order
+ */
 router.post('/', requireRole('Admin', 'Manager'), orderRules, validate, auditCreate('orders', 'orders_id'), async (req, res) => {
   try {
     const { vendors_id, contracts_id, inventory_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
@@ -57,6 +82,13 @@ router.post('/', requireRole('Admin', 'Manager'), orderRules, validate, auditCre
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing order.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated order object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...orderRules, validate, auditUpdate('orders', 'orders_id'), async (req, res) => {
   try {
     const { vendors_id, contracts_id, inventory_id, order_number, description, contracted_rate, order_date, due_date, status, notes, assigned_users_id } = req.body;
@@ -91,6 +123,12 @@ router.get('/:id/inventory', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'orders'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete an order. Blocked by cascadeGuard if inventory is linked.
+ * @auth Requires role: Admin
+ * @returns { success: true } or 409
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('orders', 'orders_id'), auditDelete('orders', 'orders_id'), async (req, res) => {
   try {
     await db('orders').where('orders_id', req.params.id).del();
@@ -99,6 +137,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('ord
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('orders', 'orders_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple orders.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('orders', 'orders_id', {
+  allowed: ['vendors_id', 'contracts_id', 'inventory_id', 'order_number', 'description', 'contracted_rate', 'order_date', 'due_date', 'status', 'notes', 'assigned_users_id'],
+}));
 
 module.exports = router;

@@ -1,9 +1,25 @@
+/**
+ * @file Promise-based confirmation dialog context.
+ * @module ConfirmContext
+ *
+ * Provides a confirm(message, opts) function that renders a modal overlay
+ * and returns a Promise<boolean>. Supports { title, danger, confirmLabel }.
+ */
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 
 const ConfirmContext = createContext(null);
+/**
+ * @function useConfirm
+ * Returns the confirm(message, opts) function.
+ */
 export const useConfirm = () => useContext(ConfirmContext);
 
+/**
+ * @component ConfirmProvider
+ * @param {Object} props - { children }
+ * Renders the confirmation modal and provides confirm() to descendants.
+ */
 export function ConfirmProvider({ children }) {
   const [state, setState] = useState(null);
   const resolveRef = useRef(null);

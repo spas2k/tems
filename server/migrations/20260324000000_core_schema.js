@@ -158,12 +158,9 @@ exports.up = async function(knex) {
 
   await knex.schema.createTable('form_instructions', t => {
     t.increments('id').primary();
-    t.string('form_name').notNullable();
-    t.string('section_name').notNullable();
-    t.text('content');
-    t.string('status').defaultTo('Active');
-    t.integer('created_by').unsigned().references('users_id').inTable('users').onDelete('SET NULL');
-    t.unique(['form_name', 'section_name']);
+    t.string('form_id').notNullable().unique();
+    t.text('instruction').notNullable();
+    t.boolean('is_active').defaultTo(true);
     t.timestamps(true, true);
   });
 

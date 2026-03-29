@@ -1,3 +1,9 @@
+/**
+ * @file New location creation form.
+ * @module LocationAdd
+ *
+ * Uses FormPage to render fields for name, address, city, state, and zip.
+ */
 import React from 'react';
 import { MapPin } from 'lucide-react';
 import { createLocation } from '../api';

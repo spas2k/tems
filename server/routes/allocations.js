@@ -1,3 +1,9 @@
+/**
+ * @file allocations.js — Allocations API Routes — /api/allocations
+ * CRUD for cost allocations (splitting line item charges across cost centers/departments).
+ *
+ * @module routes/allocations
+ */
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -24,6 +30,11 @@ function baseQuery() {
     );
 }
 
+/**
+ * GET /
+ * List all allocations with optional ?line_items_id filter. Joins line item data.
+ * @returns Array of allocation objects
+ */
 router.get('/', async (req, res) => {
   try {
     let query = baseQuery();
@@ -34,6 +45,11 @@ router.get('/', async (req, res) => {
   } catch (err) { safeError(res, err, 'allocations'); }
 });
 
+/**
+ * GET /:id
+ * Get a single allocation by ID.
+ * @returns Allocation object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await baseQuery().where('al.allocations_id', req.params.id).first();
@@ -42,6 +58,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'allocations'); }
 });
 
+/**
+ * POST /
+ * Create a new cost allocation.
+ * @auth Requires role: Admin, Manager
+ * @body line_items_id, cost_center, department, percentage, allocated_amount, notes
+ * @returns 201 with created allocation
+ */
 router.post('/', requireRole('Admin', 'Manager'), allocationRules, validate, auditCreate('allocations', 'allocations_id'), async (req, res) => {
   try {
     const { line_items_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
@@ -54,6 +77,13 @@ router.post('/', requireRole('Admin', 'Manager'), allocationRules, validate, aud
   } catch (err) { safeError(res, err, 'allocations'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing allocation.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated allocation object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...allocationRules, validate, auditUpdate('allocations', 'allocations_id'), async (req, res) => {
   try {
     const { line_items_id, cost_center, department, percentage, allocated_amount, notes } = req.body;
@@ -66,6 +96,12 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...allocationRules,
   } catch (err) { safeError(res, err, 'allocations'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete an allocation.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('allocations', 'allocations_id'), auditDelete('allocations', 'allocations_id'), async (req, res) => {
   try {
     await db('allocations').where('allocations_id', req.params.id).del();
@@ -74,6 +110,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('all
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('allocations', 'allocations_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple allocations.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('allocations', 'allocations_id', {
+  allowed: ['invoices_id', 'cost_center', 'department', 'percentage', 'amount', 'gl_code'],
+}));
 
 module.exports = router;

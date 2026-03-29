@@ -1,3 +1,9 @@
+/**
+ * @file New user creation form.
+ * @module UserAdd
+ *
+ * Uses FormPage with role selection and SSO provider/ID fields.
+ */
 import React from 'react';
 import { Users } from 'lucide-react';
 import { createUser, getRoles } from '../api';

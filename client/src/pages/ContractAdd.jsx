@@ -1,3 +1,9 @@
+/**
+ * @file New contract creation form.
+ * @module ContractAdd
+ *
+ * Uses FormPage with vendor and parent-contract lookups for creating a new contract.
+ */
 ﻿import React from 'react';
 import { FileText } from 'lucide-react';
 import { createContract, getVendors, getContracts } from '../api';
@@ -20,6 +26,7 @@ const SECTIONS = [
       { key: 'vendors_id', label: 'Vendor *', type: 'lookup', ...LOOKUP_VENDORS(rel.vendors), half: true },
       { key: 'contract_number', label: 'Contract Number', half: true },
       { key: 'name', label: 'Contract Name', half: true },
+      { key: 'status', label: 'Status', type: 'select', options: STATUSES, half: true },
     ],
   },
   {
@@ -47,12 +54,6 @@ const SECTIONS = [
         { key: 'product_service_types', label: 'Product Service Types', half: true },
         { key: 'business_line', label: 'Business Line', half: true }
       ],
-  },
-  {
-    title: 'Status',
-    fields: [
-      { key: 'status', label: 'Status', type: 'select', options: STATUSES },    
-    ],
   },
 ];
 

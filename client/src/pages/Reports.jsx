@@ -1,11 +1,18 @@
+/**
+ * @file Saved report gallery with run/delete actions.
+ * @module Reports
+ *
+ * Lists saved report configurations with preview, run, and delete capabilities. Links to CreateReport for new reports.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart2, Plus, Play, Trash2, Clock, User, Database,
-  Filter, Columns, RefreshCw, AlertCircle, FileText, Search,
+  Filter, Columns, RefreshCw, AlertCircle, FileText, Search, Pencil,
 } from 'lucide-react';
 import { getSavedReports, deleteSavedReport } from '../api';
 import { useConfirm } from '../context/ConfirmContext';
+import { useAuth } from '../context/AuthContext';
 
 const TABLE_LABELS = {
   inventory:       'Inventory',
@@ -49,6 +56,9 @@ function fmt(dateStr) {
 export default function Reports() {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('reports', 'create');
+  const canDelete = hasPermission('reports', 'delete');
   const [reports, setReports]   = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -95,9 +105,9 @@ export default function Reports() {
         <span style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 7 }}>
           <BarChart2 size={18} /> Saved Reports
         </span>
-        <button className="btn btn-primary" onClick={() => navigate('/create-report')}>
+        {canCreate && <button className="btn btn-primary" onClick={() => navigate('/create-report')}>
           <Plus size={15} /> New Report
-        </button>
+        </button>}
       </div>
 
       {/* Search + Refresh */}
@@ -140,9 +150,9 @@ export default function Reports() {
           <p style={{ fontSize: 14, color: '#64748b', marginBottom: 24 }}>
             Build your first report using the report creator.
           </p>
-          <button className="btn btn-primary" onClick={() => navigate('/create-report')}>
+          {canCreate && <button className="btn btn-primary" onClick={() => navigate('/create-report')}>
             <Plus size={15} /> Create Report
-          </button>
+          </button>}
         </div>
       )}
 
@@ -180,7 +190,7 @@ export default function Reports() {
                   return (
                     <tr key={r.saved_reports_id}
                       style={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/create-report?id=${r.saved_reports_id}`)}>
+                      onClick={() => navigate(`/reports/${r.saved_reports_id}`)}>
 
                       <td>
                         <div className="rc-flyout-item-title" style={{ fontWeight: 700, fontSize: 14 }}>{r.name}</div>
@@ -248,12 +258,19 @@ export default function Reports() {
                           onClick={e => e.stopPropagation()}>
                           <button
                             className="btn btn-sm btn-primary"
-                            onClick={() => navigate(`/create-report?id=${r.saved_reports_id}`)}
-                            title="Open in Report Builder"
+                            onClick={() => navigate(`/reports/${r.saved_reports_id}`)}
+                            title="View Report"
                           >
-                            <Play size={12} fill="currentColor" /> Open
+                            <Play size={12} fill="currentColor" /> View
                           </button>
-                          <button
+                          {canCreate && <button
+                            className="btn btn-sm btn-ghost"
+                            onClick={() => navigate(`/create-report?id=${r.saved_reports_id}`)}
+                            title="Edit Report"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>}
+                          {canDelete && <button
                             className="btn btn-sm btn-danger"
                             disabled={deleting === r.saved_reports_id}
                             onClick={() => handleDelete(r.saved_reports_id, r.name)}
@@ -262,7 +279,7 @@ export default function Reports() {
                             {deleting === r.saved_reports_id
                               ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
                               : <Trash2 size={12} />}
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>

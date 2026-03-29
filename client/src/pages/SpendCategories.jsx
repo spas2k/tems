@@ -1,9 +1,15 @@
+/**
+ * @file Spend category taxonomy list page.
+ * @module SpendCategories
+ *
+ * CRUD list page for spend categories with parent hierarchy.
+ */
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Layers, Trash2 } from 'lucide-react';
 import { getSpendCategories, createSpendCategory, updateSpendCategory, deleteSpendCategory } from '../api';
 import useCrudTable from '../hooks/useCrudTable';
 import DataTable from '../components/DataTable';
-import CrudModal from '../components/CrudModal';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 
@@ -11,10 +17,11 @@ const EMPTY = { name: '', code: '', description: '', parent_id: '', is_active: t
 const FILTER_CONFIG = { name: 'text', code: 'text', parent_name: 'text', is_active: 'select' };
 
 export default function SpendCategories() {
+  const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const confirm = useConfirm();
-  const canCreate = hasPermission('accounts', 'create');
-  const canDelete  = hasPermission('accounts', 'delete');
+  const canCreate = hasPermission('spend_categories', 'create');
+  const canDelete  = hasPermission('spend_categories', 'delete');
 
   const table = useCrudTable({
     api: { list: getSpendCategories, create: createSpendCategory, update: updateSpendCategory, delete: deleteSpendCategory },
@@ -29,14 +36,14 @@ export default function SpendCategories() {
   }));
 
   const columns = [
-    { key: 'name', label: 'Category Name', copyable: true, summary: 'count' },
+    { key: 'name', label: 'Category Name', copyable: true, summary: 'count', link: row => navigate(`/spend-categories/${row.spend_categories_id}`) },
     { key: 'code', label: 'Code', style: { fontFamily: 'monospace', fontSize: 12, color: '#64748b' } },
     { key: 'parent_name', label: 'Parent Category',
       render: val => val || <span style={{ color: '#cbd5e1' }}>—</span> },
     { key: 'description', label: 'Description',
-      render: row => <span style={{ fontSize: 12, color: '#64748b' }}>{row.description || '—'}</span> },
+      render: val => <span style={{ fontSize: 12, color: '#64748b' }}>{val || '—'}</span> },
     { key: 'is_active', label: 'Active',
-      render: row => <span className={row.is_active ? 'badge badge-green' : 'badge badge-gray'}>{row.is_active ? 'Yes' : 'No'}</span> },
+      render: val => <span className={val ? 'badge badge-green' : 'badge badge-red'}>{val ? 'Yes' : 'No'}</span> },
   ];
 
   const formFields = [
@@ -80,18 +87,8 @@ export default function SpendCategories() {
             onClick: async rows => { if (!(await confirm(`Delete ${rows.length} categories?`))) return; rows.forEach(r => table.handleDelete(r.spend_categories_id, { skipConfirm: true })); } },
         ] : []}
         headerRight={canCreate
-          ? <button className="btn btn-primary" onClick={() => table.openNew()}><Plus size={15} /> New Category</button>
+          ? <button className="btn btn-primary" onClick={() => navigate('/spend-categories/new')}><Plus size={15} /> New Category</button>
           : null}
-      />
-
-      <CrudModal
-        open={table.modal}
-        title={table.editing ? 'Edit Category' : 'New Category'}
-        onClose={() => table.setModal(false)}
-        onSave={table.handleSave}
-        form={table.form}
-        setField={table.setField}
-        fields={formFields}
       />
     </div>
   );

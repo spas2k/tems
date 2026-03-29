@@ -1,4 +1,11 @@
 /**
+ * @file reports.js — Reports API Routes — /api/reports
+ * Custom report generation and saved report management.
+ * Supports dynamic entity queries, aggregation, and chart data.
+ *
+ * @module routes/reports
+ */
+/**
  * TEMS Report Builder API
  * POST /api/reports/run      — execute a dynamic report query
  * GET  /api/reports/catalog  — return field catalog for all reportable tables
@@ -12,7 +19,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const safeError = require('./_safeError');
-const { requireRole } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/auth');
 
 // ══════════════════════════════════════════════════════════════
 //  Field Catalog — defines all reportable tables and their fields
@@ -111,40 +118,62 @@ const CATALOG = {
     color: '#0d9488',
     icon: 'FileText',
     joins: {
-      a: { table: 'accounts', on: ['co.accounts_id', 'a.accounts_id'] },
+      v: { table: 'vendors', on: ['co.vendors_id', 'v.vendors_id'] },
     },
     fields: [
       { key: 'contract_number',  label: 'Contract Number', type: 'text',   col: 'co.contract_number' },
-      { key: 'name',             label: 'Contract Name',   type: 'text',   col: 'co.name' },
+      { key: 'contract_name',    label: 'Contract Name',   type: 'text',   col: 'co.contract_name' },
       { key: 'start_date',       label: 'Start Date',      type: 'date',   col: 'co.start_date',       format: 'date' },
-      { key: 'end_date',         label: 'End Date',        type: 'date',   col: 'co.end_date',         format: 'date' },
+      { key: 'expiration_date',  label: 'Expiration Date', type: 'date',   col: 'co.expiration_date',  format: 'date' },
       { key: 'contracted_rate',  label: 'Contracted Rate', type: 'number', col: 'co.contracted_rate',  format: 'currency', aggregable: true },
       { key: 'term_months',      label: 'Term (Months)',   type: 'number', col: 'co.term_months',      aggregable: true },
+      { key: 'minimum_spend',    label: 'Minimum Spend',   type: 'number', col: 'co.minimum_spend',    format: 'currency', aggregable: true },
       { key: 'status',           label: 'Status',          type: 'select', col: 'co.status',
         options: ['Active','Expired','Pending','Cancelled'] },
       { key: 'auto_renew',       label: 'Auto Renew',      type: 'boolean',col: 'co.auto_renew' },
-      { key: 'account_name',     label: 'Vendor Name',     type: 'text',   col: 'a.name',              join: 'a' },
+      { key: 'vendor_name',      label: 'Vendor Name',     type: 'text',   col: 'v.name',              join: 'v' },
+    ],
+  },
+
+  vendors: {
+    label: 'Vendors',
+    description: 'Vendor profiles, contact information, and status',
+    table: 'vendors',
+    alias: 'v',
+    color: '#6366f1',
+    icon: 'Building',
+    joins: {},
+    fields: [
+      { key: 'name',          label: 'Vendor Name',    type: 'text',   col: 'v.name' },
+      { key: 'vendor_number', label: 'Vendor Number',  type: 'text',   col: 'v.vendor_number' },
+      { key: 'vendor_type',   label: 'Vendor Type',    type: 'text',   col: 'v.vendor_type' },
+      { key: 'contact_name',  label: 'Contact Name',   type: 'text',   col: 'v.contact_name' },
+      { key: 'contact_email', label: 'Contact Email',  type: 'text',   col: 'v.contact_email' },
+      { key: 'contact_phone', label: 'Contact Phone',  type: 'text',   col: 'v.contact_phone' },
+      { key: 'status',        label: 'Status',         type: 'select', col: 'v.status',
+        options: ['Active','Inactive'] },
+      { key: 'created_at',    label: 'Created Date',   type: 'date',   col: 'v.created_at',   format: 'date' },
     ],
   },
 
   accounts: {
-    label: 'Vendors / Accounts',
-    description: 'Vendor account profiles, contact information, and status',
+    label: 'Accounts',
+    description: 'Vendor account profiles and billing details',
     table: 'accounts',
     alias: 'a',
     color: '#2563eb',
     icon: 'Building2',
-    joins: {},
+    joins: {
+      v: { table: 'vendors', on: ['a.vendors_id', 'v.vendors_id'] },
+    },
     fields: [
-      { key: 'name',          label: 'Vendor Name',    type: 'text',   col: 'a.name' },
-      { key: 'account_number',label: 'Account Number', type: 'text',   col: 'a.account_number' },
-      { key: 'vendor_type',   label: 'Vendor Type',    type: 'text',   col: 'a.vendor_type' },
-      { key: 'contact_name',  label: 'Contact Name',   type: 'text',   col: 'a.contact_name' },
-      { key: 'contact_email', label: 'Contact Email',  type: 'text',   col: 'a.contact_email' },
-      { key: 'contact_phone', label: 'Contact Phone',  type: 'text',   col: 'a.contact_phone' },
-      { key: 'status',        label: 'Status',         type: 'select', col: 'a.status',
+      { key: 'name',           label: 'Account Name',   type: 'text',   col: 'a.name' },
+      { key: 'account_number', label: 'Account Number',  type: 'text',   col: 'a.account_number' },
+      { key: 'account_type',   label: 'Account Type',    type: 'text',   col: 'a.account_type' },
+      { key: 'status',         label: 'Status',          type: 'select', col: 'a.status',
         options: ['Active','Inactive'] },
-      { key: 'created_at',    label: 'Created Date',   type: 'date',   col: 'a.created_at',   format: 'date' },
+      { key: 'vendor_name',    label: 'Vendor Name',     type: 'text',   col: 'v.name',         join: 'v' },
+      { key: 'created_at',     label: 'Created Date',    type: 'date',   col: 'a.created_at',   format: 'date' },
     ],
   },
 
@@ -156,7 +185,7 @@ const CATALOG = {
     color: '#ea580c',
     icon: 'ShoppingCart',
     joins: {
-      a:  { table: 'accounts',  on: ['o.accounts_id',  'a.accounts_id']  },
+      v:  { table: 'vendors',   on: ['o.vendors_id',   'v.vendors_id']   },
       co: { table: 'contracts', on: ['o.contracts_id', 'co.contracts_id'] },
     },
     fields: [
@@ -167,7 +196,7 @@ const CATALOG = {
       { key: 'contracted_rate', label: 'Contracted Rate', type: 'number', col: 'o.contracted_rate', format: 'currency', aggregable: true },
       { key: 'status',          label: 'Status',          type: 'select', col: 'o.status',
         options: ['Pending','In Progress','Completed','Cancelled'] },
-      { key: 'account_name',    label: 'Vendor Name',     type: 'text',   col: 'a.name',           join: 'a' },
+      { key: 'vendor_name',     label: 'Vendor Name',     type: 'text',   col: 'v.name',             join: 'v' },
       { key: 'contract_number', label: 'Contract Number', type: 'text',   col: 'co.contract_number', join: 'co' },
     ],
   },
@@ -180,7 +209,7 @@ const CATALOG = {
     color: '#be123c',
     icon: 'ShieldAlert',
     joins: {
-      a: { table: 'accounts', on: ['d.accounts_id', 'a.accounts_id'] },
+      v: { table: 'vendors',  on: ['d.vendors_id',  'v.vendors_id']  },
       i: { table: 'invoices', on: ['d.invoices_id', 'i.invoices_id'] },
     },
     fields: [
@@ -194,7 +223,7 @@ const CATALOG = {
       { key: 'resolved_date',      label: 'Resolved Date',      type: 'date',   col: 'd.resolved_date',   format: 'date' },
       { key: 'reference_number',   label: 'Reference Number',   type: 'text',   col: 'd.reference_number' },
       { key: 'resolution_notes',   label: 'Resolution Notes',   type: 'text',   col: 'd.resolution_notes' },
-      { key: 'account_name',       label: 'Vendor Name',        type: 'text',   col: 'a.name',            join: 'a' },
+      { key: 'vendor_name',        label: 'Vendor Name',        type: 'text',   col: 'v.name',            join: 'v' },
       { key: 'invoice_number',     label: 'Invoice Number',     type: 'text',   col: 'i.invoice_number',  join: 'i' },
     ],
   },
@@ -207,7 +236,7 @@ const CATALOG = {
     color: '#16a34a',
     icon: 'DollarSign',
     joins: {
-      a: { table: 'accounts', on: ['cs.accounts_id', 'a.accounts_id'] },
+      v: { table: 'vendors', on: ['cs.vendors_id', 'v.vendors_id'] },
     },
     fields: [
       { key: 'category',          label: 'Category',          type: 'text',   col: 'cs.category' },
@@ -217,7 +246,7 @@ const CATALOG = {
       { key: 'identified_date',   label: 'Identified Date',   type: 'date',   col: 'cs.identified_date', format: 'date' },
       { key: 'projected_savings', label: 'Projected Savings', type: 'number', col: 'cs.projected_savings', format: 'currency', aggregable: true },
       { key: 'realized_savings',  label: 'Realized Savings',  type: 'number', col: 'cs.realized_savings',  format: 'currency', aggregable: true },
-      { key: 'account_name',      label: 'Vendor Name',       type: 'text',   col: 'a.name',              join: 'a' },
+      { key: 'vendor_name',       label: 'Vendor Name',       type: 'text',   col: 'v.name',              join: 'v' },
     ],
   },
 
@@ -249,17 +278,29 @@ const CATALOG = {
 //  Multi-Table Catalog — native fields per table, no cross-refs
 // ══════════════════════════════════════════════════════════════
 const TABLES = {
+  vendors: {
+    label: 'Vendors',
+    description: 'Vendor profiles, contact information, and status',
+    table: 'vendors', alias: 'v', color: '#6366f1', icon: 'Building',
+    fields: [
+      { key: 'name',          label: 'Vendor Name',    type: 'text',   col: 'name' },
+      { key: 'vendor_number', label: 'Vendor Number',  type: 'text',   col: 'vendor_number' },
+      { key: 'vendor_type',   label: 'Vendor Type',    type: 'text',   col: 'vendor_type' },
+      { key: 'contact_name',  label: 'Contact Name',   type: 'text',   col: 'contact_name' },
+      { key: 'contact_email', label: 'Contact Email',  type: 'text',   col: 'contact_email' },
+      { key: 'contact_phone', label: 'Contact Phone',  type: 'text',   col: 'contact_phone' },
+      { key: 'status',        label: 'Status',         type: 'select', col: 'status', options: ['Active','Inactive'] },
+      { key: 'created_at',    label: 'Created Date',   type: 'date',   col: 'created_at', format: 'date' },
+    ],
+  },
   accounts: {
-    label: 'Vendors / Accounts',
-    description: 'Vendor account profiles, contact information, and status',
+    label: 'Accounts',
+    description: 'Vendor account profiles and billing details',
     table: 'accounts', alias: 'a', color: '#2563eb', icon: 'Building2',
     fields: [
-      { key: 'name',           label: 'Vendor Name',    type: 'text',   col: 'name' },
+      { key: 'name',           label: 'Account Name',   type: 'text',   col: 'name' },
       { key: 'account_number', label: 'Account Number', type: 'text',   col: 'account_number' },
-      { key: 'vendor_type',    label: 'Vendor Type',    type: 'text',   col: 'vendor_type' },
-      { key: 'contact_name',   label: 'Contact Name',   type: 'text',   col: 'contact_name' },
-      { key: 'contact_email',  label: 'Contact Email',  type: 'text',   col: 'contact_email' },
-      { key: 'contact_phone',  label: 'Contact Phone',  type: 'text',   col: 'contact_phone' },
+      { key: 'account_type',   label: 'Account Type',   type: 'text',   col: 'account_type' },
       { key: 'status',         label: 'Status',         type: 'select', col: 'status', options: ['Active','Inactive'] },
       { key: 'created_at',     label: 'Created Date',   type: 'date',   col: 'created_at', format: 'date' },
     ],
@@ -270,9 +311,9 @@ const TABLES = {
     table: 'contracts', alias: 'co', color: '#0d9488', icon: 'FileText',
     fields: [
       { key: 'contract_number', label: 'Contract Number', type: 'text',   col: 'contract_number' },
-      { key: 'name',            label: 'Contract Name',   type: 'text',   col: 'name' },
+      { key: 'contract_name',   label: 'Contract Name',   type: 'text',   col: 'contract_name' },
       { key: 'start_date',      label: 'Start Date',      type: 'date',   col: 'start_date',      format: 'date' },
-      { key: 'end_date',        label: 'End Date',        type: 'date',   col: 'end_date',        format: 'date' },
+      { key: 'expiration_date', label: 'Expiration Date', type: 'date',   col: 'expiration_date', format: 'date' },
       { key: 'contracted_rate', label: 'Contracted Rate', type: 'number', col: 'contracted_rate', format: 'currency', aggregable: true },
       { key: 'term_months',     label: 'Term (Months)',   type: 'number', col: 'term_months',     aggregable: true },
       { key: 'minimum_spend',   label: 'Minimum Spend',   type: 'number', col: 'minimum_spend',  format: 'currency', aggregable: true },
@@ -473,20 +514,22 @@ const TABLES = {
 //  Format: [tableA, tableB, colInA, colInB]
 // ══════════════════════════════════════════════════════════════
 const EDGES = [
-  // accounts hub
-  ['accounts', 'contracts',      'accounts_id',  'accounts_id'],
-  ['accounts', 'orders',         'accounts_id',  'accounts_id'],
-  ['accounts', 'inventory',       'accounts_id',  'accounts_id'],
+  // vendors hub
+  ['vendors', 'accounts',       'vendors_id',   'vendors_id'],
+  ['vendors', 'contracts',      'vendors_id',   'vendors_id'],
+  ['vendors', 'orders',         'vendors_id',   'vendors_id'],
+  ['vendors', 'disputes',       'vendors_id',   'vendors_id'],
+  ['vendors', 'cost_savings',   'vendors_id',   'vendors_id'],
+  ['vendors', 'vendor_remit',   'vendors_id',   'vendors_id'],
+  // accounts
+  ['accounts', 'inventory',      'accounts_id',  'accounts_id'],
   ['accounts', 'invoices',       'accounts_id',  'accounts_id'],
-  ['accounts', 'disputes',       'accounts_id',  'accounts_id'],
-  ['accounts', 'cost_savings',   'accounts_id',  'accounts_id'],
-  ['accounts', 'vendor_remit',   'accounts_id',  'accounts_id'],
   // contracts
   ['contracts', 'orders',         'contracts_id', 'contracts_id'],
-  ['contracts', 'inventory',       'contracts_id', 'contracts_id'],
+  ['contracts', 'inventory',      'contracts_id', 'contracts_id'],
   ['contracts', 'contract_rates', 'contracts_id', 'contracts_id'],
   // orders ↔ inventory
-  ['orders', 'inventory', 'orders_id', 'orders_id'],
+  ['orders', 'inventory', 'inventory_id', 'inventory_id'],
   // invoices
   ['invoices', 'line_items',   'invoices_id', 'invoices_id'],
   ['invoices', 'disputes',     'invoices_id', 'invoices_id'],
@@ -742,7 +785,8 @@ async function runMultiTable(req, res) {
     for (const ag of aggregations) {
       const { col } = resolveCol(ag.table, ag.field);
       const rk = `${ag.func}_${ag.table}__${ag.field}`;
-      selectParts.push(db.raw(`${ag.func.toUpperCase()}(??) as ??`, [col, rk]));
+      const AGG_MAP = { sum: 'SUM', avg: 'AVG', min: 'MIN', max: 'MAX', count: 'COUNT' };
+      selectParts.push(db.raw(`${AGG_MAP[ag.func]}(??) as ??`, [col, rk]));
     }
     query = query.select(selectParts);
     for (const g of groupBy) {
@@ -829,7 +873,7 @@ async function runMultiTable(req, res) {
 // ══════════════════════════════════════════════════════════════
 //  POST /run  — execute a report query (legacy + multi-table)
 // ══════════════════════════════════════════════════════════════
-router.post('/run', requireRole('Admin', 'Manager', 'Analyst'), async (req, res) => {
+router.post('/run', requirePermission('reports', 'read'), async (req, res) => {
   try {
     // Multi-table mode: linkedTables present
     if (Array.isArray(req.body.linkedTables)) {
@@ -921,7 +965,8 @@ router.post('/run', requireRole('Admin', 'Manager', 'Analyst'), async (req, res)
       }
       for (const ag of aggregations) {
         const fd = getField(tableKey, ag.field);
-        selectParts.push(db.raw(`${ag.func.toUpperCase()}(??) as ??`, [fd.col, `${ag.func}_${ag.field}`]));
+        const AGG_MAP2 = { sum: 'SUM', avg: 'AVG', min: 'MIN', max: 'MAX', count: 'COUNT' };
+        selectParts.push(db.raw(`${AGG_MAP2[ag.func]}(??) as ??`, [fd.col, `${ag.func}_${ag.field}`]));
       }
       query = query.select(selectParts);
       for (const g of groupBy) {
@@ -1018,6 +1063,11 @@ router.post('/run', requireRole('Admin', 'Manager', 'Analyst'), async (req, res)
 // ══════════════════════════════════════════════════════════════
 
 // GET /  — list saved reports
+/**
+ * GET /
+ * List all saved reports ordered by name.
+ * @returns Array of report objects
+ */
 router.get('/', async (req, res) => {
 
   try {
@@ -1032,6 +1082,11 @@ router.get('/', async (req, res) => {
 });
 
 // GET /:id — single saved report
+/**
+ * GET /:id
+ * Get a saved report by ID.
+ * @returns Report object or 404
+ */
 router.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -1047,7 +1102,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /  — save a new report
-router.post('/save', requireRole('Admin', 'Manager', 'Analyst'), async (req, res) => {
+router.post('/save', requirePermission('reports', 'create'), async (req, res) => {
   try {
     const { name, description, config } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
@@ -1068,7 +1123,14 @@ router.post('/save', requireRole('Admin', 'Manager', 'Analyst'), async (req, res
 });
 
 // PUT /:id  — update saved report
-router.put('/:id', requireRole('Admin', 'Manager'), async (req, res) => {
+/**
+ * PUT /:id
+ * Update a saved report.
+ * @auth Requires role: Admin, Manager, Analyst
+ * @body Same as POST
+ * @returns Updated report
+ */
+router.put('/:id', requirePermission('reports', 'update'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
@@ -1090,7 +1152,13 @@ router.put('/:id', requireRole('Admin', 'Manager'), async (req, res) => {
 });
 
 // DELETE /:id
-router.delete('/:id', requireRole('Admin'), async (req, res) => {
+/**
+ * DELETE /:id
+ * Delete a saved report.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
+router.delete('/:id', requirePermission('reports', 'delete'), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
@@ -1102,3 +1170,10 @@ router.delete('/:id', requireRole('Admin'), async (req, res) => {
 });
 
 module.exports = router;
+module.exports.CATALOG = CATALOG;
+module.exports.TABLES = TABLES;
+module.exports.ADJACENCY = ADJACENCY;
+module.exports.VALID_OPS = VALID_OPS;
+module.exports.getField = getField;
+module.exports.resolveJoins = resolveJoins;
+module.exports.applyOperator = applyOperator;

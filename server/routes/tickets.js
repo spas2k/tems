@@ -1,3 +1,10 @@
+/**
+ * @file tickets.js — Tickets API Routes — /api/tickets
+ * CRUD for issue tracking tickets.
+ * Tickets support priority, status, categories, and user assignment.
+ *
+ * @module routes/tickets
+ */
 // ============================================================
 // Tickets API Routes
 // ============================================================
@@ -10,6 +17,7 @@ const { validate, idParam } = require('./_validators');
 const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit');
 const { requireRole } = require('../middleware/auth');
 const bulkUpdate = require('./_bulkUpdate');
+const { notify, notifyAll } = require('../services/notifications');
 
 const CATEGORIES = [
   'Enhancement', 'System Issue', 'Bug Report',
@@ -58,22 +66,51 @@ router.get('/meta', async (_req, res) => {
 });
 
 // ── GET /api/tickets ─────────────────────────────────────
+/**
+ * GET /
+ * List all tickets with assigned user and creator joins, ordered by created_at desc.
+ * @returns Array of ticket objects with assigned_to and created_by_name
+ */
 router.get('/', async (req, res) => {
   try {
     let q = baseQuery();
-    if (req.query.status)             q = q.where('t.status', req.query.status);
-    if (req.query.priority)           q = q.where('t.priority', req.query.priority);
-    if (req.query.category)           q = q.where('t.category', req.query.category);
-    if (req.query.assigned_users_id)  q = q.where('t.assigned_users_id', req.query.assigned_users_id);
-    if (req.query.source_entity_type) q = q.where('t.source_entity_type', req.query.source_entity_type);
-    if (req.query.source_entity_id)   q = q.where('t.source_entity_id', req.query.source_entity_id);
-    if (req.query.created_by)         q = q.where('t.created_by', req.query.created_by);
+
+    // Non-Admin/Manager users can only see tickets assigned to them or created by them
+    const role = req.user?.role_name;
+    if (role !== 'Admin' && role !== 'Manager') {
+      const userId = req.user?.users_id;
+      const userName = req.user?.display_name || req.user?.username;
+      q = q.where(function () {
+        this.where('t.assigned_users_id', userId).orWhere('t.created_by', userName);
+      });
+    }
+
+    if (req.query.status && STATUSES.includes(req.query.status))       q = q.where('t.status', req.query.status);
+    if (req.query.priority && PRIORITIES.includes(req.query.priority))  q = q.where('t.priority', req.query.priority);
+    if (req.query.category && CATEGORIES.includes(req.query.category))  q = q.where('t.category', req.query.category);
+    if (req.query.assigned_users_id) {
+      const uid = parseInt(req.query.assigned_users_id, 10);
+      if (Number.isInteger(uid) && uid > 0) q = q.where('t.assigned_users_id', uid);
+    }
+    if (req.query.source_entity_type && typeof req.query.source_entity_type === 'string' && req.query.source_entity_type.length <= 100)
+      q = q.where('t.source_entity_type', req.query.source_entity_type);
+    if (req.query.source_entity_id) {
+      const eid = parseInt(req.query.source_entity_id, 10);
+      if (Number.isInteger(eid) && eid > 0) q = q.where('t.source_entity_id', eid);
+    }
+    if (req.query.created_by && typeof req.query.created_by === 'string' && req.query.created_by.length <= 255)
+      q = q.where('t.created_by', req.query.created_by);
     const rows = await q.orderBy('t.created_at', 'desc');
     res.json(rows);
   } catch (err) { safeError(res, err, 'tickets'); }
 });
 
 // ── GET /api/tickets/:id ─────────────────────────────────
+/**
+ * GET /:id
+ * Get a single ticket by ID with user joins.
+ * @returns Ticket object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const ticket = await baseQuery().where('t.tickets_id', req.params.id).first();
@@ -86,6 +123,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
 });
 
 // ── POST /api/tickets ────────────────────────────────────
+/**
+ * POST /
+ * Create a new ticket. Auto-generates ticket_number (TICK-XXXXX).
+ * @auth Requires role: Admin, Manager
+ * @body title, description, priority, status, category, assigned_users_id
+ * @returns 201 with created ticket
+ */
 router.post('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), ticketRules, validate, auditCreate('tickets', 'tickets_id'), async (req, res) => {
   try {
     const {
@@ -138,34 +182,26 @@ router.post('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), ticketRul
 
     // Notify assignee if set at creation time
     if (assigned_users_id) {
-      await db.insertReturningId('notifications', {
+      await notify({
         users_id:    Number(assigned_users_id),
         type:        'info',
         title:       'Ticket Assigned to You',
         message:     `${ticket_number}: ${title.trim()}`,
         entity_type: 'ticket',
         entity_id:   id,
+        category:    'ticket_assigned',
       });
     }
 
     // Notify all admin users about the new ticket
-    const admins = await db('users')
-      .join('roles', 'users.roles_id', 'roles.roles_id')
-      .where('roles.name', 'Admin')
-      .where('users.status', 'Active')
-      .select('users.users_id');
-    if (admins.length) {
-      await db('notifications').insert(
-        admins.map(a => ({
-          users_id:    a.users_id,
-          type:        'info',
-          title:       'New Ticket Created',
-          message:     `${ticket_number}: ${title.trim()}`,
-          entity_type: 'ticket',
-          entity_id:   id,
-        }))
-      );
-    }
+    await notifyAll({
+      type:        'info',
+      title:       'New Ticket Created',
+      message:     `${ticket_number}: ${title.trim()}`,
+      entity_type: 'ticket',
+      entity_id:   id,
+      category:    'status_changed',
+    }, { roles: ['Admin'] });
 
     const row = await baseQuery().where('t.tickets_id', id).first();
     res.status(201).json(row);
@@ -173,6 +209,13 @@ router.post('/', requireRole('Admin', 'Manager', 'Analyst', 'Viewer'), ticketRul
 });
 
 // ── PUT /api/tickets/:id ─────────────────────────────────
+/**
+ * PUT /:id
+ * Update an existing ticket. Sends notification if assigned_users_id changes.
+ * @auth Requires role: Admin, Manager
+ * @body Same as POST fields
+ * @returns Updated ticket object
+ */
 router.put('/:id', requireRole('Admin', 'Manager', 'Analyst'), idParam, ...ticketRules, validate, auditUpdate('tickets', 'tickets_id'), async (req, res) => {
   try {
     const {
@@ -214,15 +257,18 @@ router.put('/:id', requireRole('Admin', 'Manager', 'Analyst'), idParam, ...ticke
         const u = await db('users').where('users_id', newAssignee).first();
         content = `Assigned to **${u?.display_name || 'Unknown'}**`;
         // Notify the new assignee
-        const ticketRow = await db('tickets').where('tickets_id', req.params.id).first();
-        await db.insertReturningId('notifications', {
-          users_id:    newAssignee,
-          type:        'info',
-          title:       'Ticket Assigned to You',
-          message:     `${ticketRow?.ticket_number}: ${title?.trim() || ticketRow?.title}`,
-          entity_type: 'ticket',
-          entity_id:   Number(req.params.id),
-        });
+        const nType = await db('notification_types').where('key', 'ticket_assigned').first();
+        if (!nType || nType.in_app_enabled) {
+          const ticketRow = await db('tickets').where('tickets_id', req.params.id).first();
+          await db.insertReturningId('notifications', {
+            users_id:    newAssignee,
+            type:        'info',
+            title:       'Ticket Assigned to You',
+            message:     `${ticketRow?.ticket_number}: ${title?.trim() || ticketRow?.title}`,
+            entity_type: 'ticket',
+            entity_id:   Number(req.params.id),
+          });
+        }
       } else {
         content = 'Unassigned';
       }
@@ -271,6 +317,12 @@ router.put('/:id', requireRole('Admin', 'Manager', 'Analyst'), idParam, ...ticke
 });
 
 // ── DELETE /api/tickets/:id ──────────────────────────────
+/**
+ * DELETE /:id
+ * Delete a ticket.
+ * @auth Requires role: Admin
+ * @returns { success: true }
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, auditDelete('tickets', 'tickets_id'), async (req, res) => {
   try {
     // Delete child comments first within a transaction
@@ -291,12 +343,28 @@ router.post('/:id/comments', idParam, validate, async (req, res) => {
       return res.status(400).json({ error: 'Invalid comment_type' });
     }
     const author = req.user?.display_name || req.user?.username || 'System';
+    const currentUserId = req.user?.users_id;
     const id = await db.insertReturningId('ticket_comments', {
       tickets_id:   req.params.id,
       author,
       content:      content.trim(),
       comment_type,
     });
+
+    // Notify the assigned user about the new comment (skip if commenter is the assignee)
+    const ticket = await db('tickets').where('tickets_id', req.params.id).first();
+    if (ticket?.assigned_users_id && Number(ticket.assigned_users_id) !== Number(currentUserId)) {
+      await notify({
+        users_id:    Number(ticket.assigned_users_id),
+        type:        'info',
+        title:       'New Comment on Ticket',
+        message:     `${ticket.ticket_number}: ${author} commented`,
+        entity_type: 'ticket',
+        entity_id:   Number(req.params.id),
+        category:    'status_changed',
+      });
+    }
+
     const row = await db('ticket_comments').where('ticket_comments_id', id).first();
     res.status(201).json(row);
   } catch (err) { safeError(res, err, 'tickets'); }
@@ -326,6 +394,15 @@ router.delete('/:id/comments/:commentId', requireRole('Admin'), async (req, res)
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('tickets', 'tickets_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple tickets.
+ * @auth Requires role: Admin, Manager
+ * @body { ids, updates }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('tickets', 'tickets_id', {
+  allowed: ['subject', 'description', 'status', 'priority', 'category', 'assigned_users_id'],
+}));
 
 module.exports = router;

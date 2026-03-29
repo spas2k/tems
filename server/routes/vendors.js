@@ -1,3 +1,10 @@
+/**
+ * @file vendors.js — Vendors API Routes — /api/vendors
+ * CRUD operations for telecom vendor management.
+ * Vendors are the top-level entity in the TEMS hierarchy.
+ *
+ * @module routes/vendors
+ */
 ﻿const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -8,13 +15,24 @@ const { auditCreate, auditUpdate, auditDelete } = require('../middleware/audit')
 const { requireRole } = require('../middleware/auth');
 const bulkUpdate = require('./_bulkUpdate');
 
+/**
+ * GET /
+ * List all vendors ordered by name.
+ * @returns Array of vendor objects
+ */
 router.get('/', async (req, res) => {
   try {
-    const rows = await db('vendors').orderBy('name');
+    const limit = Math.min(parseInt(req.query.limit) || 10000, 10000);
+    const rows = await db('vendors').orderBy('name').limit(limit);
     res.json(rows);
   } catch (err) { safeError(res, err, 'vendors'); }
 });
 
+/**
+ * GET /:id
+ * Get a single vendor by ID.
+ * @returns Vendor object or 404
+ */
 router.get('/:id', idParam, validate, async (req, res) => {
   try {
     const row = await db('vendors').where('vendors_id', req.params.id).first();
@@ -23,6 +41,13 @@ router.get('/:id', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'vendors'); }
 });
 
+/**
+ * POST /
+ * Create a new vendor.
+ * @auth Requires role: Admin, Manager
+ * @body name, vendor_number, vendor_type, contact_name, contact_email, contact_phone, status
+ * @returns 201 with created vendor object
+ */
 router.post('/', requireRole('Admin', 'Manager'), vendorRules, validate, auditCreate('vendors', 'vendors_id'), async (req, res) => {
   try {
     const { name, vendor_number, vendor_type, contact_name, contact_email, contact_phone, status } = req.body;
@@ -35,6 +60,13 @@ router.post('/', requireRole('Admin', 'Manager'), vendorRules, validate, auditCr
   } catch (err) { safeError(res, err, 'vendors'); }
 });
 
+/**
+ * PUT /:id
+ * Update an existing vendor.
+ * @auth Requires role: Admin, Manager
+ * @body name, vendor_number, vendor_type, contact_name, contact_email, contact_phone, status
+ * @returns Updated vendor object
+ */
 router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...vendorRules, validate, auditUpdate('vendors', 'vendors_id'), async (req, res) => {
   try {
     const { name, vendor_number, vendor_type, contact_name, contact_email, contact_phone, status } = req.body;
@@ -46,6 +78,11 @@ router.put('/:id', requireRole('Admin', 'Manager'), idParam, ...vendorRules, val
   } catch (err) { safeError(res, err, 'vendors'); }
 });
 
+/**
+ * GET /:id/inventory
+ * List all inventory items belonging to this vendor (via accounts).
+ * @returns Array of inventory objects with contract_number join
+ */
 router.get('/:id/inventory', idParam, validate, async (req, res) => {
   try {
     const rows = await db('inventory as ci')
@@ -59,6 +96,12 @@ router.get('/:id/inventory', idParam, validate, async (req, res) => {
   } catch (err) { safeError(res, err, 'vendors'); }
 });
 
+/**
+ * DELETE /:id
+ * Delete a vendor. Blocked by cascadeGuard if dependent records exist.
+ * @auth Requires role: Admin
+ * @returns { success: true } or 409 Conflict
+ */
 router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('vendors', 'vendors_id'), auditDelete('vendors', 'vendors_id'), async (req, res) => {
   try {
     await db('vendors').where('vendors_id', req.params.id).del();
@@ -67,6 +110,15 @@ router.delete('/:id', requireRole('Admin'), idParam, validate, cascadeGuard('ven
 });
 
 // ── PATCH /bulk ─────────────────────────────────────────
-router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('vendors', 'vendors_id'));
+/**
+ * PATCH /bulk
+ * Bulk update multiple vendor records.
+ * @auth Requires role: Admin, Manager
+ * @body { ids: number[], updates: object }
+ * @returns { updated: number }
+ */
+router.patch('/bulk', requireRole('Admin', 'Manager'), bulkUpdate('vendors', 'vendors_id', {
+  allowed: ['name', 'vendor_number', 'vendor_type', 'contact_name', 'contact_email', 'contact_phone', 'status'],
+}));
 
 module.exports = router;

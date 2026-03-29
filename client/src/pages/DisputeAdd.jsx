@@ -1,3 +1,9 @@
+/**
+ * @file New dispute creation form.
+ * @module DisputeAdd
+ *
+ * Uses FormPage with vendor and invoice selection.
+ */
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { createDispute, getVendors, getInvoices } from '../api';

@@ -1,3 +1,9 @@
+/**
+ * @file Bulk data import wizard.
+ * @module BatchUpload
+ *
+ * Multi-step import: select table, download template, upload file (drag/drop), review results with success/error reporting.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle, Loader, ChevronDown, Info, X } from 'lucide-react';
 import { getBatchTables, downloadBatchTemplate, uploadBatchFile } from '../api';
@@ -85,7 +91,17 @@ export default function BatchUpload() {
       setFile(null);
     } catch (err) {
       const d = err.response?.data;
-      if (d?.details) {
+      if (d?.duplicates) {
+        // 409 — duplicate records detected
+        setResult({
+          type: 'error',
+          message: d.message || 'Duplicate records detected',
+          duplicates: d.duplicates,
+          duplicateCount: d.duplicateCount,
+          affectedRows: d.affectedRows,
+          totalRows: d.totalRows,
+        });
+      } else if (d?.details) {
         setResult({
           type: 'error',
           message: d.error || 'Upload failed',
@@ -256,6 +272,29 @@ export default function BatchUpload() {
                   {result.data && (
                     <div style={{ fontSize: 12 }}>
                       {result.data.inserted} of {result.data.totalRows} rows inserted
+                    </div>
+                  )}
+                  {result.duplicates && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 12, marginBottom: 4 }}>
+                        {result.duplicateCount} duplicate{result.duplicateCount !== 1 ? 's' : ''} found
+                        — {result.affectedRows} of {result.totalRows} rows affected
+                      </div>
+                      <div style={{ fontSize: 12, marginBottom: 6, fontStyle: 'italic', opacity: 0.85 }}>
+                        Go to Admin → Purge Tool to remove existing records, then re-upload.
+                      </div>
+                      <div className="batch-error-list" style={{ maxHeight: 160, overflowY: 'auto' }}>
+                        {result.duplicates.map((d, i) => (
+                          <div key={i} style={{ fontSize: 12, padding: '3px 0', borderBottom: '1px solid rgba(0,0,0,0.06)', fontFamily: 'monospace' }}>
+                            {d}
+                          </div>
+                        ))}
+                        {result.duplicateCount > result.duplicates.length && (
+                          <div style={{ fontSize: 11, padding: '4px 0', opacity: 0.7 }}>
+                            … and {result.duplicateCount - result.duplicates.length} more
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                   {result.details && (

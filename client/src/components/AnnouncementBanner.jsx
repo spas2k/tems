@@ -1,3 +1,9 @@
+/**
+ * @file Dismissible system announcement banners.
+ * @module AnnouncementBanner
+ *
+ * Fetches active announcements on mount and renders colored banners (info/warning/danger/success). Dismissed IDs are persisted in localStorage.
+ */
 import React, { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
 import { getAnnouncements } from '../api';

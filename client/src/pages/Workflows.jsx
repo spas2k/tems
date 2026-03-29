@@ -1,3 +1,9 @@
+/**
+ * @file Workflow definitions and recent runs list.
+ * @module Workflows
+ *
+ * Shows available workflow definitions with demo trigger buttons and recent workflow run history with status.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
