@@ -134,6 +134,11 @@ function flushConfigCache() {
   _transporter = null;
 }
 
+// ── HTML escape helper ────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ── Simple HTML template wrapper ──────────────────────────────
 function emailTemplate({ title, body, footerText }) {
   return `<!DOCTYPE html>
@@ -157,7 +162,7 @@ function emailTemplate({ title, body, footerText }) {
     <p>Telecom Expense Management System</p>
   </div>
   <div class="body">
-    <h2>${title}</h2>
+    <h2>${escHtml(title)}</h2>
     ${body}
   </div>
   <div class="footer">${footerText || 'This is an automated message from TEMS. Please do not reply directly.'}</div>

@@ -64,7 +64,14 @@ router.put('/', requireRole('Admin'), [
   body('notify_digest').optional().isBoolean(),
 ], validate, async (req, res) => {
   try {
-    const fields = { ...req.body };
+    // Whitelist allowed fields to prevent mass assignment
+    const ALLOWED = ['enabled','smtp_host','smtp_port','smtp_secure','smtp_user','smtp_pass',
+      'from_address','from_name','reply_to','require_tls','reject_unauthorized',
+      'notify_invoice_assigned','notify_approval_needed','notify_status_changed',
+      'notify_user_created','notify_user_suspended','notify_role_changed',
+      'notify_announcements','notify_digest'];
+    const fields = {};
+    for (const k of ALLOWED) { if (req.body[k] !== undefined) fields[k] = req.body[k]; }
     // Don't overwrite password with mask string
     if (fields.smtp_pass === '••••••••' || fields.smtp_pass === '') {
       delete fields.smtp_pass;

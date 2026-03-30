@@ -139,7 +139,7 @@ async function _maybeSendEmail({ users_id, notifId, title, message, category, em
 
   const html = emailBody || emailTemplate({
     title: emailSubject || title,
-    body: `<p>${message}</p>`,
+    body: `<p>${String(message).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`,
   });
 
   await send({

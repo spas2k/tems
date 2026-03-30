@@ -74,7 +74,7 @@ router.get('/:id', requirePermission('reports', 'read'), async (req, res) => {
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     // Only allow own jobs or admin
-    if (job.users_id !== req.user?.users_id && req.user?.role !== 'Admin') {
+    if (job.users_id !== req.user?.users_id && req.user?.role_name !== 'Admin') {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -93,7 +93,7 @@ router.get('/:id/download', requirePermission('reports', 'read'), async (req, re
     const job = await db('report_jobs').where('report_jobs_id', id).first();
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
-    if (job.users_id !== req.user?.users_id && req.user?.role !== 'Admin') {
+    if (job.users_id !== req.user?.users_id && req.user?.role_name !== 'Admin') {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -101,7 +101,10 @@ router.get('/:id/download', requirePermission('reports', 'read'), async (req, re
       return res.status(404).json({ error: 'File not available' });
     }
 
-    const filePath = path.join(EXPORT_DIR, job.file_path);
+    const filePath = path.join(EXPORT_DIR, path.basename(job.file_path));
+    if (!filePath.startsWith(path.resolve(EXPORT_DIR))) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'File has expired — exports are available for 24 hours' });
     }
@@ -110,8 +113,9 @@ router.get('/:id/download', requirePermission('reports', 'read'), async (req, re
       ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       : 'text/csv';
 
+    const safeFilename = encodeURIComponent(path.basename(job.file_path));
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${job.file_path}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
     fs.createReadStream(filePath).pipe(res);
   } catch (err) { safeError(res, err, 'report-jobs'); }
 });
@@ -127,10 +131,15 @@ router.delete('/:id', requirePermission('reports', 'delete'), async (req, res) =
     const job = await db('report_jobs').where('report_jobs_id', id).first();
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
+    // Only allow own jobs or admin
+    if (job.users_id !== req.user?.users_id && req.user?.role_name !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
     // Clean up file
     if (job.file_path) {
-      const fp = path.join(EXPORT_DIR, job.file_path);
-      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      const fp = path.join(EXPORT_DIR, path.basename(job.file_path));
+      if (fp.startsWith(path.resolve(EXPORT_DIR)) && fs.existsSync(fp)) fs.unlinkSync(fp);
     }
     await db('report_jobs').where('report_jobs_id', id).del();
     res.json({ success: true });
